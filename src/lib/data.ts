@@ -1,5 +1,6 @@
 // TEMPORARY DATA
 
+// Legacy fallback — use useAuth().user.role for real role
 export let role = "admin";
 
 export const teachersData = [
