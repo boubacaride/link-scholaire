@@ -52,6 +52,12 @@ const menuItems = [
         visible: ["platform_admin", "school_admin", "teacher", "student"],
       },
       {
+        icon: "/lesson.png",
+        label: "Labs",
+        href: "/list/labs",
+        visible: ["platform_admin", "school_admin", "teacher", "student"],
+      },
+      {
         icon: "/exam.png",
         label: "Exams",
         href: "/list/exams",
@@ -66,7 +72,7 @@ const menuItems = [
       {
         icon: "/result.png",
         label: "Grades",
-        href: "/list/grades",
+        href: "/list/results",
         visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
       },
       {
@@ -157,7 +163,7 @@ const menuItems = [
 ];
 
 const Menu = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const pathname = usePathname();
   const role = user?.role || "student";
   const isPrivateSchool = user?.schoolType === "private";
@@ -180,6 +186,20 @@ const Menu = () => {
             </span>
             {visibleItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+
+              if (item.href === "/sign-out") {
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => signOut()}
+                    className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md transition-colors hover:bg-lamaSkyLight"
+                  >
+                    <Image src={item.icon} alt="" width={20} height={20} />
+                    <span className="hidden lg:block">{item.label}</span>
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   href={item.href}
