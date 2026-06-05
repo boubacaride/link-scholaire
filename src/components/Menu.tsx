@@ -58,6 +58,12 @@ const menuItems = [
         visible: ["platform_admin", "school_admin", "teacher", "student"],
       },
       {
+        icon: "/lesson.png",
+        label: "Classe Virtuelle",
+        href: "/list/classe-virtuelle",
+        visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
+      },
+      {
         icon: "/exam.png",
         label: "Exams",
         href: "/list/exams",
