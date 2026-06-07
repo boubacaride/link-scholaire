@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import SchoolOnboardModal from "@/components/dashboard/SchoolOnboardModal";
+import SchoolAdminsModal from "@/components/dashboard/SchoolAdminsModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -30,6 +31,7 @@ const columns = [
   { header: "Plan", accessor: "plan", className: "hidden lg:table-cell" },
   { header: "Capacity", accessor: "capacity", className: "hidden lg:table-cell" },
   { header: "Subscription", accessor: "status" },
+  { header: "Admin", accessor: "admin" },
 ];
 
 const STATUS_PILL: Record<string, string> = {
@@ -50,6 +52,7 @@ const SchoolsListPage = () => {
   const [data, setData] = useState<SchoolRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [manageSchool, setManageSchool] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return; }
@@ -109,6 +112,16 @@ const SchoolsListPage = () => {
           </span>
         )}
       </td>
+      <td>
+        {isPlatform && (
+          <button
+            onClick={() => setManageSchool({ id: item.id, name: item.name })}
+            className="text-xs bg-lamaSky text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+          >
+            Manage Admin
+          </button>
+        )}
+      </td>
     </tr>
   );
 
@@ -153,6 +166,14 @@ const SchoolsListPage = () => {
 
       {showModal && (
         <SchoolOnboardModal onClose={() => setShowModal(false)} onCreated={load} />
+      )}
+
+      {manageSchool && (
+        <SchoolAdminsModal
+          schoolId={manageSchool.id}
+          schoolName={manageSchool.name}
+          onClose={() => setManageSchool(null)}
+        />
       )}
     </div>
   );

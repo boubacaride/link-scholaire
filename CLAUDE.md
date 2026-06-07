@@ -98,7 +98,8 @@ platform_admin ──onboards──▶ school + subscription + school_admin   (c
 platform_admin ──authorizes/suspends──▶ school subscription_status
 school_admin   ──(once subscription = active)──▶ teachers / students / parents
 ```
-- Platform admin tools: `/list/schools` (Onboard School + authorize/suspend) and `/list/subscriptions`
+- Platform admin tools: `/list/schools` (Onboard School + authorize/suspend + Manage Admin) and `/list/subscriptions`
+- Platform admin can edit or **suspend a school_admin** (`update_school_admin` RPC, migration 010) — suspending sets `is_active = FALSE`, which `get_user_context()` rejects, blocking sign-in (used for non-payment)
 - Ready-to-use platform login (provisioned by migration 009): **platform@schoolflow.app / Platform123!**
 - Helpers: `is_platform_admin()`; platform admin has cross-school SELECT/INSERT/UPDATE on `schools` + read on all `profiles`
 
