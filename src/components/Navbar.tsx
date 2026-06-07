@@ -2,22 +2,24 @@
 
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const Navbar = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
 
   const displayName = user
     ? `${user.firstName} ${user.lastName}`
     : "Guest";
 
-  const displayRole = user?.role
-    ? user.role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "—";
+  const displayRole = user?.role ? t(`roles.${user.role}`) : "—";
 
   return (
     <div className="flex items-center justify-between p-4">
       {/* ICONS AND USER */}
       <div className="flex items-center gap-6 justify-end w-full">
+        <LanguageSwitcher />
         <div className="bg-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer">
           <Image src="/message.png" alt="" width={20} height={20} />
         </div>

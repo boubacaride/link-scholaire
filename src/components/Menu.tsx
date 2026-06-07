@@ -1,9 +1,43 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+// Map the static English labels/sections to translation keys.
+const SECTION_KEY: Record<string, string> = {
+  MENU: "nav.sections.menu",
+  FINANCE: "nav.sections.finance",
+  PLATFORM: "nav.sections.platform",
+  OTHER: "nav.sections.other",
+};
+const NAV_KEY: Record<string, string> = {
+  Home: "nav.home",
+  Teachers: "nav.teachers",
+  Students: "nav.students",
+  Parents: "nav.parents",
+  Subjects: "nav.subjects",
+  Classes: "nav.classes",
+  Content: "nav.content",
+  Labs: "nav.labs",
+  "Classe Virtuelle": "nav.virtualClass",
+  Exams: "nav.exams",
+  Assignments: "nav.assignments",
+  Grades: "nav.grades",
+  Attendance: "nav.attendance",
+  Events: "nav.events",
+  Messages: "nav.messages",
+  Announcements: "nav.announcements",
+  "Student Fees": "nav.fees",
+  Payroll: "nav.payroll",
+  Schools: "nav.schools",
+  Subscriptions: "nav.subscriptions",
+  Profile: "nav.profile",
+  Settings: "nav.settings",
+  Logout: "nav.logout",
+};
 
 const menuItems = [
   {
@@ -181,9 +215,11 @@ const PLATFORM_ADMIN_ALLOWED = new Set<string>([
 
 const Menu = () => {
   const { user, signOut } = useAuth();
+  const { t } = useI18n();
   const pathname = usePathname();
   const role = user?.role || "student";
   const isPrivateSchool = user?.schoolType === "private";
+  const label = (l: string) => (NAV_KEY[l] ? t(NAV_KEY[l]) : l);
 
   return (
     <div className="mt-4 text-sm">
@@ -200,7 +236,7 @@ const Menu = () => {
         return (
           <div className="flex flex-col gap-2" key={section.title}>
             <span className="hidden lg:block text-gray-400 font-light my-4">
-              {section.title}
+              {SECTION_KEY[section.title] ? t(SECTION_KEY[section.title]) : section.title}
             </span>
             {visibleItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -213,7 +249,7 @@ const Menu = () => {
                     className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md transition-colors hover:bg-lamaSkyLight"
                   >
                     <Image src={item.icon} alt="" width={20} height={20} />
-                    <span className="hidden lg:block">{item.label}</span>
+                    <span className="hidden lg:block">{label(item.label)}</span>
                   </button>
                 );
               }
@@ -229,7 +265,7 @@ const Menu = () => {
                   }`}
                 >
                   <Image src={item.icon} alt="" width={20} height={20} />
-                  <span className="hidden lg:block">{item.label}</span>
+                  <span className="hidden lg:block">{label(item.label)}</span>
                 </Link>
               );
             })}
