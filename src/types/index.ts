@@ -224,6 +224,19 @@ export interface Attendance {
   created_at: string;
 }
 
+// ─── Messaging ──────────────────────────────────────────────────────
+
+export interface Message {
+  id: string;
+  school_id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
+
 // ─── Notifications ──────────────────────────────────────────────────
 
 export interface Notification {

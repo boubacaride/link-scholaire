@@ -68,11 +68,23 @@ A multi-tenant School Management SaaS platform with an integrated **AI-powered M
 - `student_fees` — fee tracking (private schools)
 - `payroll` — salary records
 - `events`, `announcements`, `attendance`, `notifications`
+- `messages` — direct 1:1 messaging between school members (sender/recipient profiles, `is_read`)
+- `meetings`, `meeting_participants`, `meeting_messages`, `meeting_recordings` — Classe Virtuelle
 
 ### RLS Architecture
-- Helper functions bypass RLS: `auth_school_id()`, `auth_profile_id()`, `auth_role()`, `is_admin()`
+- Helper functions bypass RLS: `auth_school_id()`, `auth_profile_id()`, `auth_role()`, `is_admin()`, `is_parent_of(student_id)`
 - All policies use these functions (NOT subqueries on `profiles`) to avoid infinite recursion
-- Migration files: `001_initial_schema.sql` through `005_fix_create_user_function.sql`
+- Migration files: `001_initial_schema.sql` through `008_parent_visibility.sql`
+  - `006_meetings.sql` — video meeting module
+  - `007_messaging.sql` — direct messaging (`messages` table + realtime)
+  - `008_parent_visibility.sql` — linked-parent read access to children's grades/submissions
+
+### Role Dashboards
+- **Teacher** (`/teacher`): tabbed — Overview, Gradebook (record grades), Roster, Lesson Planner / resource library, Analytics (attendance + grade trends via Recharts), Messages
+- **Student** (`/student`): tabbed — Overview, Assignments (due dates + submission status + turn-in), Grades & feedback, Progress tracker, Messages
+- **Parent** (`/parent`): read-only child monitor (grades, attendance, upcoming work, derived alerts) + Messages
+- Shared `src/components/Messaging.tsx` powers `/list/messages` and every dashboard's Messages tab
+- Reusable widgets live in `src/components/dashboard/`
 
 ### User Creation
 - Uses `create_user_with_profile()` RPC function
