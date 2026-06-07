@@ -102,6 +102,7 @@ school_admin   ──(once subscription = active)──▶ teachers / students /
 - Platform admin can edit or **suspend a school_admin** (`update_school_admin` RPC, migration 010) — suspending sets `is_active = FALSE`, which `get_user_context()` rejects, blocking sign-in (used for non-payment)
 - Two-track access control on the `school_admin`: **Suspend** = reversible block; **Delete** = permanent removal of the login (`delete_school_admin` RPC, migration 011 — deletes `auth.users`, cascading the profile/identity after neutralising non-cascading FKs)
 - **Suspending the admin locks the entire school** (migration 012): `schools.access_suspended` flag, checked in `get_user_context()` (platform admin exempt), so teachers/students/parents are all blocked from sign-in until reactivated. `update_school_admin` toggles the flag; `signIn` surfaces a clear "school access suspended" message
+- **Delete entire school** (`delete_school` RPC, migration 013): platform-admin only "danger zone" in the Manage Admin modal (type-the-name confirmation) — cascades away all school data and deletes every member's `auth.users` login. Guards block deleting a platform school or the caller's own school
 - Ready-to-use platform login (provisioned by migration 009): **platform@schoolflow.app / Platform123!**
 - Helpers: `is_platform_admin()`; platform admin has cross-school SELECT/INSERT/UPDATE on `schools` + read on all `profiles`
 

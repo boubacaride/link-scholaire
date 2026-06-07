@@ -173,6 +173,7 @@ const SchoolsListPage = () => {
           schoolId={manageSchool.id}
           schoolName={manageSchool.name}
           onClose={() => setManageSchool(null)}
+          onSchoolDeleted={load}
         />
       )}
     </div>

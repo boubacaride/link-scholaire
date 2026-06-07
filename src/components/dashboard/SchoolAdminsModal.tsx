@@ -7,6 +7,8 @@ interface SchoolAdminsModalProps {
   schoolId: string;
   schoolName: string;
   onClose: () => void;
+  /** Called after the whole school has been deleted, so the list can refresh. */
+  onSchoolDeleted?: () => void;
 }
 
 interface AdminRow {
@@ -19,7 +21,7 @@ interface AdminRow {
 
 /** Platform-admin tool to edit a school's administrator account or suspend
  *  it (e.g. on non-payment). Backed by the update_school_admin RPC. */
-const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalProps) => {
+const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: SchoolAdminsModalProps) => {
   const supabase = createClient();
 
   const [admins, setAdmins] = useState<AdminRow[]>([]);
@@ -30,6 +32,11 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
+
+  // Danger zone: delete the whole school
+  const [showDanger, setShowDanger] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deletingSchool, setDeletingSchool] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase) { setLoading(false); return; }
@@ -79,6 +86,18 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
     if (data?.error) { setError(data.error); return; }
     setConfirmDeleteId(null);
     await load();
+  };
+
+  const deleteSchool = async () => {
+    if (!supabase || confirmText.trim() !== schoolName) return;
+    setError(null);
+    setDeletingSchool(true);
+    const { data, error: rpcErr } = await supabase.rpc("delete_school", { p_school_id: schoolId });
+    setDeletingSchool(false);
+    if (rpcErr) { setError(rpcErr.message); return; }
+    if (data?.error) { setError(data.error); return; }
+    onSchoolDeleted?.();
+    onClose();
   };
 
   const toggleActive = async (a: AdminRow) => {
@@ -221,6 +240,40 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
             <span className="font-medium text-amber-600">Suspend</span> locks the <span className="font-medium">entire school</span> out of sign-in — teachers, students and parents included (reversible; use while payment is pending).
             {" "}<span className="font-medium text-red-600">Delete</span> permanently removes the admin login (use when a school refuses to pay).
           </p>
+
+          {/* Danger zone — delete the entire school */}
+          <div className="mt-2 border border-red-200 rounded-xl overflow-hidden">
+            <button
+              onClick={() => { setShowDanger((v) => !v); setConfirmText(""); setError(null); }}
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
+            >
+              <span>⚠️ Danger zone — delete entire school</span>
+              <span>{showDanger ? "▲" : "▼"}</span>
+            </button>
+            {showDanger && (
+              <div className="p-3 space-y-2">
+                <p className="text-xs text-gray-600">
+                  This permanently deletes <span className="font-semibold">{schoolName}</span> and <span className="font-semibold">every</span> account and record it owns — admins, teachers, students, parents, classes, grades, content and messages. This cannot be undone.
+                </p>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-wide">Type the school name to confirm</label>
+                  <input
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder={schoolName}
+                    className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-red-200"
+                  />
+                </div>
+                <button
+                  onClick={deleteSchool}
+                  disabled={deletingSchool || confirmText.trim() !== schoolName}
+                  className="w-full text-sm px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deletingSchool ? "Deleting school..." : "Permanently delete this school"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
