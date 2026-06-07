@@ -90,6 +90,17 @@ A multi-tenant School Management SaaS platform with an integrated **AI-powered M
 - Uses `create_user_with_profile()` RPC function
 - Creates `auth.users` + `auth.identities` + `profiles` in one atomic call
 - Only admins can create users
+- **School admins can only add users when their school subscription is `active`** (enforced in the RPC; platform admins are exempt)
+
+### Onboarding Hierarchy (migration 009)
+```
+platform_admin ──onboards──▶ school + subscription + school_admin   (create_school_with_admin RPC)
+platform_admin ──authorizes/suspends──▶ school subscription_status
+school_admin   ──(once subscription = active)──▶ teachers / students / parents
+```
+- Platform admin tools: `/list/schools` (Onboard School + authorize/suspend) and `/list/subscriptions`
+- Ready-to-use platform login (provisioned by migration 009): **platform@schoolflow.app / Platform123!**
+- Helpers: `is_platform_admin()`; platform admin has cross-school SELECT/INSERT/UPDATE on `schools` + read on all `profiles`
 
 ---
 

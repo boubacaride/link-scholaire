@@ -1,9 +1,11 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
+import SchoolOnboardModal from "@/components/dashboard/SchoolOnboardModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
+import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 
 type SchoolRow = {
@@ -27,7 +29,7 @@ const columns = [
   { header: "Type", accessor: "type", className: "hidden md:table-cell" },
   { header: "Plan", accessor: "plan", className: "hidden lg:table-cell" },
   { header: "Capacity", accessor: "capacity", className: "hidden lg:table-cell" },
-  { header: "Status", accessor: "status" },
+  { header: "Subscription", accessor: "status" },
 ];
 
 const STATUS_PILL: Record<string, string> = {
@@ -37,15 +39,35 @@ const STATUS_PILL: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-600",
 };
 
+const STATUSES = ["active", "trial", "expired", "cancelled"];
+
 const SchoolsListPage = () => {
   const { user } = useAuth();
   const role = user?.role;
+  const isPlatform = role === "platform_admin";
+  const supabase = createClient();
 
-  const { data, loading } = useSupabaseQuery<SchoolRow>({
-    table: "schools",
-    select: `id, name, type, city, country, email, phone, subscription_status, subscription_plan, max_students, max_teachers, created_at`,
-    orderBy: { column: "name", ascending: true },
-  });
+  const [data, setData] = useState<SchoolRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
+    const { data: rows } = await supabase
+      .from("schools")
+      .select("id, name, type, city, country, email, phone, subscription_status, subscription_plan, max_students, max_teachers, created_at")
+      .order("name", { ascending: true });
+    setData((rows as SchoolRow[]) || []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const updateStatus = async (id: string, status: string) => {
+    if (!supabase) return;
+    setData((prev) => prev.map((s) => (s.id === id ? { ...s, subscription_status: status } : s)));
+    await supabase.from("schools").update({ subscription_status: status }).eq("id", id);
+  };
 
   if (role && role !== "platform_admin") {
     return (
@@ -72,9 +94,20 @@ const SchoolsListPage = () => {
       <td className="hidden lg:table-cell">{item.subscription_plan || "—"}</td>
       <td className="hidden lg:table-cell">{item.max_students} students · {item.max_teachers} staff</td>
       <td>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}>
-          {item.subscription_status}
-        </span>
+        {isPlatform ? (
+          <select
+            value={item.subscription_status}
+            onChange={(e) => updateStatus(item.id, e.target.value)}
+            className={`text-xs font-medium capitalize rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-blue-200 ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}
+            title="Authorize or suspend this school's subscription"
+          >
+            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        ) : (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}>
+            {item.subscription_status}
+          </span>
+        )}
       </td>
     </tr>
   );
@@ -96,16 +129,30 @@ const SchoolsListPage = () => {
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
+            {isPlatform && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="text-sm bg-blue-600 text-white px-3.5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
+              >
+                + Onboard School
+              </button>
+            )}
           </div>
         </div>
       </div>
+
       {data.length === 0 ? (
         <div className="p-8 text-center">
           <div className="text-4xl mb-2">🏫</div>
-          <p className="text-gray-500 text-sm">No schools to display.</p>
+          <p className="text-gray-500 text-sm">No schools yet.</p>
+          {isPlatform && <p className="text-gray-400 text-xs mt-1">Click “Onboard School” to create one and its admin.</p>}
         </div>
       ) : (
         <Table columns={columns} renderRow={renderRow} data={data} />
+      )}
+
+      {showModal && (
+        <SchoolOnboardModal onClose={() => setShowModal(false)} onCreated={load} />
       )}
     </div>
   );
