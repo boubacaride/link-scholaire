@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { UserRole } from "@/types";
 
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserContext | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const router = useRouter();
 
   const fetchUserContext = async () => {
     try {
@@ -127,6 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut();
     setUser(null);
+    setLoading(false);
+    // Navigate to the sign-in page; the dashboard has no auth guard, so
+    // without this the user would just sit on the same page after logout.
+    router.replace("/sign-in");
   };
 
   return (
