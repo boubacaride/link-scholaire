@@ -8,9 +8,11 @@ import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import PlatformDashboard from "@/components/dashboard/PlatformDashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 
 const AdminPage = () => {
   const { user } = useAuth();
+  const { t, locale } = useI18n();
 
   // Platform admins manage tenants only — never a school's internal data.
   if (user?.role === "platform_admin") {
@@ -24,10 +26,10 @@ const AdminPage = () => {
         {/* Welcome Banner */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
           <h1 className="text-2xl font-bold mb-1">
-            Welcome back, {user?.firstName || "Admin"}
+            {t("dash.welcomeBack", { name: user?.firstName || "Admin" })}
           </h1>
           <p className="text-blue-100 text-sm">
-            {user?.schoolName || "SchoolFlow"} Dashboard &middot; {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            {user?.schoolName || "SchoolFlow"} &middot; {new Date().toLocaleDateString(locale === "ar" ? "ar" : locale === "fr" ? "fr-FR" : "en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
           </p>
         </div>
 

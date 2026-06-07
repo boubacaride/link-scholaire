@@ -5,6 +5,7 @@ import Announcements from "@/components/Announcements";
 import Messaging from "@/components/Messaging";
 import ChildMonitor from "@/components/dashboard/ChildMonitor";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 
 interface LinkedStudent {
@@ -19,6 +20,7 @@ type Tab = "overview" | "messages";
 
 const ParentPage = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [children, setChildren] = useState<LinkedStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
@@ -68,24 +70,24 @@ const ParentPage = () => {
     <div className="p-4 flex flex-col gap-4">
       {/* Welcome banner */}
       <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-1">Hello, {user?.firstName || "Parent"}</h1>
-        <p className="text-orange-100 text-sm">Stay informed about your children&apos;s progress at school</p>
+        <h1 className="text-2xl font-bold mb-1">{t("dash.hello", { name: user?.firstName || "Parent" })}</h1>
+        <p className="text-orange-100 text-sm">{t("dash.parent.subtitle")}</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
         {([
-          { id: "overview", label: "Overview", icon: "🏠" },
-          { id: "messages", label: "Messages", icon: "💬" },
-        ] as { id: Tab; label: string; icon: string }[]).map((t) => (
+          { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
+          { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
+        ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={`flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg whitespace-nowrap transition-colors ${
-              tab === t.id ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-gray-100"
+              tab === tb.id ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            <span>{t.icon}</span>{t.label}
+            <span>{tb.icon}</span>{t(tb.tabKey)}
           </button>
         ))}
       </div>
@@ -97,13 +99,13 @@ const ParentPage = () => {
           {/* LEFT */}
           <div className="w-full xl:w-2/3 flex flex-col gap-6">
             {loading ? (
-              <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">Loading...</div>
+              <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">{t("common.loading")}</div>
             ) : children.length === 0 ? (
               <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
                 <div className="text-4xl mb-3">👨‍👧‍👦</div>
-                <p className="text-gray-500 text-sm">No students linked to your account.</p>
+                <p className="text-gray-500 text-sm">{t("dash.parent.noChildren")}</p>
                 <p className="text-gray-400 text-xs mt-1">
-                  Please ask the school administrator to link your children to your account.
+                  {t("dash.parent.noChildrenHint")}
                 </p>
               </div>
             ) : (
@@ -151,15 +153,15 @@ const ParentPage = () => {
           {/* RIGHT */}
           <div className="w-full xl:w-1/3 flex flex-col gap-6">
             <div className="bg-white rounded-xl p-4 border shadow-sm">
-              <h2 className="text-lg font-semibold mb-3">Contact Teachers</h2>
+              <h2 className="text-lg font-semibold mb-3">{t("dash.parent.contactTeachers")}</h2>
               <p className="text-sm text-gray-500 mb-3">
-                Have a question? Message your child&apos;s teachers directly.
+                {t("dash.parent.contactHint")}
               </p>
               <button
                 onClick={() => setTab("messages")}
                 className="w-full bg-orange-500 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-orange-600 transition-colors"
               >
-                Open Messages
+                {t("dash.parent.openMessages")}
               </button>
             </div>
             <Announcements />
