@@ -6,6 +6,7 @@ import TableSearch from "@/components/TableSearch";
 import SchoolOnboardModal from "@/components/dashboard/SchoolOnboardModal";
 import SchoolAdminsModal from "@/components/dashboard/SchoolAdminsModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 
@@ -24,16 +25,6 @@ type SchoolRow = {
   created_at: string;
 };
 
-const columns = [
-  { header: "School", accessor: "school" },
-  { header: "Location", accessor: "location", className: "hidden md:table-cell" },
-  { header: "Type", accessor: "type", className: "hidden md:table-cell" },
-  { header: "Plan", accessor: "plan", className: "hidden lg:table-cell" },
-  { header: "Capacity", accessor: "capacity", className: "hidden lg:table-cell" },
-  { header: "Subscription", accessor: "status" },
-  { header: "Admin", accessor: "admin" },
-];
-
 const STATUS_PILL: Record<string, string> = {
   active: "bg-green-100 text-green-700",
   trial: "bg-blue-100 text-blue-700",
@@ -45,9 +36,20 @@ const STATUSES = ["active", "trial", "expired", "cancelled"];
 
 const SchoolsListPage = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const role = user?.role;
   const isPlatform = role === "platform_admin";
   const supabase = createClient();
+
+  const columns = [
+    { header: t("manage.colSchool"), accessor: "school" },
+    { header: t("manage.colLocation"), accessor: "location", className: "hidden md:table-cell" },
+    { header: t("manage.colType"), accessor: "type", className: "hidden md:table-cell" },
+    { header: t("manage.colPlan"), accessor: "plan", className: "hidden lg:table-cell" },
+    { header: t("manage.colCapacity"), accessor: "capacity", className: "hidden lg:table-cell" },
+    { header: t("manage.colSubscription"), accessor: "status" },
+    { header: t("manage.colAdmin"), accessor: "admin" },
+  ];
 
   const [data, setData] = useState<SchoolRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ const SchoolsListPage = () => {
     return (
       <div className="bg-white p-8 rounded-md flex-1 m-4 mt-0 text-center">
         <div className="text-4xl mb-3">🔒</div>
-        <p className="text-gray-600 text-sm">Schools management is available to platform administrators only.</p>
+        <p className="text-gray-600 text-sm">{t("manage.restricted")}</p>
       </div>
     );
   }
@@ -96,20 +98,19 @@ const SchoolsListPage = () => {
       <td className="hidden md:table-cell">{[item.city, item.country].filter(Boolean).join(", ") || "—"}</td>
       <td className="hidden md:table-cell capitalize">{item.type}</td>
       <td className="hidden lg:table-cell">{item.subscription_plan || "—"}</td>
-      <td className="hidden lg:table-cell">{item.max_students} students · {item.max_teachers} staff</td>
+      <td className="hidden lg:table-cell">{t("manage.capacity", { students: item.max_students, staff: item.max_teachers })}</td>
       <td>
         {isPlatform ? (
           <select
             value={item.subscription_status}
             onChange={(e) => updateStatus(item.id, e.target.value)}
-            className={`text-xs font-medium capitalize rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-blue-200 ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}
-            title="Authorize or suspend this school's subscription"
+            className={`text-xs font-medium rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-blue-200 ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}
           >
-            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
           </select>
         ) : (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}>
-            {item.subscription_status}
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_PILL[item.subscription_status] || "bg-gray-100 text-gray-600"}`}>
+            {t(`status.${item.subscription_status}`)}
           </span>
         )}
       </td>
@@ -119,7 +120,7 @@ const SchoolsListPage = () => {
             onClick={() => setManageSchool({ id: item.id, name: item.name })}
             className="text-xs bg-lamaSky text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
           >
-            Manage Admin
+            {t("manage.manageAdmin")}
           </button>
         )}
       </td>
@@ -127,13 +128,13 @@ const SchoolsListPage = () => {
   );
 
   if (loading) {
-    return <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">Loading schools...</div>;
+    return <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">{t("manage.loadingSchools")}</div>;
   }
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Schools</h1>
+        <h1 className="hidden md:block text-lg font-semibold">{t("manage.schoolsTitle")}</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
@@ -148,7 +149,7 @@ const SchoolsListPage = () => {
                 onClick={() => setShowModal(true)}
                 className="text-sm bg-blue-600 text-white px-3.5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
               >
-                + Onboard School
+                {t("manage.onboardSchool")}
               </button>
             )}
           </div>
@@ -158,8 +159,8 @@ const SchoolsListPage = () => {
       {data.length === 0 ? (
         <div className="p-8 text-center">
           <div className="text-4xl mb-2">🏫</div>
-          <p className="text-gray-500 text-sm">No schools yet.</p>
-          {isPlatform && <p className="text-gray-400 text-xs mt-1">Click “Onboard School” to create one and its admin.</p>}
+          <p className="text-gray-500 text-sm">{t("manage.noSchools")}</p>
+          {isPlatform && <p className="text-gray-400 text-xs mt-1">{t("manage.noSchoolsHint")}</p>}
         </div>
       ) : (
         <Table columns={columns} renderRow={renderRow} data={data} />
