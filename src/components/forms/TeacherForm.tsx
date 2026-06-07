@@ -27,7 +27,10 @@ interface ClassOption { id: string; name: string; grade: string; }
 interface SubjectOption { id: string; name: string; }
 interface Assignment { class_id: string; subject_id: string; }
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const TeacherForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const supabase = createClient();
   const { user } = useAuth();
@@ -156,22 +159,22 @@ const TeacherForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
-        {type === "create" ? "Create a new teacher" : "Update teacher"}
+        {type === "create" ? t("form.createTitle", { entity: t("form.entities.teacher") }) : t("form.updateTitle", { entity: t("form.entities.teacher") })}
       </h1>
-      <span className="text-xs text-gray-400 font-medium">Authentication Information</span>
+      <span className="text-xs text-gray-400 font-medium">{t("form.sections.auth")}</span>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Username" name="username" defaultValue={data?.username} register={register} error={errors?.username} />
-        <InputField label="Email" name="email" defaultValue={data?.email} register={register} error={errors?.email} />
-        <InputField label="Password" name="password" type="password" defaultValue={data?.password} register={register} error={errors?.password} />
+        <InputField label={t("form.fields.username")} name="username" defaultValue={data?.username} register={register} error={errors?.username} />
+        <InputField label={t("form.fields.email")} name="email" defaultValue={data?.email} register={register} error={errors?.email} />
+        <InputField label={t("form.fields.password")} name="password" type="password" defaultValue={data?.password} register={register} error={errors?.password} />
       </div>
-      <span className="text-xs text-gray-400 font-medium">Personal Information</span>
+      <span className="text-xs text-gray-400 font-medium">{t("form.sections.personal")}</span>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="First Name" name="firstName" defaultValue={data?.firstName || data?.first_name} register={register} error={errors.firstName} />
-        <InputField label="Last Name" name="lastName" defaultValue={data?.lastName || data?.last_name} register={register} error={errors.lastName} />
-        <InputField label="Phone" name="phone" defaultValue={data?.phone} register={register} error={errors.phone} />
-        <InputField label="Address" name="address" defaultValue={data?.address} register={register} error={errors.address} />
-        <InputField label="Blood Type" name="bloodType" defaultValue={data?.bloodType} register={register} error={errors.bloodType} />
-        <InputField label="Birthday" name="birthday" defaultValue={data?.birthday} register={register} error={errors.birthday} type="date" />
+        <InputField label={t("form.fields.firstName")} name="firstName" defaultValue={data?.firstName || data?.first_name} register={register} error={errors.firstName} />
+        <InputField label={t("form.fields.lastName")} name="lastName" defaultValue={data?.lastName || data?.last_name} register={register} error={errors.lastName} />
+        <InputField label={t("form.fields.phone")} name="phone" defaultValue={data?.phone} register={register} error={errors.phone} />
+        <InputField label={t("form.fields.address")} name="address" defaultValue={data?.address} register={register} error={errors.address} />
+        <InputField label={t("form.fields.bloodType")} name="bloodType" defaultValue={data?.bloodType} register={register} error={errors.bloodType} />
+        <InputField label={t("form.fields.birthday")} name="birthday" defaultValue={data?.birthday} register={register} error={errors.birthday} type="date" />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
           <select className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" {...register("sex")} defaultValue={data?.sex}>
@@ -183,7 +186,7 @@ const TeacherForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
       </div>
 
       {/* ── Assign Classes & Subjects ── */}
-      <span className="text-xs text-gray-400 font-medium">Assign Classes &amp; Subjects</span>
+      <span className="text-xs text-gray-400 font-medium">{t("form.sections.assign")}</span>
       <div className="border rounded-lg p-3 bg-gray-50 space-y-3">
         {assignments.map((a, idx) => (
           <div key={idx} className="flex gap-2 items-center">

@@ -31,6 +31,8 @@ interface Student {
   last_name: string;
 }
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const ParentForm = ({
   type,
   data,
@@ -38,6 +40,7 @@ const ParentForm = ({
   type: "create" | "update";
   data?: any;
 }) => {
+  const { t } = useI18n();
   const {
     register,
     handleSubmit,
@@ -164,7 +167,7 @@ const ParentForm = ({
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
-        {type === "create" ? "Create a new parent" : "Update parent"}
+        {type === "create" ? t("form.createTitle", { entity: t("form.entities.parent") }) : t("form.updateTitle", { entity: t("form.entities.parent") })}
       </h1>
 
       <span className="text-xs text-gray-400 font-medium">
@@ -172,21 +175,21 @@ const ParentForm = ({
       </span>
       <div className="flex justify-between flex-wrap gap-4">
         <InputField
-          label="Username"
+          label={t("form.fields.username")}
           name="username"
           defaultValue={data?.username}
           register={register}
           error={errors?.username}
         />
         <InputField
-          label="Email"
+          label={t("form.fields.email")}
           name="email"
           defaultValue={data?.email}
           register={register}
           error={errors?.email}
         />
         <InputField
-          label="Password"
+          label={t("form.fields.password")}
           name="password"
           type="password"
           defaultValue={data?.password}
@@ -200,28 +203,28 @@ const ParentForm = ({
       </span>
       <div className="flex justify-between flex-wrap gap-4">
         <InputField
-          label="First Name"
+          label={t("form.fields.firstName")}
           name="firstName"
           defaultValue={data?.firstName || data?.first_name}
           register={register}
           error={errors.firstName}
         />
         <InputField
-          label="Last Name"
+          label={t("form.fields.lastName")}
           name="lastName"
           defaultValue={data?.lastName || data?.last_name}
           register={register}
           error={errors.lastName}
         />
         <InputField
-          label="Phone"
+          label={t("form.fields.phone")}
           name="phone"
           defaultValue={data?.phone}
           register={register}
           error={errors.phone}
         />
         <InputField
-          label="Address"
+          label={t("form.fields.address")}
           name="address"
           defaultValue={data?.address}
           register={register}

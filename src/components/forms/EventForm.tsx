@@ -17,7 +17,10 @@ const schema = z.object({
 
 type Inputs = z.infer<typeof schema>;
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const EventForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -49,12 +52,12 @@ const EventForm = ({ type, data }: { type: "create" | "update"; data?: any }) =>
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">{type === "create" ? "Create a new event" : "Update event"}</h1>
+      <h1 className="text-xl font-semibold">{type === "create" ? t("form.createTitle", { entity: t("form.entities.event") }) : t("form.updateTitle", { entity: t("form.entities.event") })}</h1>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Title" name="title" defaultValue={data?.title} register={register} error={errors?.title} />
-        <InputField label="Description" name="description" defaultValue={data?.description} register={register} error={errors?.description} />
-        <InputField label="Start Date" name="start_date" type="date" defaultValue={data?.start_date} register={register} error={errors?.start_date} />
-        <InputField label="End Date" name="end_date" type="date" defaultValue={data?.end_date} register={register} error={errors?.end_date} />
+        <InputField label={t("form.fields.title")} name="title" defaultValue={data?.title} register={register} error={errors?.title} />
+        <InputField label={t("form.fields.description")} name="description" defaultValue={data?.description} register={register} error={errors?.description} />
+        <InputField label={t("form.fields.startDate")} name="start_date" type="date" defaultValue={data?.start_date} register={register} error={errors?.start_date} />
+        <InputField label={t("form.fields.endDate")} name="end_date" type="date" defaultValue={data?.end_date} register={register} error={errors?.end_date} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">

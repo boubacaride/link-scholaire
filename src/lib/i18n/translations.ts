@@ -157,6 +157,27 @@ const en = {
     dueDate: "Due Date", student: "Student", score: "Score", author: "Author", start: "Start",
     end: "End", employee: "Employee", amount: "Amount", payDate: "Pay Date",
   },
+  form: {
+    fields: {
+      username: "Username", email: "Email", password: "Password", firstName: "First Name",
+      lastName: "Last Name", phone: "Phone", address: "Address", bloodType: "Blood Type",
+      birthday: "Birthday", subjectName: "Subject Name", subjectCode: "Subject Code",
+      className: "Class Name", capacity: "Capacity", gradeLevel: "Grade Level", title: "Title",
+      date: "Date", dueDate: "Due Date", score: "Score", maxScore: "Max Score", term: "Term",
+      description: "Description", startDate: "Start Date", endDate: "End Date",
+    },
+    sections: {
+      auth: "Authentication Information", personal: "Personal Information",
+      assign: "Assign Classes & Subjects",
+    },
+    createTitle: "Create {entity}", updateTitle: "Update {entity}",
+    submit: "Submit", saving: "Saving...",
+    entities: {
+      teacher: "teacher", student: "student", parent: "parent", subject: "subject",
+      class: "class", lesson: "lesson", exam: "exam", assignment: "assignment",
+      result: "result", event: "event", announcement: "announcement",
+    },
+  },
   signIn: {
     brandTagline: "Manage Your School, All in One Place.",
     brandHighlight: "All in One Place.",
@@ -323,6 +344,27 @@ const fr: Dict = {
     dueDate: "Échéance", student: "Élève", score: "Note", author: "Auteur", start: "Début",
     end: "Fin", employee: "Employé", amount: "Montant", payDate: "Date de paie",
   },
+  form: {
+    fields: {
+      username: "Nom d'utilisateur", email: "E-mail", password: "Mot de passe", firstName: "Prénom",
+      lastName: "Nom", phone: "Téléphone", address: "Adresse", bloodType: "Groupe sanguin",
+      birthday: "Date de naissance", subjectName: "Nom de la matière", subjectCode: "Code de la matière",
+      className: "Nom de la classe", capacity: "Capacité", gradeLevel: "Niveau", title: "Titre",
+      date: "Date", dueDate: "Échéance", score: "Note", maxScore: "Note maximale", term: "Trimestre",
+      description: "Description", startDate: "Date de début", endDate: "Date de fin",
+    },
+    sections: {
+      auth: "Informations d'authentification", personal: "Informations personnelles",
+      assign: "Attribuer classes et matières",
+    },
+    createTitle: "Créer : {entity}", updateTitle: "Modifier : {entity}",
+    submit: "Envoyer", saving: "Enregistrement...",
+    entities: {
+      teacher: "enseignant", student: "élève", parent: "parent", subject: "matière",
+      class: "classe", lesson: "leçon", exam: "examen", assignment: "devoir",
+      result: "résultat", event: "événement", announcement: "annonce",
+    },
+  },
   signIn: {
     brandTagline: "Gérez votre école, tout au même endroit.",
     brandHighlight: "Tout au même endroit.",
@@ -486,6 +528,27 @@ const ar: Dict = {
     teacher: "المعلم", status: "الحالة", day: "اليوم", time: "الوقت", date: "التاريخ",
     dueDate: "تاريخ الاستحقاق", student: "الطالب", score: "الدرجة", author: "الكاتب", start: "البداية",
     end: "النهاية", employee: "الموظف", amount: "المبلغ", payDate: "تاريخ الدفع",
+  },
+  form: {
+    fields: {
+      username: "اسم المستخدم", email: "البريد الإلكتروني", password: "كلمة المرور", firstName: "الاسم الأول",
+      lastName: "اسم العائلة", phone: "الهاتف", address: "العنوان", bloodType: "فصيلة الدم",
+      birthday: "تاريخ الميلاد", subjectName: "اسم المادة", subjectCode: "رمز المادة",
+      className: "اسم الفصل", capacity: "السعة", gradeLevel: "الصف", title: "العنوان",
+      date: "التاريخ", dueDate: "تاريخ الاستحقاق", score: "الدرجة", maxScore: "الدرجة القصوى", term: "الفصل الدراسي",
+      description: "الوصف", startDate: "تاريخ البداية", endDate: "تاريخ النهاية",
+    },
+    sections: {
+      auth: "معلومات المصادقة", personal: "المعلومات الشخصية",
+      assign: "تعيين الفصول والمواد",
+    },
+    createTitle: "إنشاء: {entity}", updateTitle: "تعديل: {entity}",
+    submit: "إرسال", saving: "جارٍ الحفظ...",
+    entities: {
+      teacher: "معلم", student: "طالب", parent: "ولي أمر", subject: "مادة",
+      class: "فصل", lesson: "درس", exam: "امتحان", assignment: "واجب",
+      result: "نتيجة", event: "فعالية", announcement: "إعلان",
+    },
   },
   signIn: {
     brandTagline: "أدِر مدرستك، كل شيء في مكان واحد.",

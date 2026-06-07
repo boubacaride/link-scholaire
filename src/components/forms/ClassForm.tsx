@@ -16,7 +16,10 @@ const schema = z.object({
 
 type Inputs = z.infer<typeof schema>;
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const ClassForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -48,11 +51,11 @@ const ClassForm = ({ type, data }: { type: "create" | "update"; data?: any }) =>
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">{type === "create" ? "Create a new class" : "Update class"}</h1>
+      <h1 className="text-xl font-semibold">{type === "create" ? t("form.createTitle", { entity: t("form.entities.class") }) : t("form.updateTitle", { entity: t("form.entities.class") })}</h1>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Class Name" name="name" defaultValue={data?.name} register={register} error={errors?.name} />
-        <InputField label="Capacity" name="capacity" defaultValue={data?.capacity} register={register} error={errors?.capacity} />
-        <InputField label="Grade Level" name="grade" defaultValue={data?.grade} register={register} error={errors?.grade} />
+        <InputField label={t("form.fields.className")} name="name" defaultValue={data?.name} register={register} error={errors?.name} />
+        <InputField label={t("form.fields.capacity")} name="capacity" defaultValue={data?.capacity} register={register} error={errors?.capacity} />
+        <InputField label={t("form.fields.gradeLevel")} name="grade" defaultValue={data?.grade} register={register} error={errors?.grade} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">

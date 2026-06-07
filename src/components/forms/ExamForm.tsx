@@ -17,7 +17,10 @@ const schema = z.object({
 
 type Inputs = z.infer<typeof schema>;
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const ExamForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -64,9 +67,9 @@ const ExamForm = ({ type, data }: { type: "create" | "update"; data?: any }) => 
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">{type === "create" ? "Create a new exam" : "Update exam"}</h1>
+      <h1 className="text-xl font-semibold">{type === "create" ? t("form.createTitle", { entity: t("form.entities.exam") }) : t("form.updateTitle", { entity: t("form.entities.exam") })}</h1>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Title" name="title" defaultValue={data?.title} register={register} error={errors?.title} />
+        <InputField label={t("form.fields.title")} name="title" defaultValue={data?.title} register={register} error={errors?.title} />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Class</label>
           <select className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" {...register("class_id")} defaultValue={data?.class_id}>
@@ -83,7 +86,7 @@ const ExamForm = ({ type, data }: { type: "create" | "update"; data?: any }) => 
           </select>
           {errors.subject_id?.message && <p className="text-xs text-red-400">{errors.subject_id.message}</p>}
         </div>
-        <InputField label="Date" name="date" type="date" defaultValue={data?.date} register={register} error={errors?.date} />
+        <InputField label={t("form.fields.date")} name="date" type="date" defaultValue={data?.date} register={register} error={errors?.date} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">

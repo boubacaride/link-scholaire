@@ -15,7 +15,10 @@ const schema = z.object({
 
 type Inputs = z.infer<typeof schema>;
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const SubjectForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -46,10 +49,10 @@ const SubjectForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">{type === "create" ? "Create a new subject" : "Update subject"}</h1>
+      <h1 className="text-xl font-semibold">{type === "create" ? t("form.createTitle", { entity: t("form.entities.subject") }) : t("form.updateTitle", { entity: t("form.entities.subject") })}</h1>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Subject Name" name="name" defaultValue={data?.name} register={register} error={errors?.name} />
-        <InputField label="Subject Code" name="code" defaultValue={data?.code} register={register} error={errors?.code} />
+        <InputField label={t("form.fields.subjectName")} name="name" defaultValue={data?.name} register={register} error={errors?.name} />
+        <InputField label={t("form.fields.subjectCode")} name="code" defaultValue={data?.code} register={register} error={errors?.code} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">

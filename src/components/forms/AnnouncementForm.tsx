@@ -16,7 +16,10 @@ const schema = z.object({
 
 type Inputs = z.infer<typeof schema>;
 
+import { useI18n } from "@/contexts/LanguageContext";
+
 const AnnouncementForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const { register, handleSubmit, formState: { errors } } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -48,11 +51,11 @@ const AnnouncementForm = ({ type, data }: { type: "create" | "update"; data?: an
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">{type === "create" ? "Create a new announcement" : "Update announcement"}</h1>
+      <h1 className="text-xl font-semibold">{type === "create" ? t("form.createTitle", { entity: t("form.entities.announcement") }) : t("form.updateTitle", { entity: t("form.entities.announcement") })}</h1>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="Title" name="title" defaultValue={data?.title} register={register} error={errors?.title} />
-        <InputField label="Description" name="description" defaultValue={data?.description} register={register} error={errors?.description} />
-        <InputField label="Date" name="date" type="date" defaultValue={data?.date} register={register} error={errors?.date} />
+        <InputField label={t("form.fields.title")} name="title" defaultValue={data?.title} register={register} error={errors?.title} />
+        <InputField label={t("form.fields.description")} name="description" defaultValue={data?.description} register={register} error={errors?.description} />
+        <InputField label={t("form.fields.date")} name="date" type="date" defaultValue={data?.date} register={register} error={errors?.date} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">
