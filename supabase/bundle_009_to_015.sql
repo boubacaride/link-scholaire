@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════
 -- SchoolFlow — Platform Admin + Tenant Management bundle
 -- Combines migrations 009 → 015 in order. Paste this whole file into the
--- Supabase SQL Editor and Run once. Safe to re-run (idempotent).
+-- Supabase SQL Editor and Run once. Safe to re-run (fully idempotent).
 --
 -- Provisions platform login:  platform@schoolflow.app  /  Platform123!
 -- (Run 001–008 first if this is a fresh database.)
@@ -1013,6 +1013,7 @@ AS $$
 $$;
 
 DROP POLICY IF EXISTS "Platform admin can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Platform admin can view school admins" ON public.profiles;
 
 CREATE POLICY "Platform admin can view school admins" ON public.profiles
   FOR SELECT USING (

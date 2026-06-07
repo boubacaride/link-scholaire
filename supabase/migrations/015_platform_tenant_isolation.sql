@@ -25,6 +25,7 @@ AS $$
 $$;
 
 DROP POLICY IF EXISTS "Platform admin can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Platform admin can view school admins" ON public.profiles;
 
 CREATE POLICY "Platform admin can view school admins" ON public.profiles
   FOR SELECT USING (
