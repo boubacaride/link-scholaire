@@ -25,6 +25,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
@@ -64,6 +65,18 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
     if (rpcErr) { setError(rpcErr.message); return; }
     if (data?.error) { setError(data.error); return; }
     setEditingId(null);
+    await load();
+  };
+
+  const remove = async (a: AdminRow) => {
+    if (!supabase) return;
+    setError(null);
+    setBusyId(a.id);
+    const { data, error: rpcErr } = await supabase.rpc("delete_school_admin", { p_profile_id: a.id });
+    setBusyId(null);
+    if (rpcErr) { setError(rpcErr.message); return; }
+    if (data?.error) { setError(data.error); return; }
+    setConfirmDeleteId(null);
     await load();
   };
 
@@ -150,15 +163,36 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
                       </button>
                     </div>
                   </div>
+                ) : confirmDeleteId === a.id ? (
+                  <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-2.5">
+                    <p className="text-xs text-red-700 font-medium">Permanently delete this administrator?</p>
+                    <p className="text-[11px] text-red-500 mt-0.5">This removes their login for good and cannot be undone. Use “Suspend” if you only want to block access temporarily.</p>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button
+                        onClick={() => remove(a)}
+                        disabled={busyId === a.id}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-40"
+                      >
+                        {busyId === a.id ? "Deleting..." : "Delete permanently"}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex justify-end gap-2 mt-3">
                     <button onClick={() => startEdit(a)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Edit</button>
                     <button
                       onClick={() => toggleActive(a)}
                       disabled={busyId === a.id}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 ${a.is_active ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 ${a.is_active ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
                     >
                       {busyId === a.id ? "..." : a.is_active ? "Suspend" : "Reactivate"}
+                    </button>
+                    <button
+                      onClick={() => { setConfirmDeleteId(a.id); setError(null); }}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100"
+                    >
+                      Delete
                     </button>
                   </div>
                 )}
@@ -167,7 +201,8 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
           )}
 
           <p className="text-[11px] text-gray-400 pt-1">
-            Suspending an administrator immediately blocks their sign-in. Reactivate to restore access once payment is resolved.
+            <span className="font-medium text-amber-600">Suspend</span> temporarily blocks sign-in (reversible — use while payment is pending).
+            {" "}<span className="font-medium text-red-600">Delete</span> permanently removes the login (use when a school refuses to pay).
           </p>
         </div>
       </div>
