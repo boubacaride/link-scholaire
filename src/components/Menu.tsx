@@ -168,6 +168,17 @@ const menuItems = [
   },
 ];
 
+// The platform admin runs the tenant layer only — it never touches a school's
+// internal pages. Restrict its sidebar to schools/subscriptions + account pages.
+const PLATFORM_ADMIN_ALLOWED = new Set<string>([
+  "/",
+  "/list/schools",
+  "/list/subscriptions",
+  "/profile",
+  "/settings",
+  "/sign-out",
+]);
+
 const Menu = () => {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
@@ -179,6 +190,7 @@ const Menu = () => {
       {menuItems.map((section) => {
         const visibleItems = section.items.filter((item) => {
           if (!item.visible.includes(role)) return false;
+          if (role === "platform_admin" && !PLATFORM_ADMIN_ALLOWED.has(item.href)) return false;
           if ((item as any).privateOnly && !isPrivateSchool) return false;
           return true;
         });

@@ -104,7 +104,8 @@ school_admin   ──(once subscription = active)──▶ teachers / students /
 - **Suspending the admin locks the entire school** (migration 012): `schools.access_suspended` flag, checked in `get_user_context()` (platform admin exempt), so teachers/students/parents are all blocked from sign-in until reactivated. `update_school_admin` toggles the flag; `signIn` surfaces a clear "school access suspended" message
 - **Delete entire school** (`delete_school` RPC, migration 013): platform-admin only "danger zone" in the Manage Admin modal (type-the-name confirmation) — cascades away all school data and deletes every member's `auth.users` login. Guards block deleting a platform school or the caller's own school
 - Ready-to-use platform login (provisioned by migration 009): **platform@schoolflow.app / Platform123!**
-- Helpers: `is_platform_admin()`; platform admin has cross-school SELECT/INSERT/UPDATE on `schools` + read on all `profiles`
+- Helpers: `is_platform_admin()`; platform admin has cross-school SELECT/INSERT/UPDATE on `schools`
+- **Tenant isolation (migration 015)**: the platform admin manages the tenant layer ONLY — schools + their `school_admin`s. It can SELECT `school_admin` profiles (for Manage Admin) but NOT teachers/students/parents (RLS). Its sidebar is restricted (Menu `PLATFORM_ADMIN_ALLOWED`) to Schools/Subscriptions/account pages, and `/admin` renders `PlatformDashboard` (tenant KPIs), never the school operational dashboard. Each school is an independent tenant run by its own `school_admin`
 
 ---
 

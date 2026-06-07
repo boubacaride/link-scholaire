@@ -39,7 +39,8 @@ const SubscriptionsPage = () => {
       .from("schools")
       .select("id, name, type, subscription_status, subscription_plan, max_students, max_teachers, created_at")
       .order("name", { ascending: true });
-    setData((rows as SchoolRow[]) || []);
+    // Hide the platform's own org school — it isn't a tenant.
+    setData(((rows as SchoolRow[]) || []).filter((s) => s.subscription_plan !== "platform"));
     setLoading(false);
   }, [supabase]);
 
