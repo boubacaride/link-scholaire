@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════
--- SchoolFlow — Platform Admin + Tenant Management bundle
--- Combines migrations 009 → 015 in order. Paste this whole file into the
--- Supabase SQL Editor and Run once. Safe to re-run (fully idempotent).
+-- SchoolFlow — Platform Admin + Tenant Management bundle (migrations 009–016)
+-- Paste this whole file into the Supabase SQL Editor and Run once.
+-- Fully idempotent — safe to re-run any time.
 --
 -- Provisions platform login:  platform@schoolflow.app  /  Platform123!
 -- (Run 001–008 first if this is a fresh database.)
@@ -1017,6 +1017,25 @@ DROP POLICY IF EXISTS "Platform admin can view school admins" ON public.profiles
 
 CREATE POLICY "Platform admin can view school admins" ON public.profiles
   FOR SELECT USING (
+    public.is_platform_admin() AND role = 'school_admin'
+  );
+
+
+-- ╔═══════════════════════════════════════════════════════════════════
+-- ║ 016_tighten_platform_profile_writes.sql
+-- ╚═══════════════════════════════════════════════════════════════════
+
+-- === TIGHTEN: platform admin write access to profiles ===
+-- Migration 010 let the platform admin UPDATE any profile. Combined with the
+-- tenant-isolation SELECT policy (015), it can't *see* teachers/students/parents
+-- but could still *write* to them. The platform admin only ever edits/suspends
+-- school_admins (always via the SECURITY DEFINER update_school_admin RPC, which
+-- bypasses RLS anyway), so scope this direct-write policy to school_admin rows.
+
+DROP POLICY IF EXISTS "Platform admin can update profiles" ON public.profiles;
+
+CREATE POLICY "Platform admin can update school admins" ON public.profiles
+  FOR UPDATE USING (
     public.is_platform_admin() AND role = 'school_admin'
   );
 
