@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface SchoolAdminsModalProps {
   schoolId: string;
@@ -23,6 +24,7 @@ interface AdminRow {
  *  it (e.g. on non-payment). Backed by the update_school_admin RPC. */
 const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: SchoolAdminsModalProps) => {
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
       >
         <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white rounded-t-2xl">
           <div>
-            <h2 className="text-lg font-semibold">School Administrator</h2>
+            <h2 className="text-lg font-semibold">{t("mod.schoolAdminTitle")}</h2>
             <p className="text-xs text-gray-400">{schoolName}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -136,9 +138,9 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">{error}</p>}
 
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+            <p className="text-sm text-gray-400 text-center py-6">{t("common.loading")}</p>
           ) : admins.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">No administrator on this school yet.</p>
+            <p className="text-sm text-gray-400 text-center py-6">{t("mod.none")}</p>
           ) : (
             admins.map((a) => (
               <div key={a.id} className="border rounded-xl p-3">
@@ -153,7 +155,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
                     </div>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${a.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {a.is_active ? "Active" : "Suspended"}
+                    {a.is_active ? t("mod.active") : t("mod.suspended")}
                   </span>
                 </div>
 
@@ -161,74 +163,74 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
                   <div className="mt-3 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className={label}>First name</label>
+                        <label className={label}>{t("mod.firstName")}</label>
                         <input className={input} value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} />
                       </div>
                       <div>
-                        <label className={label}>Last name</label>
+                        <label className={label}>{t("mod.lastName")}</label>
                         <input className={input} value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} />
                       </div>
                     </div>
                     <div>
-                      <label className={label}>Email (login)</label>
+                      <label className={label}>{t("mod.emailLogin")}</label>
                       <input className={input} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                     </div>
                     <div>
-                      <label className={label}>New password (optional)</label>
-                      <input className={input} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Leave blank to keep current" />
+                      <label className={label}>{t("mod.newPwdOptional")}</label>
+                      <input className={input} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={t("mod.keepCurrent")} />
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
-                      <button onClick={() => setEditingId(null)} className="text-sm px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button onClick={() => setEditingId(null)} className="text-sm px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">{t("mod.cancel")}</button>
                       <button onClick={() => saveEdit(a)} disabled={busyId === a.id} className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-40">
-                        {busyId === a.id ? "Saving..." : "Save"}
+                        {busyId === a.id ? t("mod.saving") : t("mod.save")}
                       </button>
                     </div>
                   </div>
                 ) : confirmDeleteId === a.id ? (
                   <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-2.5">
-                    <p className="text-xs text-red-700 font-medium">Permanently delete this administrator?</p>
-                    <p className="text-[11px] text-red-500 mt-0.5">This removes their login for good and cannot be undone. Use “Suspend” if you only want to block access temporarily.</p>
+                    <p className="text-xs text-red-700 font-medium">{t("mod.confirmDelete")}</p>
+                    <p className="text-[11px] text-red-500 mt-0.5">{t("mod.confirmDeleteHint")}</p>
                     <div className="flex justify-end gap-2 mt-2">
-                      <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">{t("mod.cancel")}</button>
                       <button
                         onClick={() => remove(a)}
                         disabled={busyId === a.id}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-40"
                       >
-                        {busyId === a.id ? "Deleting..." : "Delete permanently"}
+                        {busyId === a.id ? t("mod.deleting") : t("mod.deletePerm")}
                       </button>
                     </div>
                   </div>
                 ) : confirmSuspendId === a.id ? (
                   <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                    <p className="text-xs text-amber-700 font-medium">Suspend the entire school?</p>
-                    <p className="text-[11px] text-amber-600 mt-0.5">All teachers, students and parents will be locked out of sign-in until you reactivate. The admin&apos;s data is kept.</p>
+                    <p className="text-xs text-amber-700 font-medium">{t("mod.confirmSuspend")}</p>
+                    <p className="text-[11px] text-amber-600 mt-0.5">{t("mod.confirmSuspendHint")}</p>
                     <div className="flex justify-end gap-2 mt-2">
-                      <button onClick={() => setConfirmSuspendId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button onClick={() => setConfirmSuspendId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">{t("mod.cancel")}</button>
                       <button
                         onClick={() => toggleActive(a)}
                         disabled={busyId === a.id}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40"
                       >
-                        {busyId === a.id ? "Suspending..." : "Suspend school"}
+                        {busyId === a.id ? t("mod.suspending") : t("mod.suspendSchool")}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex justify-end gap-2 mt-3">
-                    <button onClick={() => startEdit(a)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Edit</button>
+                    <button onClick={() => startEdit(a)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">{t("mod.edit")}</button>
                     <button
                       onClick={() => (a.is_active ? setConfirmSuspendId(a.id) : toggleActive(a))}
                       disabled={busyId === a.id}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 ${a.is_active ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
                     >
-                      {busyId === a.id ? "..." : a.is_active ? "Suspend" : "Reactivate"}
+                      {busyId === a.id ? "..." : a.is_active ? t("mod.suspend") : t("mod.reactivate")}
                     </button>
                     <button
                       onClick={() => { setConfirmDeleteId(a.id); setError(null); }}
                       className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100"
                     >
-                      Delete
+                      {t("mod.delete")}
                     </button>
                   </div>
                 )}
@@ -247,7 +249,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
               onClick={() => { setShowDanger((v) => !v); setConfirmText(""); setError(null); }}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
             >
-              <span>⚠️ Danger zone — delete entire school</span>
+              <span>{t("mod.dangerZone")}</span>
               <span>{showDanger ? "▲" : "▼"}</span>
             </button>
             {showDanger && (
@@ -269,7 +271,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose, onSchoolDeleted }: S
                   disabled={deletingSchool || confirmText.trim() !== schoolName}
                   className="w-full text-sm px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {deletingSchool ? "Deleting school..." : "Permanently delete this school"}
+                  {deletingSchool ? t("mod.deletingSchool") : t("mod.deleteSchoolBtn")}
                 </button>
               </div>
             )}
