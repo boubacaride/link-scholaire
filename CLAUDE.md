@@ -335,6 +335,7 @@ All forms use `school_id` from `useAuth()` and include:
 |---|---|
 | RLS infinite recursion on profiles | Use `auth_school_id()`, `auth_profile_id()`, `is_admin()` functions |
 | `user_id` NOT NULL on profile create | Use `create_user_with_profile()` RPC |
+| Manually-created user can't log in ("Database error querying schema") | `auth.users` token columns (`recovery_token`, `email_change_token_new`, `email_change`, …) must be `''` not NULL — fixed in migration 014 |
 | Zod validation blocking form submit | Make optional fields use `.optional()` |
 | KaTeX showing raw `$$` | Parser handles `$$` on own line, strips remaining delimiters |
 | GPT duplicating LaTeX as plaintext | Prompt explicitly forbids duplicates, `cleanGPTOutput()` strips fragments |
