@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface GradePoint { created_at: string; score: number; max_score: number; }
 interface AttPoint { date: string; status: string; }
@@ -16,6 +17,7 @@ interface AttPoint { date: string; status: string; }
 const TeacherAnalytics = () => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [grades, setGrades] = useState<GradePoint[]>([]);
   const [attendance, setAttendance] = useState<AttPoint[]>([]);
@@ -109,15 +111,15 @@ const TeacherAnalytics = () => {
     return { gAvg, attRate, gradeCount: grades.length, attCount: attendance.length };
   }, [grades, attendance]);
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading analytics...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingAnalytics")}</div>;
 
   const hasData = grades.length > 0 || attendance.length > 0;
   if (!hasData) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">📈</div>
-        <p className="text-gray-500 text-sm">No analytics yet.</p>
-        <p className="text-gray-400 text-xs mt-1">Record grades and attendance to see trends here.</p>
+        <p className="text-gray-500 text-sm">{t("wdg.noAnalytics")}</p>
+        <p className="text-gray-400 text-xs mt-1">{t("wdg.recordToSeeTrends")}</p>
       </div>
     );
   }
@@ -127,19 +129,19 @@ const TeacherAnalytics = () => {
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-xl p-3">
-          <p className="text-[10px] text-blue-500 uppercase tracking-wide">Avg Grade</p>
+          <p className="text-[10px] text-blue-500 uppercase tracking-wide">{t("wdg.avgGrade")}</p>
           <p className="text-xl font-bold text-blue-700">{kpis.gAvg === null ? "—" : `${kpis.gAvg.toFixed(0)}%`}</p>
         </div>
         <div className="bg-green-50 rounded-xl p-3">
-          <p className="text-[10px] text-green-500 uppercase tracking-wide">Attendance</p>
+          <p className="text-[10px] text-green-500 uppercase tracking-wide">{t("wdg.attendance")}</p>
           <p className="text-xl font-bold text-green-700">{kpis.attRate === null ? "—" : `${kpis.attRate.toFixed(0)}%`}</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-3">
-          <p className="text-[10px] text-purple-500 uppercase tracking-wide">Grades Logged</p>
+          <p className="text-[10px] text-purple-500 uppercase tracking-wide">{t("wdg.gradesLogged")}</p>
           <p className="text-xl font-bold text-purple-700">{kpis.gradeCount}</p>
         </div>
         <div className="bg-orange-50 rounded-xl p-3">
-          <p className="text-[10px] text-orange-500 uppercase tracking-wide">Att. Records</p>
+          <p className="text-[10px] text-orange-500 uppercase tracking-wide">{t("wdg.attRecords")}</p>
           <p className="text-xl font-bold text-orange-700">{kpis.attCount}</p>
         </div>
       </div>
@@ -147,9 +149,9 @@ const TeacherAnalytics = () => {
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Attendance trend */}
         <div className="border rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Attendance Trend</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t("wdg.attendanceTrend")}</h3>
           {attTrend.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-10">No attendance recorded yet.</p>
+            <p className="text-xs text-gray-400 text-center py-10">{t("wdg.noAttendance")}</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={attTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -165,9 +167,9 @@ const TeacherAnalytics = () => {
 
         {/* Grade trend */}
         <div className="border rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Grade Trend</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t("wdg.gradeTrend")}</h3>
           {gradeTrend.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-10">No grades recorded yet.</p>
+            <p className="text-xs text-gray-400 text-center py-10">{t("wdg.noGrades")}</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={gradeTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -183,7 +185,7 @@ const TeacherAnalytics = () => {
 
         {/* Grade distribution */}
         <div className="border rounded-xl p-4 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Grade Distribution</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t("wdg.gradeDistribution")}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={distribution} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

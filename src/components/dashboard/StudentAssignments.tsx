@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 import { SubmissionStatus } from "@/types";
 
 interface AssignmentItem {
@@ -36,6 +37,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 const StudentAssignments = () => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [items, setItems] = useState<AssignmentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,14 +133,14 @@ const StudentAssignments = () => {
     return { todo, done };
   }, [items]);
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading assignments...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingAssignments")}</div>;
 
   if (items.length === 0) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">✅</div>
-        <p className="text-gray-500 text-sm">No assignments right now.</p>
-        <p className="text-gray-400 text-xs mt-1">New work from your teachers will appear here.</p>
+        <p className="text-gray-500 text-sm">{t("wdg.noAssignments")}</p>
+        <p className="text-gray-400 text-xs mt-1">{t("wdg.newWorkAppears")}</p>
       </div>
     );
   }
@@ -177,7 +179,7 @@ const StudentAssignments = () => {
         </div>
         {item.feedback && (
           <div className="mt-2 bg-purple-50 border border-purple-100 rounded-lg p-2.5">
-            <p className="text-[10px] text-purple-500 uppercase tracking-wide font-medium">Teacher feedback</p>
+            <p className="text-[10px] text-purple-500 uppercase tracking-wide font-medium">{t("wdg.teacherFeedback")}</p>
             <p className="text-xs text-purple-800 mt-0.5">{item.feedback}</p>
           </div>
         )}
@@ -187,7 +189,7 @@ const StudentAssignments = () => {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={3}
-              placeholder="Type your response or paste a link to your work..."
+              placeholder={t("wdg.typeResponse")}
               className="w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green-200 resize-none"
             />
             <button

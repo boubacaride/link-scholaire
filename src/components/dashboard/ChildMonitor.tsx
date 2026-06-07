@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
 
 interface ChildMonitorProps {
@@ -25,6 +26,7 @@ const ALERT_STYLES: Record<Alert["kind"], { box: string; title: string; detail: 
  *  grades, attendance, upcoming work, and derived alerts. */
 const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [grades, setGrades] = useState<Grade[]>([]);
   const [attendance, setAttendance] = useState<Att[]>([]);
@@ -136,15 +138,15 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-green-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-green-500 uppercase tracking-wide">Avg Grade</p>
+          <p className="text-[10px] text-green-500 uppercase tracking-wide">{t("wdg.avgGrade")}</p>
           <p className="text-xl font-bold text-green-700">{avg === null ? "—" : `${avg.toFixed(0)}%`}</p>
         </div>
         <div className="bg-blue-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-blue-500 uppercase tracking-wide">Attendance</p>
+          <p className="text-[10px] text-blue-500 uppercase tracking-wide">{t("wdg.attendance")}</p>
           <p className="text-xl font-bold text-blue-700">{attRate === null ? "—" : `${attRate.toFixed(0)}%`}</p>
         </div>
         <div className="bg-orange-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-orange-500 uppercase tracking-wide">Upcoming</p>
+          <p className="text-[10px] text-orange-500 uppercase tracking-wide">{t("wdg.upcoming")}</p>
           <p className="text-xl font-bold text-orange-700">{upcoming.length}</p>
         </div>
       </div>
@@ -152,7 +154,7 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-gray-700">Alerts</h3>
+          <h3 className="text-sm font-semibold text-gray-700">{t("wdg.alerts")}</h3>
           {alerts.map((a, i) => {
             const cls = ALERT_STYLES[a.kind];
             return (
@@ -167,13 +169,13 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
 
       {/* Subject progress */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Subject Progress</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.subjectProgress")}</h3>
         <ProgressTracker studentId={studentId} />
       </div>
 
       {/* Upcoming assignments */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Upcoming Assignments</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.upcomingAssignments")}</h3>
         {upcoming.length === 0 ? (
           <p className="text-xs text-gray-400">Nothing due soon. 🎉</p>
         ) : (
@@ -197,9 +199,9 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
 
       {/* Recent grades */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent Grades</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.recentGrades")}</h3>
         {grades.length === 0 ? (
-          <p className="text-xs text-gray-400">No grades recorded yet.</p>
+          <p className="text-xs text-gray-400">{t("wdg.noGrades")}</p>
         ) : (
           <div className="space-y-1.5">
             {grades.slice(0, 6).map((g) => {
@@ -220,9 +222,9 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
 
       {/* Recent attendance */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent Attendance</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.recentAttendance")}</h3>
         {attendance.length === 0 ? (
-          <p className="text-xs text-gray-400">No attendance recorded yet.</p>
+          <p className="text-xs text-gray-400">{t("wdg.noAttendance")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {attendance.slice(0, 10).map((a) => (

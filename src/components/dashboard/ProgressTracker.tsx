@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface GradeRow {
   subject_id: string;
@@ -22,6 +23,7 @@ interface ProgressTrackerProps {
 const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
   const targetId = studentId || user?.profileId;
 
   const [grades, setGrades] = useState<GradeRow[]>([]);
@@ -74,14 +76,14 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
     }).sort((a, b) => b.avg - a.avg);
   }, [grades]);
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading progress...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingProgress")}</div>;
 
   if (subjects.length === 0) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">📋</div>
-        <p className="text-gray-500 text-sm">No graded subjects yet.</p>
-        <p className="text-gray-400 text-xs mt-1">Progress shows up once grades are recorded.</p>
+        <p className="text-gray-500 text-sm">{t("wdg.noGradedSubjects")}</p>
+        <p className="text-gray-400 text-xs mt-1">{t("wdg.progressShows")}</p>
       </div>
     );
   }

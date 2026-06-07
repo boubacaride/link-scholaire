@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface Assignment {
   class_id: string;
@@ -34,6 +35,7 @@ const TERMS = ["Term 1", "Term 2", "Term 3", "Final"];
 const Gradebook = () => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selected, setSelected] = useState<string>(""); // `${class_id}|${subject_id}`
@@ -151,14 +153,14 @@ const Gradebook = () => {
     setSavingId(null);
   };
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading gradebook...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingGradebook")}</div>;
 
   if (assignments.length === 0) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">📊</div>
-        <p className="text-gray-500 text-sm">No classes assigned yet.</p>
-        <p className="text-gray-400 text-xs mt-1">Ask your admin to assign you to a class and subject.</p>
+        <p className="text-gray-500 text-sm">{t("wdg.noClassesAssigned")}</p>
+        <p className="text-gray-400 text-xs mt-1">{t("wdg.askAdminAssign")}</p>
       </div>
     );
   }
@@ -183,7 +185,7 @@ const Gradebook = () => {
         </div>
         {classAvg !== null && (
           <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
-            <p className="text-[10px] text-blue-500 uppercase tracking-wide">Class Avg</p>
+            <p className="text-[10px] text-blue-500 uppercase tracking-wide">{t("wdg.classAvg")}</p>
             <p className="text-lg font-bold text-blue-700">{classAvg.toFixed(1)}%</p>
           </div>
         )}
@@ -225,14 +227,14 @@ const Gradebook = () => {
       {/* Roster with grade entry */}
       <div className="border rounded-xl overflow-hidden">
         <div className="grid grid-cols-12 gap-2 bg-gray-50 px-4 py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-          <div className="col-span-5">Student</div>
-          <div className="col-span-3 text-center">Average</div>
-          <div className="col-span-4 text-right">Record Score</div>
+          <div className="col-span-5">{t("wdg.student")}</div>
+          <div className="col-span-3 text-center">{t("wdg.average")}</div>
+          <div className="col-span-4 text-right">{t("wdg.recordScore")}</div>
         </div>
         {loadingRoster ? (
-          <div className="p-6 text-center text-gray-400 text-sm">Loading roster...</div>
+          <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingRoster")}</div>
         ) : students.length === 0 ? (
-          <div className="p-6 text-center text-gray-400 text-sm">No students enrolled in this class.</div>
+          <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.noStudentsEnrolled")}</div>
         ) : (
           <div className="divide-y">
             {students.map((s) => {

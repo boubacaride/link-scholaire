@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface ClassOption {
   class_id: string;
@@ -27,6 +28,7 @@ interface RosterStudent {
 const ClassRoster = () => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [classId, setClassId] = useState("");
@@ -108,13 +110,13 @@ const ClassRoster = () => {
     };
   }, [students]);
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading roster...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingRoster")}</div>;
 
   if (classes.length === 0) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">👥</div>
-        <p className="text-gray-500 text-sm">No classes assigned yet.</p>
+        <p className="text-gray-500 text-sm">{t("wdg.noClassesAssigned")}</p>
       </div>
     );
   }
@@ -136,11 +138,11 @@ const ClassRoster = () => {
         </div>
         <div className="flex gap-2">
           <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
-            <p className="text-[10px] text-blue-500 uppercase tracking-wide">Enrolled</p>
+            <p className="text-[10px] text-blue-500 uppercase tracking-wide">{t("wdg.enrolled")}</p>
             <p className="text-lg font-bold text-blue-700">{summary.count}</p>
           </div>
           <div className="bg-green-50 rounded-lg px-4 py-2 text-center">
-            <p className="text-[10px] text-green-500 uppercase tracking-wide">Attendance</p>
+            <p className="text-[10px] text-green-500 uppercase tracking-wide">{t("wdg.attendance")}</p>
             <p className="text-lg font-bold text-green-700">
               {summary.attendanceRate === null ? "—" : `${summary.attendanceRate.toFixed(0)}%`}
             </p>
@@ -152,8 +154,8 @@ const ClassRoster = () => {
         <div className="p-6 text-center text-gray-400 text-sm">Loading {selected?.class_name}...</div>
       ) : students.length === 0 ? (
         <div className="p-8 text-center">
-          <p className="text-gray-500 text-sm">No students enrolled in this class.</p>
-          <p className="text-gray-400 text-xs mt-1">Enrollment is managed by your school administrator.</p>
+          <p className="text-gray-500 text-sm">{t("wdg.noStudentsEnrolled")}</p>
+          <p className="text-gray-400 text-xs mt-1">{t("wdg.enrollmentManaged")}</p>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
@@ -169,7 +171,7 @@ const ClassRoster = () => {
                   <p className="text-xs text-gray-400 truncate">{s.email || "No email"}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] text-gray-400 uppercase">Present</p>
+                  <p className="text-[10px] text-gray-400 uppercase">{t("wdg.present")}</p>
                   <p className={`text-sm font-semibold ${rate === null ? "text-gray-300" : rate >= 90 ? "text-green-600" : rate >= 75 ? "text-orange-600" : "text-red-600"}`}>
                     {rate === null ? "—" : `${rate.toFixed(0)}%`}
                   </p>

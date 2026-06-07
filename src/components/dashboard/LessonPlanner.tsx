@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 import { ContentType } from "@/types";
 
 interface Assignment {
@@ -36,6 +37,7 @@ const TYPE_META: Record<ContentType, { label: string; color: string; icon: strin
 const LessonPlanner = () => {
   const { user } = useAuth();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -125,7 +127,7 @@ const LessonPlanner = () => {
     [items, filter]
   );
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading planner...</div>;
+  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingPlanner")}</div>;
 
   return (
     <div className="space-y-4">
@@ -177,9 +179,9 @@ const LessonPlanner = () => {
                 onChange={(e) => setType(e.target.value as ContentType)}
                 className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
-                <option value="lesson">Lesson</option>
-                <option value="assignment">Assignment</option>
-                <option value="classwork">Classwork</option>
+                <option value="lesson">{t("wdg.lesson")}</option>
+                <option value="assignment">{t("wdg.assignment")}</option>
+                <option value="classwork">{t("wdg.classwork")}</option>
               </select>
             </div>
             <div>
@@ -255,8 +257,8 @@ const LessonPlanner = () => {
       {filtered.length === 0 ? (
         <div className="p-8 text-center">
           <div className="text-4xl mb-2">📚</div>
-          <p className="text-gray-500 text-sm">No resources yet.</p>
-          <p className="text-gray-400 text-xs mt-1">Create lessons, assignments and materials to share with your class.</p>
+          <p className="text-gray-500 text-sm">{t("wdg.noResources")}</p>
+          <p className="text-gray-400 text-xs mt-1">{t("wdg.createMaterials")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -270,7 +272,7 @@ const LessonPlanner = () => {
                     <p className="text-sm font-medium text-gray-800">{it.title}</p>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${meta.color}`}>{meta.label}</span>
                     {!it.is_published && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">Draft</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">{t("wdg.draft")}</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">{classLabel(it)}</p>
