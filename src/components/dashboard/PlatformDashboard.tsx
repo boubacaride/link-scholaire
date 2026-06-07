@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 
 interface SchoolRow {
@@ -26,6 +27,7 @@ const STATUS_PILL: Record<string, string> = {
  *  subscriptions — never any school's internal members. */
 const PlatformDashboard = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const supabase = createClient();
 
   const [schools, setSchools] = useState<SchoolRow[]>([]);
@@ -61,28 +63,28 @@ const PlatformDashboard = () => {
     <div className="p-4 flex flex-col gap-6">
       {/* Welcome banner */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-1">Platform Console</h1>
+        <h1 className="text-2xl font-bold mb-1">{t("platform.consoleTitle")}</h1>
         <p className="text-indigo-100 text-sm">
-          Welcome, {user?.firstName || "Platform Admin"} · Manage your school tenants and their subscriptions
+          {t("platform.consoleSubtitle", { name: user?.firstName || "Platform Admin" })}
         </p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Schools</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t("platform.kpiSchools")}</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{loading ? "—" : stats.total}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Active</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t("platform.kpiActive")}</p>
           <p className="text-2xl font-bold text-green-600 mt-1">{loading ? "—" : stats.active}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">On Trial</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t("platform.kpiTrial")}</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">{loading ? "—" : stats.trial}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Suspended</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t("platform.kpiSuspended")}</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{loading ? "—" : stats.suspended}</p>
         </div>
       </div>
@@ -90,26 +92,26 @@ const PlatformDashboard = () => {
       {/* Quick actions */}
       <div className="flex flex-wrap gap-3">
         <Link href="/list/schools" className="bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
-          Manage Schools
+          {t("platform.manageSchools")}
         </Link>
         <Link href="/list/subscriptions" className="bg-white border text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-          Subscriptions
+          {t("platform.subscriptions")}
         </Link>
       </div>
 
       {/* Recent tenants */}
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Recent Schools</h2>
-          <Link href="/list/schools" className="text-xs text-blue-600 font-medium">View all</Link>
+          <h2 className="text-lg font-semibold">{t("platform.recentSchools")}</h2>
+          <Link href="/list/schools" className="text-xs text-blue-600 font-medium">{t("common.viewAll")}</Link>
         </div>
         {loading ? (
-          <div className="p-6 text-center text-gray-400 text-sm">Loading...</div>
+          <div className="p-6 text-center text-gray-400 text-sm">{t("common.loading")}</div>
         ) : tenantSchools.length === 0 ? (
           <div className="p-8 text-center">
             <div className="text-4xl mb-2">🏫</div>
-            <p className="text-gray-500 text-sm">No schools onboarded yet.</p>
-            <p className="text-gray-400 text-xs mt-1">Use “Manage Schools” to onboard your first tenant.</p>
+            <p className="text-gray-500 text-sm">{t("platform.noSchools")}</p>
+            <p className="text-gray-400 text-xs mt-1">{t("platform.noSchoolsHint")}</p>
           </div>
         ) : (
           <div className="divide-y">
@@ -121,12 +123,12 @@ const PlatformDashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-800">{s.name}</p>
-                    <p className="text-xs text-gray-400 capitalize">{s.type} · {s.subscription_plan || "no plan"}</p>
+                    <p className="text-xs text-gray-400 capitalize">{s.type} · {s.subscription_plan || t("platform.noPlan")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {s.access_suspended && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Locked</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">{t("platform.locked")}</span>
                   )}
                   <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${STATUS_PILL[s.subscription_status] || "bg-gray-100 text-gray-600"}`}>
                     {s.subscription_status}
