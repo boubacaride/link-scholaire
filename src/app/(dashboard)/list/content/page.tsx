@@ -6,6 +6,7 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
+import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
 
 type ContentRow = {
@@ -20,15 +21,6 @@ type ContentRow = {
   teacher: { first_name: string; last_name: string } | null;
 };
 
-const columns = [
-  { header: "Title", accessor: "title" },
-  { header: "Type", accessor: "type" },
-  { header: "Subject", accessor: "subject", className: "hidden md:table-cell" },
-  { header: "Class", accessor: "class", className: "hidden md:table-cell" },
-  { header: "Teacher", accessor: "teacher", className: "hidden lg:table-cell" },
-  { header: "Status", accessor: "status", className: "hidden lg:table-cell" },
-  { header: "Actions", accessor: "action" },
-];
 
 const typeColors: Record<string, string> = {
   lesson: "bg-blue-100 text-blue-700",
@@ -38,6 +30,16 @@ const typeColors: Record<string, string> = {
 };
 
 const ContentListPage = () => {
+  const { t } = useI18n();
+  const columns = [
+  { header: t("col.title"), accessor: "title" },
+  { header: t("col.type"), accessor: "type" },
+  { header: t("col.subject"), accessor: "subject", className: "hidden md:table-cell" },
+  { header: t("col.class"), accessor: "class", className: "hidden md:table-cell" },
+  { header: t("col.teacher"), accessor: "teacher", className: "hidden lg:table-cell" },
+  { header: t("col.status"), accessor: "status", className: "hidden lg:table-cell" },
+  { header: t("col.actions"), accessor: "action" },
+];
   const { user } = useAuth();
   const role = user?.role;
 
@@ -85,7 +87,7 @@ const ContentListPage = () => {
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Content</h1>
+        <h1 className="hidden md:block text-lg font-semibold">{t("titles.content")}</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">

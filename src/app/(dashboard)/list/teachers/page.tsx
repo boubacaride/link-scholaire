@@ -6,6 +6,7 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
+import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -21,16 +22,17 @@ type TeacherRow = {
   classes: { name: string }[];
 };
 
-const columns = [
-  { header: "Info", accessor: "info" },
-  { header: "Subjects", accessor: "subjects", className: "hidden md:table-cell" },
-  { header: "Classes", accessor: "classes", className: "hidden md:table-cell" },
-  { header: "Phone", accessor: "phone", className: "hidden lg:table-cell" },
-  { header: "Address", accessor: "address", className: "hidden lg:table-cell" },
-  { header: "Actions", accessor: "action" },
-];
 
 const TeacherListPage = () => {
+  const { t } = useI18n();
+  const columns = [
+  { header: t("col.info"), accessor: "info" },
+  { header: t("col.subjects"), accessor: "subjects", className: "hidden md:table-cell" },
+  { header: t("col.classes"), accessor: "classes", className: "hidden md:table-cell" },
+  { header: t("col.phone"), accessor: "phone", className: "hidden lg:table-cell" },
+  { header: t("col.address"), accessor: "address", className: "hidden lg:table-cell" },
+  { header: t("col.actions"), accessor: "action" },
+];
   const { user } = useAuth();
   const role = user?.role;
 
@@ -94,7 +96,7 @@ const TeacherListPage = () => {
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Teachers</h1>
+        <h1 className="hidden md:block text-lg font-semibold">{t("titles.teachers")}</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">

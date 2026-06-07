@@ -6,6 +6,7 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
+import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
 
 type EventRow = {
@@ -17,16 +18,17 @@ type EventRow = {
   class: { name: string } | null;
 };
 
-const columns = [
-  { header: "Title", accessor: "title" },
-  { header: "Class", accessor: "class" },
-  { header: "Date", accessor: "date", className: "hidden md:table-cell" },
-  { header: "Start", accessor: "start", className: "hidden md:table-cell" },
-  { header: "End", accessor: "end", className: "hidden md:table-cell" },
-  { header: "Actions", accessor: "action" },
-];
 
 const EventListPage = () => {
+  const { t } = useI18n();
+  const columns = [
+  { header: t("col.title"), accessor: "title" },
+  { header: t("col.class"), accessor: "class" },
+  { header: t("col.date"), accessor: "date", className: "hidden md:table-cell" },
+  { header: t("col.start"), accessor: "start", className: "hidden md:table-cell" },
+  { header: t("col.end"), accessor: "end", className: "hidden md:table-cell" },
+  { header: t("col.actions"), accessor: "action" },
+];
   const { user } = useAuth();
   const role = user?.role;
 
@@ -68,7 +70,7 @@ const EventListPage = () => {
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Events</h1>
+        <h1 className="hidden md:block text-lg font-semibold">{t("titles.events")}</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
