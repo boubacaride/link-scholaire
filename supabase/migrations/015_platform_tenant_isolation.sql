@@ -9,6 +9,21 @@
 -- the "Manage Admin" tools). The platform admin still sees all schools
 -- (migration 009 schools policies) and its own profile (base school policy).
 
+-- Defensive: ensure the helper exists even if migration 009 has not been run
+-- yet (so this migration can be applied standalone). Identical to 009.
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE user_id = auth.uid() AND role = 'platform_admin'
+  );
+$$;
+
 DROP POLICY IF EXISTS "Platform admin can view all profiles" ON public.profiles;
 
 CREATE POLICY "Platform admin can view school admins" ON public.profiles
