@@ -26,6 +26,7 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmSuspendId, setConfirmSuspendId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
@@ -91,10 +92,11 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
     setBusyId(null);
     if (rpcErr) { setError(rpcErr.message); return; }
     if (data?.error) { setError(data.error); return; }
+    setConfirmSuspendId(null);
     await load();
   };
 
-  const input = "mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200";
+  const input ="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200";
   const label = "text-[10px] text-gray-400 uppercase tracking-wide";
 
   return (
@@ -178,11 +180,26 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
                       </button>
                     </div>
                   </div>
+                ) : confirmSuspendId === a.id ? (
+                  <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                    <p className="text-xs text-amber-700 font-medium">Suspend the entire school?</p>
+                    <p className="text-[11px] text-amber-600 mt-0.5">All teachers, students and parents will be locked out of sign-in until you reactivate. The admin&apos;s data is kept.</p>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button onClick={() => setConfirmSuspendId(null)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button
+                        onClick={() => toggleActive(a)}
+                        disabled={busyId === a.id}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-40"
+                      >
+                        {busyId === a.id ? "Suspending..." : "Suspend school"}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex justify-end gap-2 mt-3">
                     <button onClick={() => startEdit(a)} className="text-xs px-3 py-1.5 rounded-lg border text-gray-600 hover:bg-gray-50">Edit</button>
                     <button
-                      onClick={() => toggleActive(a)}
+                      onClick={() => (a.is_active ? setConfirmSuspendId(a.id) : toggleActive(a))}
                       disabled={busyId === a.id}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 ${a.is_active ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
                     >
@@ -201,8 +218,8 @@ const SchoolAdminsModal = ({ schoolId, schoolName, onClose }: SchoolAdminsModalP
           )}
 
           <p className="text-[11px] text-gray-400 pt-1">
-            <span className="font-medium text-amber-600">Suspend</span> temporarily blocks sign-in (reversible — use while payment is pending).
-            {" "}<span className="font-medium text-red-600">Delete</span> permanently removes the login (use when a school refuses to pay).
+            <span className="font-medium text-amber-600">Suspend</span> locks the <span className="font-medium">entire school</span> out of sign-in — teachers, students and parents included (reversible; use while payment is pending).
+            {" "}<span className="font-medium text-red-600">Delete</span> permanently removes the admin login (use when a school refuses to pay).
           </p>
         </div>
       </div>

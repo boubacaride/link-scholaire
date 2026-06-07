@@ -102,6 +102,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: "Authentication is not configured. Please contact your administrator." };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+
+    // Verify the account can actually open a session. A suspended school or an
+    // inactive profile authenticates at the auth layer but has no app context,
+    // so reject it here with a clear message instead of a broken half-session.
+    const { data, error: ctxError } = await supabase.rpc("get_user_context");
+    if (ctxError || !data || data.error) {
+      await supabase.auth.signOut();
+      setUser(null);
+      setLoading(false);
+      const reason =
+        data?.error === "School access suspended"
+          ? "Your school's access has been suspended. Please contact the platform administrator."
+          : data?.error === "No active profile found"
+          ? "Your account is not active. Please contact your school administrator."
+          : data?.error || ctxError?.message || "Unable to sign in. Please contact your administrator.";
+      return { error: reason };
+    }
+
     await fetchUserContext();
     return {};
   };
