@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { UserRole } from "@/types";
 
@@ -62,8 +63,15 @@ function defaultAllowedRoles(role: UserRole | undefined): UserRole[] {
   }
 }
 
+const ROLE_TKEY: Record<UserRole, string> = {
+  platform_admin: "msg.rAdmin", school_admin: "msg.rAdmin",
+  teacher: "msg.rTeacher", student: "msg.rStudent", parent: "msg.rParent",
+};
+
 const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps) => {
   const { user } = useAuth();
+  const { t } = useI18n();
+  const roleLabel = (r: UserRole) => t(ROLE_TKEY[r]);
   const supabase = createClient();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -251,16 +259,16 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
       <div className={`w-full sm:w-72 border-r flex flex-col ${selectedId ? "hidden sm:flex" : "flex"}`}>
         <div className="p-3 border-b flex items-center justify-between gap-2">
           <div>
-            <h2 className="font-semibold text-sm">Messages</h2>
+            <h2 className="font-semibold text-sm">{t("msg.title")}</h2>
             {totalUnread > 0 && (
-              <span className="text-[11px] text-blue-600">{totalUnread} unread</span>
+              <span className="text-[11px] text-blue-600">{t("msg.unread", { n: totalUnread })}</span>
             )}
           </div>
           <button
             onClick={() => setShowDirectory((v) => !v)}
             className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-lg font-medium hover:bg-blue-100 transition-colors"
           >
-            {showDirectory ? "Back" : "+ New"}
+            {showDirectory ? t("msg.back") : t("msg.new")}
           </button>
         </div>
 
@@ -269,7 +277,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people..."
+              placeholder={t("msg.searchPeople")}
               className="w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </div>
@@ -277,10 +285,10 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-4 text-center text-gray-400 text-sm">Loading...</div>
+            <div className="p-4 text-center text-gray-400 text-sm">{t("common.loading")}</div>
           ) : showDirectory ? (
             filteredDirectory.length === 0 ? (
-              <p className="p-4 text-center text-gray-400 text-sm">No one to message yet.</p>
+              <p className="p-4 text-center text-gray-400 text-sm">{t("msg.noOne")}</p>
             ) : (
               filteredDirectory.map((c) => (
                 <button
@@ -296,7 +304,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
                       {c.first_name} {c.last_name}
                     </p>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[c.role]}`}>
-                      {ROLE_LABEL[c.role]}
+                      {roleLabel(c.role)}
                     </span>
                   </div>
                 </button>
@@ -305,8 +313,8 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
           ) : conversations.length === 0 ? (
             <div className="p-6 text-center">
               <div className="text-3xl mb-2">💬</div>
-              <p className="text-gray-500 text-sm">No conversations yet</p>
-              <p className="text-gray-400 text-xs mt-1">Tap “+ New” to start one.</p>
+              <p className="text-gray-500 text-sm">{t("msg.noConversations")}</p>
+              <p className="text-gray-400 text-xs mt-1">{t("msg.tapNew")}</p>
             </div>
           ) : (
             conversations.map((conv) => (
@@ -344,8 +352,8 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
         {!selectedContact ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
             <div className="text-4xl mb-3">📨</div>
-            <p className="text-gray-500 text-sm">Select a conversation</p>
-            <p className="text-gray-400 text-xs mt-1">Choose someone on the left to start chatting.</p>
+            <p className="text-gray-500 text-sm">{t("msg.selectConversation")}</p>
+            <p className="text-gray-400 text-xs mt-1">{t("msg.chooseSomeone")}</p>
           </div>
         ) : (
           <>
@@ -365,7 +373,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
                   {selectedContact.first_name} {selectedContact.last_name}
                 </p>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[selectedContact.role]}`}>
-                  {ROLE_LABEL[selectedContact.role]}
+                  {roleLabel(selectedContact.role)}
                 </span>
               </div>
             </div>
@@ -373,7 +381,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
             <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50/60">
               {thread.length === 0 ? (
                 <p className="text-center text-gray-400 text-sm mt-8">
-                  No messages yet. Say hello 👋
+                  {t("msg.sayHello")}
                 </p>
               ) : (
                 thread.map((m) => {
@@ -413,7 +421,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
                   }
                 }}
                 rows={1}
-                placeholder="Type a message..."
+                placeholder={t("msg.typeMessage")}
                 className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-200 max-h-28"
               />
               <button
@@ -421,7 +429,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
                 disabled={sending || !draft.trim()}
                 className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-40 hover:bg-blue-700 transition-colors"
               >
-                Send
+                {t("msg.send")}
               </button>
             </div>
           </>

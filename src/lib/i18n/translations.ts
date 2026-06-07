@@ -178,6 +178,15 @@ const en = {
       result: "result", event: "event", announcement: "announcement",
     },
   },
+  msg: {
+    title: "Messages", unread: "{n} unread", new: "+ New", back: "Back",
+    searchPeople: "Search people...", noOne: "No one to message yet.",
+    noConversations: "No conversations yet", tapNew: "Tap “+ New” to start one.",
+    selectConversation: "Select a conversation",
+    chooseSomeone: "Choose someone on the left to start chatting.",
+    typeMessage: "Type a message...", send: "Send", sayHello: "No messages yet. Say hello 👋",
+    rAdmin: "Admin", rTeacher: "Teacher", rStudent: "Student", rParent: "Parent",
+  },
   signIn: {
     brandTagline: "Manage Your School, All in One Place.",
     brandHighlight: "All in One Place.",
@@ -365,6 +374,15 @@ const fr: Dict = {
       result: "résultat", event: "événement", announcement: "annonce",
     },
   },
+  msg: {
+    title: "Messages", unread: "{n} non lus", new: "+ Nouveau", back: "Retour",
+    searchPeople: "Rechercher des personnes...", noOne: "Personne à contacter pour le moment.",
+    noConversations: "Aucune conversation", tapNew: "Appuyez sur « + Nouveau » pour en démarrer une.",
+    selectConversation: "Sélectionnez une conversation",
+    chooseSomeone: "Choisissez quelqu'un à gauche pour commencer à discuter.",
+    typeMessage: "Écrivez un message...", send: "Envoyer", sayHello: "Aucun message. Dites bonjour 👋",
+    rAdmin: "Admin", rTeacher: "Enseignant", rStudent: "Élève", rParent: "Parent",
+  },
   signIn: {
     brandTagline: "Gérez votre école, tout au même endroit.",
     brandHighlight: "Tout au même endroit.",
@@ -549,6 +567,15 @@ const ar: Dict = {
       class: "فصل", lesson: "درس", exam: "امتحان", assignment: "واجب",
       result: "نتيجة", event: "فعالية", announcement: "إعلان",
     },
+  },
+  msg: {
+    title: "الرسائل", unread: "{n} غير مقروءة", new: "+ جديد", back: "رجوع",
+    searchPeople: "ابحث عن أشخاص...", noOne: "لا أحد للمراسلة بعد.",
+    noConversations: "لا توجد محادثات", tapNew: "اضغط «+ جديد» لبدء محادثة.",
+    selectConversation: "اختر محادثة",
+    chooseSomeone: "اختر شخصًا من القائمة لبدء الدردشة.",
+    typeMessage: "اكتب رسالة...", send: "إرسال", sayHello: "لا رسائل بعد. ألقِ التحية 👋",
+    rAdmin: "مدير", rTeacher: "معلم", rStudent: "طالب", rParent: "ولي أمر",
   },
   signIn: {
     brandTagline: "أدِر مدرستك، كل شيء في مكان واحد.",
