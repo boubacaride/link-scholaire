@@ -262,6 +262,7 @@ const en = {
     subjectsHeading: "Subjects", workHeading: "Assignments & Work",
     missing: "Missing", submitted: "Submitted", gradedWork: "Graded",
     allCaughtUp: "Nothing missing — great work! 🎉", due: "Due {date}", noWorkYet: "No assignments yet.",
+    postFailed: "Couldn't post the grade.",
   },
 };
 
@@ -516,6 +517,7 @@ const fr: Dict = {
     subjectsHeading: "Matières", workHeading: "Devoirs et travaux",
     missing: "Manquants", submitted: "Rendus", gradedWork: "Corrigés",
     allCaughtUp: "Rien ne manque — bravo ! 🎉", due: "À rendre le {date}", noWorkYet: "Aucun devoir pour le moment.",
+    postFailed: "Impossible d'enregistrer la note.",
   },
 };
 
@@ -768,6 +770,7 @@ const ar: Dict = {
     subjectsHeading: "المواد", workHeading: "الواجبات والأعمال",
     missing: "مفقودة", submitted: "مُسلَّمة", gradedWork: "مُصحَّحة",
     allCaughtUp: "لا شيء مفقود — أحسنت! 🎉", due: "الاستحقاق {date}", noWorkYet: "لا توجد واجبات بعد.",
+    postFailed: "تعذّر حفظ الدرجة.",
   },
 };
 

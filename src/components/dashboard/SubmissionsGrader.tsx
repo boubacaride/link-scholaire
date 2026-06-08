@@ -23,6 +23,7 @@ interface ContentItem {
   due_date: string | null;
   max_score: number | null;
   class_id: string;
+  subject_id: string;
   subject_name: string;
   class_name: string;
   subs: Sub[];
@@ -50,6 +51,7 @@ const SubmissionsGrader = () => {
   const [showText, setShowText] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [errMsg, setErrMsg] = useState<Record<string, string>>({});
 
   const load = async () => {
     if (!supabase || !user?.profileId) { setLoading(false); return; }
@@ -57,7 +59,7 @@ const SubmissionsGrader = () => {
 
     const { data: content } = await supabase
       .from("content")
-      .select("id, title, type, due_date, max_score, class_id, subject:subject_id(name), class:class_id(name)")
+      .select("id, title, type, due_date, max_score, class_id, subject_id, subject:subject_id(name), class:class_id(name)")
       .eq("teacher_id", user.profileId)
       .in("type", ["assignment", "classwork"])
       .order("due_date", { ascending: false });
@@ -116,6 +118,7 @@ const SubmissionsGrader = () => {
         due_date: c.due_date,
         max_score: c.max_score,
         class_id: c.class_id,
+        subject_id: c.subject_id,
         subject_name: c.subject?.name || "",
         class_name: c.class?.name || "",
         subs,
@@ -130,32 +133,82 @@ const SubmissionsGrader = () => {
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user?.profileId]);
 
   const gradeSub = async (item: ContentItem, sub: Sub) => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     const raw = scoreDraft[sub.id] ?? (sub.score != null ? String(sub.score) : "");
     const score = parseFloat(raw);
     if (raw === "" || isNaN(score)) return;
     const feedback = (fbDraft[sub.id] ?? sub.feedback ?? "").trim() || null;
+    const maxScore = item.max_score || 100;
     setBusyId(sub.id);
-    const { data, error } = await supabase.rpc("grade_submission", {
-      p_submission_id: sub.id,
-      p_score: score,
-      p_max_score: item.max_score || 100,
-      p_feedback: feedback,
-      p_term: term,
-      p_exam_type: item.title,
-    });
-    setBusyId(null);
-    if (!error && data && (data as any).success) {
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id !== item.id
-            ? it
-            : { ...it, subs: it.subs.map((s) => (s.id !== sub.id ? s : { ...s, status: "graded", score: Math.round(score), feedback })) }
-        )
-      );
-      setDoneId(sub.id);
-      setTimeout(() => setDoneId((id) => (id === sub.id ? null : id)), 1600);
+    setErrMsg((p) => ({ ...p, [sub.id]: "" }));
+
+    // 1) Post the grade to the gradebook. Teachers already have an INSERT
+    //    policy on `grades`, so this works without any new migration.
+    //    Dedup by natural key (student + class + subject + assignment + term)
+    //    so re-grading updates the same row instead of duplicating it.
+    const { data: existing } = await supabase
+      .from("grades")
+      .select("id")
+      .eq("student_id", sub.student_id)
+      .eq("class_id", item.class_id)
+      .eq("subject_id", item.subject_id)
+      .eq("exam_type", item.title)
+      .eq("term", term)
+      .limit(1)
+      .maybeSingle();
+
+    let gradeErr: { message?: string } | null = null;
+    if (existing?.id) {
+      const { error } = await supabase
+        .from("grades")
+        .update({ score, max_score: maxScore, recorded_by: user.profileId })
+        .eq("id", existing.id);
+      gradeErr = error;
+    } else {
+      const { error } = await supabase.from("grades").insert({
+        school_id: user.schoolId,
+        student_id: sub.student_id,
+        class_id: item.class_id,
+        subject_id: item.subject_id,
+        exam_type: item.title,
+        score,
+        max_score: maxScore,
+        term,
+        recorded_by: user.profileId,
+      });
+      gradeErr = error;
     }
+
+    if (gradeErr) {
+      setBusyId(null);
+      setErrMsg((p) => ({ ...p, [sub.id]: `${t("grade.postFailed")} ${gradeErr?.message || ""}`.trim() }));
+      return;
+    }
+
+    // 2) Best-effort: mark the submission graded (needs migration 017's teacher
+    //    UPDATE policy). If it's not applied yet the grade is still posted —
+    //    we just won't flip the submission status on the server.
+    await supabase
+      .from("submissions")
+      .update({
+        status: "graded",
+        score: Math.round(score),
+        feedback,
+        graded_at: new Date().toISOString(),
+        graded_by: user.profileId,
+      })
+      .eq("id", sub.id);
+
+    setBusyId(null);
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id !== item.id
+          ? it
+          : { ...it, subs: it.subs.map((s) => (s.id !== sub.id ? s : { ...s, status: "graded", score: Math.round(score), feedback })) }
+      )
+    );
+    setDoneId(sub.id);
+    setTimeout(() => setDoneId((id) => (id === sub.id ? null : id)), 1600);
   };
 
   const totals = useMemo(() => {
@@ -313,6 +366,9 @@ const SubmissionsGrader = () => {
                               {doneId === sub.id ? t("grade.posted") : busyId === sub.id ? t("grade.posting") : graded ? t("grade.regrade") : t("grade.gradePost")}
                             </button>
                           </div>
+                          {errMsg[sub.id] && (
+                            <p className="mt-1.5 text-[11px] text-red-600 bg-red-50 rounded px-2 py-1">{errMsg[sub.id]}</p>
+                          )}
                         </div>
                       );
                     })
