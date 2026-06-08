@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { roleHome } from "@/lib/roleHome";
 
 export default function Homepage() {
   const router = useRouter();
@@ -16,24 +17,8 @@ export default function Homepage() {
       return;
     }
 
-    // Redirect to role-appropriate dashboard
-    switch (user.role) {
-      case "platform_admin":
-      case "school_admin":
-        router.push("/admin");
-        break;
-      case "teacher":
-        router.push("/teacher");
-        break;
-      case "student":
-        router.push("/student");
-        break;
-      case "parent":
-        router.push("/parent");
-        break;
-      default:
-        router.push("/sign-in");
-    }
+    // Redirect to the role-appropriate dashboard
+    router.push(roleHome(user.role));
   }, [user, loading, router]);
 
   return (

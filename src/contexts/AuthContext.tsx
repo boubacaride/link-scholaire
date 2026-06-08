@@ -21,7 +21,7 @@ interface UserContext {
 interface AuthContextType {
   user: UserContext | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error?: string; role?: UserRole }>;
   signOut: () => Promise<void>;
 }
 
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchUserContext();
-    return {};
+    return { role: data.role as UserRole };
   };
 
   const signOut = async () => {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Announcements from "@/components/Announcements";
 import AttendanceChart from "@/components/AttendanceChart";
 import CountChart from "@/components/CountChart";
@@ -9,10 +11,23 @@ import UserCard from "@/components/UserCard";
 import PlatformDashboard from "@/components/dashboard/PlatformDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
+import { roleHome } from "@/lib/roleHome";
 
 const AdminPage = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { t, locale } = useI18n();
+  const router = useRouter();
+
+  // This dashboard is the SCHOOL ADMINISTRATION landing page only. Teachers,
+  // students and parents who reach it (e.g. via a stale link) are sent home.
+  const isAdmin = user?.role === "school_admin" || user?.role === "platform_admin";
+  useEffect(() => {
+    if (!loading && user && !isAdmin) {
+      router.replace(roleHome(user.role));
+    }
+  }, [loading, user, isAdmin, router]);
+
+  if (!loading && user && !isAdmin) return null;
 
   // Platform admins manage tenants only — never a school's internal data.
   if (user?.role === "platform_admin") {

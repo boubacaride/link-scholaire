@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { roleHome } from "@/lib/roleHome";
 import { useI18n } from "@/contexts/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import Image from "next/image";
@@ -26,7 +27,7 @@ export default function SignInPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push("/admin");
+      router.push(roleHome(result.role));
     }
   };
 
@@ -40,7 +41,7 @@ export default function SignInPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push("/admin");
+      router.push(roleHome(result.role));
     }
   };
 
