@@ -10,20 +10,14 @@ interface ChildMonitorProps {
   studentName: string;
 }
 
-interface Grade { id: string; subject_name: string; score: number; max_score: number; exam_type: string; term: string; created_at: string; }
+interface Grade { id: string; subject_name: string; score: number; max_score: number; exam_type: string; term: string; remarks: string | null; created_at: string; }
 interface Att { id: string; date: string; status: string; }
 interface Upcoming { id: string; title: string; due_date: string | null; type: string; subject_name: string; submitted: boolean; }
 
-interface Alert { kind: "missing" | "attendance" | "grade"; title: string; detail: string; }
-
-const ALERT_STYLES: Record<Alert["kind"], { box: string; title: string; detail: string }> = {
-  missing: { box: "bg-red-50 border-red-100", title: "text-red-700", detail: "text-red-500" },
-  attendance: { box: "bg-orange-50 border-orange-100", title: "text-orange-700", detail: "text-orange-500" },
-  grade: { box: "bg-yellow-50 border-yellow-100", title: "text-yellow-700", detail: "text-yellow-600" },
-};
-
-/** Read-only academic snapshot of a single child for the parent dashboard:
- *  grades, attendance, upcoming work, and derived alerts. */
+/** Read-only academic portal for a single child, modelled on the ProgressBook
+ *  ParentAccess dashboard: a summary strip, alerts, then discrete panels for
+ *  Grades & coursework, Daily Attendance, Homework (due soon) and Teacher
+ *  comments. Data loading is RLS-safe (parent reads via is_parent_of). */
 const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
   const supabase = createClient();
   const { t } = useI18n();
@@ -39,19 +33,19 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       if (!supabase || !studentId) { setLoading(false); return; }
       setLoading(true);
 
-      // Grades
+      // Grades (with teacher remarks for the "Comments" panel)
       const { data: gradeData } = await supabase
         .from("grades")
-        .select("id, subject_id, score, max_score, exam_type, term, created_at, subject:subject_id(name)")
+        .select("id, subject_id, score, max_score, exam_type, term, remarks, created_at, subject:subject_id(name)")
         .eq("student_id", studentId)
         .order("created_at", { ascending: false });
       setGrades((gradeData || []).map((g: any) => ({
         id: g.id, subject_name: g.subject?.name || "", score: g.score, max_score: g.max_score,
-        exam_type: g.exam_type || "", term: g.term || "", created_at: g.created_at,
+        exam_type: g.exam_type || "", term: g.term || "", remarks: g.remarks || null, created_at: g.created_at,
       })));
 
-      // Which assignments already have a posted grade (matched by title +
-      // subject) — these are done, so they must not count as missing/upcoming.
+      // Which assignments already have a posted grade (matched by subject +
+      // title) — these are done, so they must not count as missing/upcoming.
       const gKey = (subjectId: string, examType: string) =>
         `${subjectId}|::|${(examType || "").trim().toLowerCase()}`;
       const gradedKeys = new Set<string>(
@@ -99,10 +93,8 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
           subject_name: c.subject?.name || "",
           submitted: submittedSet.has(c.id) || gradedKeys.has(gKey(c.subject_id, c.title)),
         }));
-        // missing = past due & not submitted
         setMissingCount(up.filter((u) => u.due_date && new Date(u.due_date).getTime() < now && !u.submitted).length);
-        // upcoming = due in the future & not submitted
-        setUpcoming(up.filter((u) => u.due_date && new Date(u.due_date).getTime() >= now && !u.submitted).slice(0, 6));
+        setUpcoming(up.filter((u) => u.due_date && new Date(u.due_date).getTime() >= now && !u.submitted));
       } else {
         setUpcoming([]); setMissingCount(0);
       }
@@ -116,142 +108,328 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
     ? grades.reduce((s, g) => s + (g.score / g.max_score) * 100, 0) / grades.length
     : null, [grades]);
 
-  const attRate = useMemo(() => {
-    if (attendance.length === 0) return null;
-    const present = attendance.filter((a) => a.status === "present" || a.status === "late").length;
-    return (present / attendance.length) * 100;
+  const attStats = useMemo(() => {
+    const present = attendance.filter((a) => a.status === "present").length;
+    const tardies = attendance.filter((a) => a.status === "late").length;
+    const absences = attendance.filter((a) => a.status === "absent").length;
+    const excused = attendance.filter((a) => a.status === "excused").length;
+    const total = attendance.length;
+    const rate = total ? ((present + tardies) / total) * 100 : null;
+    return { present, tardies, absences, excused, total, rate };
   }, [attendance]);
 
-  const recentAbsences = useMemo(
-    () => attendance.filter((a) => a.status === "absent").slice(0, 3),
+  const recentAbsence = useMemo(
+    () => attendance.find((a) => a.status === "absent") || null,
     [attendance]
   );
 
-  const alerts = useMemo<Alert[]>(() => {
-    const list: Alert[] = [];
-    if (missingCount > 0) {
-      list.push({ kind: "missing", title: "Missing work", detail: `${missingCount} assignment${missingCount !== 1 ? "s" : ""} past due and not submitted` });
-    }
-    recentAbsences.forEach((a) => {
-      list.push({ kind: "attendance", title: "Absence recorded", detail: `Marked absent on ${new Date(a.date).toLocaleDateString()}` });
+  // Homework grouped by subject, with a per-subject count (ProgressBook style).
+  const homeworkBySubject = useMemo(() => {
+    const m = new Map<string, Upcoming[]>();
+    upcoming.forEach((u) => {
+      const arr = m.get(u.subject_name) || [];
+      arr.push(u);
+      m.set(u.subject_name, arr);
     });
-    if (avg !== null && avg < 50) {
-      list.push({ kind: "grade", title: "Grades need attention", detail: `Current average is ${avg.toFixed(0)}%` });
-    }
-    return list;
-  }, [missingCount, recentAbsences, avg]);
+    return Array.from(m.entries())
+      .map(([subject, items]) => ({ subject: subject || "—", items }))
+      .sort((a, b) => b.items.length - a.items.length);
+  }, [upcoming]);
 
-  if (loading) return <div className="p-6 text-center text-gray-400 text-sm">Loading {studentName}&apos;s records...</div>;
+  const comments = useMemo(
+    () => grades.filter((g) => g.remarks && g.remarks.trim()).slice(0, 5),
+    [grades]
+  );
+
+  const dueSoon = (d: string | null) =>
+    d != null && new Date(d).getTime() - Date.now() < 3 * 86400000;
+
+  if (loading) {
+    return (
+      <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-400">
+        <div className="w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm">Loading {studentName}&apos;s records…</p>
+      </div>
+    );
+  }
+
+  const gradeColor = (pct: number) =>
+    pct >= 80 ? "text-green-600" : pct >= 60 ? "text-blue-600" : pct >= 50 ? "text-orange-600" : "text-red-600";
 
   return (
     <div className="space-y-5">
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-green-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-green-500 uppercase tracking-wide">{t("wdg.avgGrade")}</p>
-          <p className="text-xl font-bold text-green-700">{avg === null ? "—" : `${avg.toFixed(0)}%`}</p>
-        </div>
-        <div className="bg-blue-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-blue-500 uppercase tracking-wide">{t("wdg.attendance")}</p>
-          <p className="text-xl font-bold text-blue-700">{attRate === null ? "—" : `${attRate.toFixed(0)}%`}</p>
-        </div>
-        <div className="bg-orange-50 rounded-xl p-3 text-center">
-          <p className="text-[10px] text-orange-500 uppercase tracking-wide">{t("wdg.upcoming")}</p>
-          <p className="text-xl font-bold text-orange-700">{upcoming.length}</p>
-        </div>
+      {/* ── Summary strip ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <SummaryStat
+          label={t("wdg.avgGrade")}
+          value={avg === null ? "—" : `${avg.toFixed(0)}%`}
+          accent="emerald"
+          icon="🎯"
+          valueClass={avg === null ? "text-gray-400" : gradeColor(avg)}
+        />
+        <SummaryStat
+          label={t("wdg.attendance")}
+          value={attStats.rate === null ? "—" : `${attStats.rate.toFixed(0)}%`}
+          accent="sky"
+          icon="📅"
+        />
+        <SummaryStat
+          label="Missing"
+          value={String(missingCount)}
+          accent={missingCount > 0 ? "red" : "slate"}
+          icon="⚠️"
+          valueClass={missingCount > 0 ? "text-red-600" : "text-gray-700"}
+        />
+        <SummaryStat
+          label="Due soon"
+          value={String(upcoming.length)}
+          accent="amber"
+          icon="📝"
+        />
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
+      {/* ── Alerts ────────────────────────────────────────────────────── */}
+      {(missingCount > 0 || recentAbsence || (avg !== null && avg < 50)) && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-gray-700">{t("wdg.alerts")}</h3>
-          {alerts.map((a, i) => {
-            const cls = ALERT_STYLES[a.kind];
-            return (
-              <div key={i} className={`p-3 rounded-lg border ${cls.box}`}>
-                <p className={`text-sm font-medium ${cls.title}`}>{a.title}</p>
-                <p className={`text-xs ${cls.detail} mt-0.5`}>{a.detail}</p>
-              </div>
-            );
-          })}
+          {missingCount > 0 && (
+            <AlertRow
+              tone="red"
+              title="Missing work"
+              detail={`${missingCount} assignment${missingCount !== 1 ? "s" : ""} past due and not submitted`}
+            />
+          )}
+          {recentAbsence && (
+            <AlertRow
+              tone="orange"
+              title="Absence recorded"
+              detail={`Marked absent on ${new Date(recentAbsence.date).toLocaleDateString()}`}
+            />
+          )}
+          {avg !== null && avg < 50 && (
+            <AlertRow
+              tone="yellow"
+              title="Grades need attention"
+              detail={`Current average is ${avg.toFixed(0)}%`}
+            />
+          )}
         </div>
       )}
 
-      {/* Subject progress */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.subjectProgress")}</h3>
-        <ProgressTracker studentId={studentId} />
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Grades & coursework ─────────────────────────────────────── */}
+        <Panel title="Grades & coursework" icon="📊" accent="indigo" className="lg:row-span-2">
+          <ProgressTracker studentId={studentId} />
+        </Panel>
 
-      {/* Upcoming assignments */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.upcomingAssignments")}</h3>
-        {upcoming.length === 0 ? (
-          <p className="text-xs text-gray-400">Nothing due soon. 🎉</p>
-        ) : (
-          <div className="space-y-2">
-            {upcoming.map((u) => (
-              <div key={u.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{u.title}</p>
-                  <p className="text-xs text-gray-400">{u.subject_name}</p>
+        {/* ── Daily attendance ────────────────────────────────────────── */}
+        <Panel title="Daily attendance" icon="📅" accent="sky">
+          {attStats.total === 0 ? (
+            <EmptyHint text={t("wdg.noAttendance")} />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <AttendanceRing rate={attStats.rate ?? 0} />
+                <div className="grid grid-cols-2 gap-2 flex-1">
+                  <MiniStat label="Absences" value={attStats.absences} tone="red" />
+                  <MiniStat label="Tardies" value={attStats.tardies} tone="amber" />
+                  <MiniStat label="Present" value={attStats.present} tone="green" />
+                  <MiniStat label="Excused" value={attStats.excused} tone="sky" />
                 </div>
-                {u.due_date && (
-                  <span className="text-[11px] text-orange-600 font-medium shrink-0">
-                    Due {new Date(u.due_date).toLocaleDateString()}
-                  </span>
-                )}
               </div>
-            ))}
-          </div>
-        )}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{t("wdg.recentAttendance")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {attendance.slice(0, 12).map((a) => (
+                    <span key={a.id} className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
+                      a.status === "present" ? "bg-green-50 text-green-700" :
+                      a.status === "late" ? "bg-amber-50 text-amber-700" :
+                      a.status === "excused" ? "bg-sky-50 text-sky-700" :
+                      "bg-red-50 text-red-700"
+                    }`}>
+                      {new Date(a.date).toLocaleDateString([], { month: "short", day: "numeric" })} · {a.status}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </Panel>
+
+        {/* ── Homework / due soon ─────────────────────────────────────── */}
+        <Panel title="Homework — due soon" icon="📝" accent="amber">
+          {homeworkBySubject.length === 0 ? (
+            <EmptyHint text="Nothing due soon. 🎉" />
+          ) : (
+            <div className="space-y-3">
+              {homeworkBySubject.map((group) => (
+                <div key={group.subject}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
+                      {group.items.length}
+                    </span>
+                    <span className="text-sm font-medium text-gray-700">{group.subject}</span>
+                  </div>
+                  <div className="space-y-1.5 ml-1">
+                    {group.items.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
+                        <p className="text-sm text-gray-800 truncate">{u.title}</p>
+                        {u.due_date && (
+                          <span className={`text-[11px] font-medium shrink-0 ${dueSoon(u.due_date) ? "text-red-600" : "text-gray-500"}`}>
+                            {dueSoon(u.due_date) ? "Due " : ""}{new Date(u.due_date).toLocaleDateString([], { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
       </div>
 
-      {/* Recent grades */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.recentGrades")}</h3>
+      {/* ── Grade details (recent activity) ───────────────────────────── */}
+      <Panel title="Grade details" icon="🎓" accent="emerald">
         {grades.length === 0 ? (
-          <p className="text-xs text-gray-400">{t("wdg.noGrades")}</p>
+          <EmptyHint text={t("wdg.noGrades")} />
         ) : (
-          <div className="space-y-1.5">
-            {grades.slice(0, 6).map((g) => {
+          <div className="divide-y divide-gray-100">
+            {grades.slice(0, 8).map((g) => {
               const pct = (g.score / g.max_score) * 100;
               return (
-                <div key={g.id} className="flex items-center justify-between text-sm border rounded-lg px-3 py-2">
-                  <span className="text-gray-700">{g.subject_name}</span>
-                  <span className="text-xs text-gray-400">{g.exam_type}{g.term ? ` • ${g.term}` : ""}</span>
-                  <span className={`font-semibold ${pct >= 70 ? "text-green-600" : pct >= 50 ? "text-orange-600" : "text-red-600"}`}>
-                    {g.score}/{g.max_score}
-                  </span>
+                <div key={g.id} className="flex items-center gap-3 py-2.5">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] shrink-0 ${
+                    pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : pct >= 50 ? "bg-orange-500" : "bg-red-500"
+                  }`}>{Math.round(pct)}%</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-800 truncate">{g.subject_name}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {g.exam_type}{g.term ? ` • ${g.term}` : ""}
+                      {g.created_at ? ` • ${new Date(g.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-bold shrink-0 ${gradeColor(pct)}`}>{g.score}/{g.max_score}</span>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </Panel>
 
-      {/* Recent attendance */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("wdg.recentAttendance")}</h3>
-        {attendance.length === 0 ? (
-          <p className="text-xs text-gray-400">{t("wdg.noAttendance")}</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {attendance.slice(0, 10).map((a) => (
-              <div key={a.id} className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
-                a.status === "present" ? "bg-green-100 text-green-700" :
-                a.status === "late" ? "bg-yellow-100 text-yellow-700" :
-                a.status === "excused" ? "bg-blue-100 text-blue-700" :
-                "bg-red-100 text-red-700"
-              }`}>
-                {new Date(a.date).toLocaleDateString([], { month: "short", day: "numeric" })} · {a.status}
+      {/* ── Teacher comments ──────────────────────────────────────────── */}
+      {comments.length > 0 && (
+        <Panel title="Teacher comments" icon="💬" accent="purple">
+          <div className="space-y-2.5">
+            {comments.map((g) => (
+              <div key={g.id} className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold shrink-0">
+                  {(g.subject_name[0] || "?").toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1 bg-purple-50/60 border border-purple-100 rounded-xl rounded-tl-none px-3 py-2">
+                  <p className="text-[11px] font-semibold text-purple-700">
+                    {g.subject_name}
+                    <span className="font-normal text-purple-400"> · {g.exam_type}</span>
+                  </p>
+                  <p className="text-sm text-gray-700 mt-0.5">{g.remarks}</p>
+                </div>
               </div>
             ))}
           </div>
-        )}
+        </Panel>
+      )}
+    </div>
+  );
+};
+
+/* ── Presentational helpers ──────────────────────────────────────────── */
+
+const ACCENTS: Record<string, { chip: string; bar: string }> = {
+  indigo: { chip: "bg-indigo-100 text-indigo-600", bar: "from-indigo-500 to-indigo-400" },
+  sky: { chip: "bg-sky-100 text-sky-600", bar: "from-sky-500 to-sky-400" },
+  amber: { chip: "bg-amber-100 text-amber-600", bar: "from-amber-500 to-amber-400" },
+  emerald: { chip: "bg-emerald-100 text-emerald-600", bar: "from-emerald-500 to-emerald-400" },
+  purple: { chip: "bg-purple-100 text-purple-600", bar: "from-purple-500 to-purple-400" },
+};
+
+const Panel = ({ title, icon, accent, children, className = "" }: {
+  title: string; icon: string; accent: keyof typeof ACCENTS; children: React.ReactNode; className?: string;
+}) => (
+  <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
+    <div className={`h-1 bg-gradient-to-r ${ACCENTS[accent].bar}`} />
+    <div className="px-4 py-3 flex items-center gap-2 border-b border-gray-50">
+      <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${ACCENTS[accent].chip}`}>{icon}</span>
+      <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+    </div>
+    <div className="p-4">{children}</div>
+  </div>
+);
+
+const SUMMARY_ACCENTS: Record<string, string> = {
+  emerald: "bg-emerald-50", sky: "bg-sky-50", amber: "bg-amber-50", red: "bg-red-50", slate: "bg-slate-50",
+};
+
+const SummaryStat = ({ label, value, accent, icon, valueClass = "text-gray-800" }: {
+  label: string; value: string; accent: string; icon: string; valueClass?: string;
+}) => (
+  <div className={`rounded-2xl p-3.5 ${SUMMARY_ACCENTS[accent]} border border-black/[0.03]`}>
+    <div className="flex items-center justify-between">
+      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
+      <span className="text-sm opacity-70">{icon}</span>
+    </div>
+    <p className={`text-2xl font-bold mt-1 ${valueClass}`}>{value}</p>
+  </div>
+);
+
+const MINI_TONES: Record<string, string> = {
+  red: "text-red-600", amber: "text-amber-600", green: "text-green-600", sky: "text-sky-600",
+};
+
+const MiniStat = ({ label, value, tone }: { label: string; value: number; tone: keyof typeof MINI_TONES }) => (
+  <div className="bg-gray-50 rounded-lg px-2.5 py-1.5">
+    <p className={`text-lg font-bold leading-none ${MINI_TONES[tone]}`}>{value}</p>
+    <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
+  </div>
+);
+
+const AttendanceRing = ({ rate }: { rate: number }) => {
+  const r = 26, c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, rate));
+  const color = pct >= 90 ? "#10b981" : pct >= 75 ? "#0ea5e9" : "#f59e0b";
+  return (
+    <div className="relative w-[68px] h-[68px] shrink-0">
+      <svg width="68" height="68" className="-rotate-90">
+        <circle cx="34" cy="34" r={r} fill="none" stroke="#f1f5f9" strokeWidth="7" />
+        <circle cx="34" cy="34" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c - (pct / 100) * c} />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-sm font-bold text-gray-700">{pct.toFixed(0)}%</span>
       </div>
     </div>
   );
 };
+
+const ALERT_TONES: Record<string, { box: string; title: string; detail: string; dot: string }> = {
+  red: { box: "bg-red-50 border-red-100", title: "text-red-700", detail: "text-red-500", dot: "bg-red-500" },
+  orange: { box: "bg-orange-50 border-orange-100", title: "text-orange-700", detail: "text-orange-500", dot: "bg-orange-500" },
+  yellow: { box: "bg-yellow-50 border-yellow-100", title: "text-yellow-700", detail: "text-yellow-600", dot: "bg-yellow-500" },
+};
+
+const AlertRow = ({ tone, title, detail }: { tone: keyof typeof ALERT_TONES; title: string; detail: string }) => {
+  const s = ALERT_TONES[tone];
+  return (
+    <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${s.box}`}>
+      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${s.dot}`} />
+      <div>
+        <p className={`text-sm font-medium ${s.title}`}>{title}</p>
+        <p className={`text-xs ${s.detail} mt-0.5`}>{detail}</p>
+      </div>
+    </div>
+  );
+};
+
+const EmptyHint = ({ text }: { text: string }) => (
+  <p className="text-xs text-gray-400 py-2">{text}</p>
+);
 
 export default ChildMonitor;

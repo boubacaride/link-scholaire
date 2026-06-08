@@ -129,15 +129,18 @@ const ParentPage = () => {
 
                 {selectedStudent && (
                   <div className="p-4">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-xl font-bold">
+                    <div className="flex items-center gap-4 mb-5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 rounded-2xl p-4">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-xl font-bold shadow-sm">
                         {selectedStudent.first_name[0]}{selectedStudent.last_name[0]}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-lg text-gray-800">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-lg text-gray-800 truncate">
                           {selectedStudent.first_name} {selectedStudent.last_name}
                         </h3>
-                        {selectedStudent.email && <p className="text-xs text-gray-400">{selectedStudent.email}</p>}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">Student</span>
+                          {selectedStudent.email && <p className="text-xs text-gray-400 truncate">{selectedStudent.email}</p>}
+                        </div>
                       </div>
                     </div>
                     <ChildMonitor
