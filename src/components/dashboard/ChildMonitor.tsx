@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/contexts/LanguageContext";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
+import {
+  Panel, SummaryStat, MiniStat, AttendanceRing, AlertRow, EmptyHint, gradeColor,
+} from "@/components/dashboard/PortalUI";
 
 interface ChildMonitorProps {
   studentId: string;
@@ -152,9 +155,6 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       </div>
     );
   }
-
-  const gradeColor = (pct: number) =>
-    pct >= 80 ? "text-green-600" : pct >= 60 ? "text-blue-600" : pct >= 50 ? "text-orange-600" : "text-red-600";
 
   return (
     <div className="space-y-5">
@@ -340,96 +340,5 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
     </div>
   );
 };
-
-/* ── Presentational helpers ──────────────────────────────────────────── */
-
-const ACCENTS: Record<string, { chip: string; bar: string }> = {
-  indigo: { chip: "bg-indigo-100 text-indigo-600", bar: "from-indigo-500 to-indigo-400" },
-  sky: { chip: "bg-sky-100 text-sky-600", bar: "from-sky-500 to-sky-400" },
-  amber: { chip: "bg-amber-100 text-amber-600", bar: "from-amber-500 to-amber-400" },
-  emerald: { chip: "bg-emerald-100 text-emerald-600", bar: "from-emerald-500 to-emerald-400" },
-  purple: { chip: "bg-purple-100 text-purple-600", bar: "from-purple-500 to-purple-400" },
-};
-
-const Panel = ({ title, icon, accent, children, className = "" }: {
-  title: string; icon: string; accent: keyof typeof ACCENTS; children: React.ReactNode; className?: string;
-}) => (
-  <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
-    <div className={`h-1 bg-gradient-to-r ${ACCENTS[accent].bar}`} />
-    <div className="px-4 py-3 flex items-center gap-2 border-b border-gray-50">
-      <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${ACCENTS[accent].chip}`}>{icon}</span>
-      <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
-    </div>
-    <div className="p-4">{children}</div>
-  </div>
-);
-
-const SUMMARY_ACCENTS: Record<string, string> = {
-  emerald: "bg-emerald-50", sky: "bg-sky-50", amber: "bg-amber-50", red: "bg-red-50", slate: "bg-slate-50",
-};
-
-const SummaryStat = ({ label, value, accent, icon, valueClass = "text-gray-800" }: {
-  label: string; value: string; accent: string; icon: string; valueClass?: string;
-}) => (
-  <div className={`rounded-2xl p-3.5 ${SUMMARY_ACCENTS[accent]} border border-black/[0.03]`}>
-    <div className="flex items-center justify-between">
-      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
-      <span className="text-sm opacity-70">{icon}</span>
-    </div>
-    <p className={`text-2xl font-bold mt-1 ${valueClass}`}>{value}</p>
-  </div>
-);
-
-const MINI_TONES: Record<string, string> = {
-  red: "text-red-600", amber: "text-amber-600", green: "text-green-600", sky: "text-sky-600",
-};
-
-const MiniStat = ({ label, value, tone }: { label: string; value: number; tone: keyof typeof MINI_TONES }) => (
-  <div className="bg-gray-50 rounded-lg px-2.5 py-1.5">
-    <p className={`text-lg font-bold leading-none ${MINI_TONES[tone]}`}>{value}</p>
-    <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
-  </div>
-);
-
-const AttendanceRing = ({ rate }: { rate: number }) => {
-  const r = 26, c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, rate));
-  const color = pct >= 90 ? "#10b981" : pct >= 75 ? "#0ea5e9" : "#f59e0b";
-  return (
-    <div className="relative w-[68px] h-[68px] shrink-0">
-      <svg width="68" height="68" className="-rotate-90">
-        <circle cx="34" cy="34" r={r} fill="none" stroke="#f1f5f9" strokeWidth="7" />
-        <circle cx="34" cy="34" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c - (pct / 100) * c} />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold text-gray-700">{pct.toFixed(0)}%</span>
-      </div>
-    </div>
-  );
-};
-
-const ALERT_TONES: Record<string, { box: string; title: string; detail: string; dot: string }> = {
-  red: { box: "bg-red-50 border-red-100", title: "text-red-700", detail: "text-red-500", dot: "bg-red-500" },
-  orange: { box: "bg-orange-50 border-orange-100", title: "text-orange-700", detail: "text-orange-500", dot: "bg-orange-500" },
-  yellow: { box: "bg-yellow-50 border-yellow-100", title: "text-yellow-700", detail: "text-yellow-600", dot: "bg-yellow-500" },
-};
-
-const AlertRow = ({ tone, title, detail }: { tone: keyof typeof ALERT_TONES; title: string; detail: string }) => {
-  const s = ALERT_TONES[tone];
-  return (
-    <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${s.box}`}>
-      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${s.dot}`} />
-      <div>
-        <p className={`text-sm font-medium ${s.title}`}>{title}</p>
-        <p className={`text-xs ${s.detail} mt-0.5`}>{detail}</p>
-      </div>
-    </div>
-  );
-};
-
-const EmptyHint = ({ text }: { text: string }) => (
-  <p className="text-xs text-gray-400 py-2">{text}</p>
-);
 
 export default ChildMonitor;

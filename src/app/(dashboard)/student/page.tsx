@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Announcements from "@/components/Announcements";
 import BigCalendar from "@/components/BigCalender";
 import EventCalendar from "@/components/EventCalendar";
@@ -8,6 +8,7 @@ import Performance from "@/components/Performance";
 import Messaging from "@/components/Messaging";
 import StudentAssignments from "@/components/dashboard/StudentAssignments";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
+import { Panel, SummaryStat, MiniStat, AttendanceRing, EmptyHint, gradeColor, gradeBg } from "@/components/dashboard/PortalUI";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +18,8 @@ interface EnrolledClass {
   class_name: string;
   class_grade: string;
 }
+
+interface Att { id: string; date: string; status: string; }
 
 interface Grade {
   id: string;
@@ -47,6 +50,7 @@ const StudentPage = () => {
   const [enrolledClass, setEnrolledClass] = useState<EnrolledClass | null>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [attendance, setAttendance] = useState<Att[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,6 +92,14 @@ const StudentPage = () => {
           })));
         }
 
+        // Attendance (for the Daily attendance panel)
+        const { data: attData } = await supabase
+          .from("attendance")
+          .select("id, date, status")
+          .eq("student_id", user.profileId)
+          .order("date", { ascending: false });
+        setAttendance((attData as Att[]) || []);
+
         // Count outstanding assignments across enrolled classes
         const { data: classes } = await supabase
           .from("student_classes")
@@ -128,6 +140,16 @@ const StudentPage = () => {
     ? (grades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / grades.length).toFixed(1)
     : null;
 
+  const attStats = useMemo(() => {
+    const present = attendance.filter((a) => a.status === "present").length;
+    const tardies = attendance.filter((a) => a.status === "late").length;
+    const absences = attendance.filter((a) => a.status === "absent").length;
+    const excused = attendance.filter((a) => a.status === "excused").length;
+    const total = attendance.length;
+    const rate = total ? ((present + tardies) / total) * 100 : null;
+    return { present, tardies, absences, excused, total, rate };
+  }, [attendance]);
+
   return (
     <div className="p-4 flex flex-col gap-4">
       {/* Welcome banner */}
@@ -156,119 +178,152 @@ const StudentPage = () => {
       </div>
 
       {tab === "overview" && (
-        <div className="flex gap-4 flex-col xl:flex-row">
-          <div className="w-full xl:w-2/3 flex flex-col gap-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl p-4 border shadow-sm">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{t("dash.student.myClass")}</p>
-                <p className="text-lg font-bold text-gray-800 mt-1">{loading ? "—" : enrolledClass?.class_name || "None"}</p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border shadow-sm">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{t("dash.student.average")}</p>
-                <p className={`text-2xl font-bold mt-1 ${avgScore && parseFloat(avgScore) >= 70 ? "text-green-600" : avgScore ? "text-orange-600" : "text-gray-400"}`}>
-                  {loading ? "—" : avgScore ? `${avgScore}%` : "—"}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border shadow-sm">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{t("dash.student.toDo")}</p>
-                <p className="text-2xl font-bold text-orange-600 mt-1">{loading || pendingCount === null ? "—" : pendingCount}</p>
-                <p className="text-[10px] text-gray-400">{t("dash.student.assignments")}</p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border shadow-sm">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{t("dash.student.grades")}</p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">{loading ? "—" : grades.length}</p>
-                <p className="text-[10px] text-gray-400">{t("dash.student.recorded")}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-              <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{t("dash.student.recentGrades")}</h2>
-                <button onClick={() => setTab("grades")} className="text-xs text-green-600 font-medium">{t("dash.student.viewAll")}</button>
-              </div>
-              {loading ? (
-                <div className="p-6 text-center text-gray-400 text-sm">{t("common.loading")}</div>
-              ) : grades.length === 0 ? (
-                <div className="p-6 text-center">
-                  <p className="text-gray-500 text-sm">{t("dash.student.noGrades")}</p>
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {grades.slice(0, 5).map((g) => {
-                    const pct = (g.score / g.max_score) * 100;
-                    return (
-                      <div key={g.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-xs ${
-                            pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : pct >= 50 ? "bg-orange-500" : "bg-red-500"
-                          }`}>{Math.round(pct)}%</div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-800">{g.subject_name}</p>
-                            <p className="text-xs text-gray-400">{g.exam_type}{g.term ? ` • ${g.term}` : ""}</p>
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700">{g.score}/{g.max_score}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border shadow-sm">
-              <h2 className="text-lg font-semibold mb-2">{t("dash.student.mySchedule")}</h2>
-              <BigCalendar />
-            </div>
+        <div className="flex flex-col gap-5">
+          {/* Summary strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <SummaryStat
+              label={t("dash.student.myClass")}
+              value={loading ? "—" : enrolledClass?.class_name || "None"}
+              accent="indigo" icon="🏫" size="text-base"
+              hint={enrolledClass?.class_grade ? `${t("dash.student.myClass")} ${enrolledClass.class_grade}` : undefined}
+            />
+            <SummaryStat
+              label={t("dash.student.average")}
+              value={loading ? "—" : avgScore ? `${avgScore}%` : "—"}
+              accent="emerald" icon="🎯"
+              valueClass={avgScore ? gradeColor(parseFloat(avgScore)) : "text-gray-400"}
+            />
+            <SummaryStat
+              label={t("dash.student.toDo")}
+              value={loading || pendingCount === null ? "—" : String(pendingCount)}
+              accent={pendingCount && pendingCount > 0 ? "amber" : "slate"} icon="📝"
+              valueClass={pendingCount && pendingCount > 0 ? "text-amber-600" : "text-gray-700"}
+              hint={t("dash.student.assignments")}
+            />
+            <SummaryStat
+              label={t("wdg.attendance")}
+              value={loading || attStats.rate === null ? "—" : `${attStats.rate.toFixed(0)}%`}
+              accent="sky" icon="📅"
+            />
           </div>
 
-          <div className="w-full xl:w-1/3 flex flex-col gap-6">
-            <div className="bg-white rounded-xl p-4 border shadow-sm">
-              <h2 className="text-lg font-semibold mb-3">{t("dash.student.subjectProgress")}</h2>
-              <ProgressTracker />
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            {/* LEFT (2 cols) */}
+            <div className="xl:col-span-2 flex flex-col gap-5">
+              <Panel
+                title={t("dash.student.recentGrades")} icon="🎓" accent="emerald"
+                action={
+                  <button onClick={() => setTab("grades")} className="text-xs text-green-600 font-medium hover:text-green-700">
+                    {t("dash.student.viewAll")}
+                  </button>
+                }
+              >
+                {loading ? (
+                  <EmptyHint text={t("common.loading")} />
+                ) : grades.length === 0 ? (
+                  <EmptyHint text={t("dash.student.noGrades")} />
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {grades.slice(0, 6).map((g) => {
+                      const pct = (g.score / g.max_score) * 100;
+                      return (
+                        <div key={g.id} className="flex items-center gap-3 py-2.5">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] shrink-0 ${gradeBg(pct)}`}>
+                            {Math.round(pct)}%
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 truncate">{g.subject_name}</p>
+                            <p className="text-[11px] text-gray-400">{g.exam_type}{g.term ? ` • ${g.term}` : ""}</p>
+                          </div>
+                          <span className={`text-sm font-bold shrink-0 ${gradeColor(pct)}`}>{g.score}/{g.max_score}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Panel>
+
+              <Panel title={t("dash.student.mySchedule")} icon="🗓️" accent="indigo">
+                <BigCalendar />
+              </Panel>
             </div>
-            <Performance />
-            <EventCalendar />
-            <Announcements />
+
+            {/* RIGHT */}
+            <div className="flex flex-col gap-5">
+              <Panel title={t("dash.student.subjectProgress")} icon="📊" accent="purple">
+                <ProgressTracker />
+              </Panel>
+
+              <Panel title={t("wdg.attendance")} icon="📅" accent="sky">
+                {attStats.total === 0 ? (
+                  <EmptyHint text={t("wdg.noAttendance")} />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <AttendanceRing rate={attStats.rate ?? 0} />
+                      <div className="grid grid-cols-2 gap-2 flex-1">
+                        <MiniStat label="Absences" value={attStats.absences} tone="red" />
+                        <MiniStat label="Tardies" value={attStats.tardies} tone="amber" />
+                        <MiniStat label="Present" value={attStats.present} tone="green" />
+                        <MiniStat label="Excused" value={attStats.excused} tone="sky" />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {attendance.slice(0, 10).map((a) => (
+                        <span key={a.id} className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
+                          a.status === "present" ? "bg-green-50 text-green-700" :
+                          a.status === "late" ? "bg-amber-50 text-amber-700" :
+                          a.status === "excused" ? "bg-sky-50 text-sky-700" :
+                          "bg-red-50 text-red-700"
+                        }`}>
+                          {new Date(a.date).toLocaleDateString([], { month: "short", day: "numeric" })} · {a.status}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Panel>
+
+              <Performance />
+              <EventCalendar />
+              <Announcements />
+            </div>
           </div>
         </div>
       )}
 
       {tab === "assignments" && (
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <h2 className="text-lg font-semibold mb-4">{t("dash.student.myAssignments")}</h2>
+        <Panel title={t("dash.student.myAssignments")} icon="📝" accent="amber">
           <StudentAssignments />
-        </div>
+        </Panel>
       )}
 
       {tab === "grades" && (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="p-4 border-b bg-gray-50">
-            <h2 className="text-lg font-semibold">{t("dash.student.gradesFeedback")}</h2>
-          </div>
+        <Panel title={t("dash.student.gradesFeedback")} icon="🎓" accent="emerald">
           {loading ? (
-            <div className="p-6 text-center text-gray-400 text-sm">{t("common.loading")}</div>
+            <EmptyHint text={t("common.loading")} />
           ) : grades.length === 0 ? (
-            <div className="p-6 text-center">
+            <div className="py-4">
               <p className="text-gray-500 text-sm">{t("dash.student.noGrades")}</p>
               <p className="text-gray-400 text-xs mt-1">{t("dash.student.gradesHint")}</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-gray-100">
               {grades.map((g) => {
                 const pct = (g.score / g.max_score) * 100;
                 return (
-                  <div key={g.id} className="px-4 py-3 hover:bg-gray-50">
+                  <div key={g.id} className="py-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-xs ${
-                          pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : pct >= 50 ? "bg-orange-500" : "bg-red-500"
-                        }`}>{Math.round(pct)}%</div>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] ${gradeBg(pct)}`}>
+                          {Math.round(pct)}%
+                        </div>
                         <div>
                           <p className="text-sm font-medium text-gray-800">{g.subject_name}</p>
                           <p className="text-xs text-gray-400">{g.exam_type}{g.term ? ` • ${g.term}` : ""}</p>
                         </div>
                       </div>
-                      <span className="text-sm font-semibold text-gray-700">{g.score}/{g.max_score}</span>
+                      <span className={`text-sm font-bold ${gradeColor(pct)}`}>{g.score}/{g.max_score}</span>
                     </div>
                     {g.remarks && (
                       <div className="mt-2 ml-[52px] bg-purple-50 border border-purple-100 rounded-lg p-2.5">
@@ -281,14 +336,13 @@ const StudentPage = () => {
               })}
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
       {tab === "progress" && (
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <h2 className="text-lg font-semibold mb-4">{t("dash.student.myProgress")}</h2>
+        <Panel title={t("dash.student.myProgress")} icon="📊" accent="purple">
           <ProgressTracker />
-        </div>
+        </Panel>
       )}
 
       {tab === "messages" && <Messaging />}
