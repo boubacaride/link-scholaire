@@ -8,6 +8,7 @@ import { useI18n } from "@/contexts/LanguageContext";
 interface GradeRow {
   subject_id: string;
   subject_name: string;
+  exam_type: string;
   score: number;
   max_score: number;
   created_at: string;
@@ -50,17 +51,28 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
       // ── Per-subject averages (from posted grades) ──
       const { data } = await supabase
         .from("grades")
-        .select("subject_id, score, max_score, created_at, subject:subject_id(name)")
+        .select("subject_id, exam_type, score, max_score, created_at, subject:subject_id(name)")
         .eq("student_id", targetId)
         .order("created_at", { ascending: true });
       setGrades(
         (data || []).map((g: any) => ({
           subject_id: g.subject_id,
           subject_name: g.subject?.name || "Subject",
+          exam_type: g.exam_type || "",
           score: g.score,
           max_score: g.max_score,
           created_at: g.created_at,
         }))
+      );
+
+      // Map a posted grade back to the assignment it came from, so a graded
+      // assignment counts as "graded" even when there is no submission row
+      // (e.g. the teacher recorded the grade straight into the gradebook).
+      const gKey = (subjectId: string, examType: string) =>
+        `${subjectId}|::|${(examType || "").trim().toLowerCase()}`;
+      const gradeMap = new Map<string, { score: number; max: number }>();
+      (data || []).forEach((g: any) =>
+        gradeMap.set(gKey(g.subject_id, g.exam_type), { score: g.score, max: g.max_score })
       );
 
       // ── Work breakdown: missing / submitted / graded ──
@@ -73,7 +85,7 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
       if (classIds.length > 0) {
         const { data: content } = await supabase
           .from("content")
-          .select("id, title, due_date, max_score, subject:subject_id(name)")
+          .select("id, title, due_date, max_score, subject_id, subject:subject_id(name)")
           .in("class_id", classIds)
           .in("type", ["assignment", "classwork"])
           .eq("is_published", true)
@@ -92,14 +104,25 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
         workItems = (content || []).flatMap((c: any) => {
           const s = subByContent[c.id];
           const status = s?.status;
+          const gradeHit = gradeMap.get(gKey(c.subject_id, c.title));
           let bucket: WorkBucket | null = null;
-          if (status === "graded" || status === "returned") bucket = "graded";
-          else if (status === "submitted" || status === "late") bucket = "submitted";
-          else if (c.due_date && new Date(c.due_date).getTime() < now) bucket = "missing";
+          let score: number | null = null;
+          let max: number | null = c.max_score;
+          // A posted grade is the strongest signal — it means the work is done
+          // and marked, so it belongs in "graded" regardless of submission state.
+          if (gradeHit) {
+            bucket = "graded"; score = gradeHit.score; max = gradeHit.max ?? c.max_score;
+          } else if (status === "graded" || status === "returned") {
+            bucket = "graded"; score = s?.score ?? null;
+          } else if (status === "submitted" || status === "late") {
+            bucket = "submitted";
+          } else if (c.due_date && new Date(c.due_date).getTime() < now) {
+            bucket = "missing";
+          }
           if (!bucket) return [];
           return [{
             id: c.id, title: c.title, subject_name: c.subject?.name || "",
-            due_date: c.due_date, bucket, score: s?.score ?? null, max_score: c.max_score,
+            due_date: c.due_date, bucket, score, max_score: max,
           }];
         });
       }

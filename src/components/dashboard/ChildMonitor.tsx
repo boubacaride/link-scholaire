@@ -42,13 +42,21 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       // Grades
       const { data: gradeData } = await supabase
         .from("grades")
-        .select("id, score, max_score, exam_type, term, created_at, subject:subject_id(name)")
+        .select("id, subject_id, score, max_score, exam_type, term, created_at, subject:subject_id(name)")
         .eq("student_id", studentId)
         .order("created_at", { ascending: false });
       setGrades((gradeData || []).map((g: any) => ({
         id: g.id, subject_name: g.subject?.name || "", score: g.score, max_score: g.max_score,
         exam_type: g.exam_type || "", term: g.term || "", created_at: g.created_at,
       })));
+
+      // Which assignments already have a posted grade (matched by title +
+      // subject) — these are done, so they must not count as missing/upcoming.
+      const gKey = (subjectId: string, examType: string) =>
+        `${subjectId}|::|${(examType || "").trim().toLowerCase()}`;
+      const gradedKeys = new Set<string>(
+        (gradeData || []).map((g: any) => gKey(g.subject_id, g.exam_type))
+      );
 
       // Attendance
       const { data: attData } = await supabase
@@ -67,7 +75,7 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
       if (classIds.length > 0) {
         const { data: content } = await supabase
           .from("content")
-          .select("id, title, due_date, type, subject:subject_id(name)")
+          .select("id, title, due_date, type, subject_id, subject:subject_id(name)")
           .in("class_id", classIds)
           .in("type", ["assignment", "classwork"])
           .eq("is_published", true)
@@ -85,9 +93,11 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
         }
 
         const now = Date.now();
+        // "done" = turned in OR already graded (a grade exists for it).
         const up: Upcoming[] = (content || []).map((c: any) => ({
           id: c.id, title: c.title, due_date: c.due_date, type: c.type,
-          subject_name: c.subject?.name || "", submitted: submittedSet.has(c.id),
+          subject_name: c.subject?.name || "",
+          submitted: submittedSet.has(c.id) || gradedKeys.has(gKey(c.subject_id, c.title)),
         }));
         // missing = past due & not submitted
         setMissingCount(up.filter((u) => u.due_date && new Date(u.due_date).getTime() < now && !u.submitted).length);
