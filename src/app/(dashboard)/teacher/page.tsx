@@ -6,6 +6,7 @@ import BigCalendar from "@/components/BigCalender";
 import Performance from "@/components/Performance";
 import Messaging from "@/components/Messaging";
 import Gradebook from "@/components/dashboard/Gradebook";
+import SubmissionsGrader from "@/components/dashboard/SubmissionsGrader";
 import ClassRoster from "@/components/dashboard/ClassRoster";
 import LessonPlanner from "@/components/dashboard/LessonPlanner";
 import TeacherAnalytics from "@/components/dashboard/TeacherAnalytics";
@@ -31,10 +32,11 @@ interface StudentGrade {
   exam_type: string;
 }
 
-type Tab = "overview" | "gradebook" | "roster" | "planner" | "analytics" | "messages";
+type Tab = "overview" | "submissions" | "gradebook" | "roster" | "planner" | "analytics" | "messages";
 
 const TABS: { id: Tab; tabKey: string; icon: string }[] = [
   { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
+  { id: "submissions", tabKey: "dash.tabs.submissions", icon: "📥" },
   { id: "gradebook", tabKey: "dash.tabs.gradebook", icon: "📊" },
   { id: "roster", tabKey: "dash.tabs.roster", icon: "👥" },
   { id: "planner", tabKey: "dash.tabs.planner", icon: "📚" },
@@ -237,13 +239,20 @@ const TeacherPage = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => setTab("planner")} className="p-3 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">{t("dash.teacher.newLesson")}</button>
                 <button onClick={() => setTab("planner")} className="p-3 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors">{t("dash.teacher.newAssignment")}</button>
-                <button onClick={() => setTab("gradebook")} className="p-3 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">{t("dash.teacher.gradeWork")}</button>
+                <button onClick={() => setTab("submissions")} className="p-3 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">{t("dash.teacher.gradeWork")}</button>
                 <button onClick={() => setTab("roster")} className="p-3 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition-colors">{t("dash.teacher.roster")}</button>
               </div>
             </div>
             <Performance />
             <Announcements />
           </div>
+        </div>
+      )}
+
+      {tab === "submissions" && (
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <h2 className="text-lg font-semibold mb-4">{t("dash.teacher.submissionsTitle")}</h2>
+          <SubmissionsGrader />
         </div>
       )}
 

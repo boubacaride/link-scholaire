@@ -13,13 +13,25 @@ interface GradeRow {
   created_at: string;
 }
 
+type WorkBucket = "missing" | "submitted" | "graded";
+interface WorkItem {
+  id: string;
+  title: string;
+  subject_name: string;
+  due_date: string | null;
+  bucket: WorkBucket;
+  score: number | null;
+  max_score: number | null;
+}
+
 interface ProgressTrackerProps {
   /** Whose progress to show. Defaults to the signed-in user (student view). */
   studentId?: string;
 }
 
-/** Per-subject progress: average performance, number of grades and a simple
- *  improving/declining trend. Reused for students and (read-only) parents. */
+/** The shared "progress book": per-subject averages PLUS a breakdown of the
+ *  student's work into missing / submitted / graded. Used by students for
+ *  themselves and (read-only) by parents for their child. */
 const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
   const { user } = useAuth();
   const supabase = createClient();
@@ -27,12 +39,15 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
   const targetId = studentId || user?.profileId;
 
   const [grades, setGrades] = useState<GradeRow[]>([]);
+  const [work, setWork] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       if (!supabase || !targetId) { setLoading(false); return; }
       setLoading(true);
+
+      // ── Per-subject averages (from posted grades) ──
       const { data } = await supabase
         .from("grades")
         .select("subject_id, score, max_score, created_at, subject:subject_id(name)")
@@ -47,6 +62,48 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
           created_at: g.created_at,
         }))
       );
+
+      // ── Work breakdown: missing / submitted / graded ──
+      const { data: enr } = await supabase
+        .from("student_classes")
+        .select("class_id")
+        .eq("student_id", targetId);
+      const classIds = (enr || []).map((e: any) => e.class_id);
+      let workItems: WorkItem[] = [];
+      if (classIds.length > 0) {
+        const { data: content } = await supabase
+          .from("content")
+          .select("id, title, due_date, max_score, subject:subject_id(name)")
+          .in("class_id", classIds)
+          .in("type", ["assignment", "classwork"])
+          .eq("is_published", true)
+          .order("due_date", { ascending: true });
+        const cIds = (content || []).map((c: any) => c.id);
+        const subByContent: Record<string, any> = {};
+        if (cIds.length > 0) {
+          const { data: subs } = await supabase
+            .from("submissions")
+            .select("content_id, status, score")
+            .eq("student_id", targetId)
+            .in("content_id", cIds);
+          (subs || []).forEach((s: any) => { subByContent[s.content_id] = s; });
+        }
+        const now = Date.now();
+        workItems = (content || []).flatMap((c: any) => {
+          const s = subByContent[c.id];
+          const status = s?.status;
+          let bucket: WorkBucket | null = null;
+          if (status === "graded" || status === "returned") bucket = "graded";
+          else if (status === "submitted" || status === "late") bucket = "submitted";
+          else if (c.due_date && new Date(c.due_date).getTime() < now) bucket = "missing";
+          if (!bucket) return [];
+          return [{
+            id: c.id, title: c.title, subject_name: c.subject?.name || "",
+            due_date: c.due_date, bucket, score: s?.score ?? null, max_score: c.max_score,
+          }];
+        });
+      }
+      setWork(workItems);
       setLoading(false);
     };
     load();
@@ -76,9 +133,15 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
     }).sort((a, b) => b.avg - a.avg);
   }, [grades]);
 
+  const buckets = useMemo(() => ({
+    missing: work.filter((w) => w.bucket === "missing"),
+    submitted: work.filter((w) => w.bucket === "submitted"),
+    graded: work.filter((w) => w.bucket === "graded"),
+  }), [work]);
+
   if (loading) return <div className="p-6 text-center text-gray-400 text-sm">{t("wdg.loadingProgress")}</div>;
 
-  if (subjects.length === 0) {
+  if (subjects.length === 0 && work.length === 0) {
     return (
       <div className="p-8 text-center">
         <div className="text-4xl mb-2">📋</div>
@@ -88,30 +151,91 @@ const ProgressTracker = ({ studentId }: ProgressTrackerProps) => {
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {subjects.map((s) => {
-        const color = s.avg >= 80 ? "bg-green-500" : s.avg >= 60 ? "bg-blue-500" : s.avg >= 50 ? "bg-orange-500" : "bg-red-500";
-        return (
-          <div key={s.id}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-800">{s.name}</span>
-                <span className="text-[10px] text-gray-400">{s.count} grade{s.count !== 1 ? "s" : ""}</span>
-                {Math.abs(s.trend) >= 1 && (
-                  <span className={`text-[10px] font-medium ${s.trend > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {s.trend > 0 ? "▲" : "▼"} {Math.abs(s.trend).toFixed(0)}%
-                  </span>
-                )}
+  const WORK_META: Record<WorkBucket, { label: string; dot: string; text: string }> = {
+    missing: { label: t("grade.missing"), dot: "bg-red-500", text: "text-red-600" },
+    submitted: { label: t("grade.submitted"), dot: "bg-amber-500", text: "text-amber-600" },
+    graded: { label: t("grade.gradedWork"), dot: "bg-green-500", text: "text-green-600" },
+  };
+
+  const renderBucket = (key: WorkBucket) => {
+    const list = buckets[key];
+    if (list.length === 0) return null;
+    const meta = WORK_META[key];
+    return (
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
+          <span className="text-xs font-semibold text-gray-700">{meta.label}</span>
+          <span className="text-[10px] text-gray-400">({list.length})</span>
+        </div>
+        <div className="space-y-1.5">
+          {list.map((w) => (
+            <div key={w.id} className="flex items-center justify-between gap-2 bg-white border rounded-lg px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm text-gray-800 truncate">{w.title}</p>
+                <p className="text-[11px] text-gray-400">
+                  {w.subject_name}
+                  {w.due_date && <> • {t("grade.due", { date: new Date(w.due_date).toLocaleDateString() })}</>}
+                </p>
               </div>
-              <span className="text-sm font-semibold text-gray-700">{s.avg.toFixed(0)}%</span>
+              {key === "graded" && w.score != null ? (
+                <span className="text-sm font-semibold text-green-600 shrink-0">{w.score}{w.max_score ? `/${w.max_score}` : ""}</span>
+              ) : (
+                <span className={`text-[11px] font-medium shrink-0 ${meta.text}`}>{meta.label}</span>
+              )}
             </div>
-            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(100, s.avg)}%` }} />
-            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Subjects */}
+      {subjects.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t("grade.subjectsHeading")}</h3>
+          <div className="space-y-3">
+            {subjects.map((s) => {
+              const color = s.avg >= 80 ? "bg-green-500" : s.avg >= 60 ? "bg-blue-500" : s.avg >= 50 ? "bg-orange-500" : "bg-red-500";
+              return (
+                <div key={s.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800">{s.name}</span>
+                      <span className="text-[10px] text-gray-400">{s.count} grade{s.count !== 1 ? "s" : ""}</span>
+                      {Math.abs(s.trend) >= 1 && (
+                        <span className={`text-[10px] font-medium ${s.trend > 0 ? "text-green-600" : "text-red-500"}`}>
+                          {s.trend > 0 ? "▲" : "▼"} {Math.abs(s.trend).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700">{s.avg.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(100, s.avg)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      )}
+
+      {/* Assignments & work */}
+      <div>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t("grade.workHeading")}</h3>
+        {work.length === 0 ? (
+          <p className="text-xs text-gray-400">{t("grade.allCaughtUp")}</p>
+        ) : (
+          <div className="space-y-4">
+            {renderBucket("missing")}
+            {renderBucket("submitted")}
+            {renderBucket("graded")}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

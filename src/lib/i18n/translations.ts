@@ -87,7 +87,7 @@ const en = {
     tabs: {
       overview: "Overview", gradebook: "Gradebook", roster: "Roster", planner: "Planner",
       analytics: "Analytics", messages: "Messages", assignments: "Assignments",
-      grades: "Grades", progress: "Progress",
+      grades: "Grades", progress: "Progress", submissions: "To Grade",
     },
     welcomeBack: "Welcome back, {name}",
     goodDay: "Good day, {name}",
@@ -103,6 +103,7 @@ const en = {
       newLesson: "+ New Lesson", newAssignment: "+ Assignment", gradeWork: "Grade Work", roster: "Roster",
       gradesDashboard: "Grades Dashboard", classRoster: "Class Roster",
       lessonPlanning: "Lesson Planning & Resources", analytics: "Analytics",
+      submissionsTitle: "Submissions to Grade", gradeSubmissions: "Grade Submissions",
     },
     student: {
       subtitle: "Keep up the great work — you're doing amazing this semester",
@@ -249,6 +250,19 @@ const en = {
     upcoming: "Upcoming", alerts: "Alerts", subjectProgress: "Subject Progress",
     upcomingAssignments: "Upcoming Assignments", recentGrades: "Recent Grades", recentAttendance: "Recent Attendance",
   },
+  grade: {
+    loading: "Loading submissions...", noContent: "No assignments yet.",
+    noContentHint: "Create assignments in the Planner — student submissions will appear here to grade.",
+    toGrade: "To grade", graded: "Graded", awaiting: "Awaiting", notSubmitted: "Not submitted yet",
+    submittedOn: "Turned in {date}", viewWork: "View work", hideWork: "Hide work",
+    noText: "No written response.", scoreLabel: "Score", feedbackLabel: "Feedback (optional)",
+    feedbackPlaceholder: "Add a comment for the student...",
+    gradePost: "Grade & post", posting: "Posting...", posted: "Posted ✓", regrade: "Update grade",
+    term: "Term", postedHint: "Grades post to the student's gradebook and progress book automatically.",
+    subjectsHeading: "Subjects", workHeading: "Assignments & Work",
+    missing: "Missing", submitted: "Submitted", gradedWork: "Graded",
+    allCaughtUp: "Nothing missing — great work! 🎉", due: "Due {date}", noWorkYet: "No assignments yet.",
+  },
 };
 
 export type Dict = typeof en;
@@ -327,7 +341,7 @@ const fr: Dict = {
     tabs: {
       overview: "Aperçu", gradebook: "Carnet de notes", roster: "Liste des élèves", planner: "Planificateur",
       analytics: "Analyses", messages: "Messages", assignments: "Devoirs",
-      grades: "Notes", progress: "Progression",
+      grades: "Notes", progress: "Progression", submissions: "À corriger",
     },
     welcomeBack: "Bon retour, {name}",
     goodDay: "Bonjour, {name}",
@@ -343,6 +357,7 @@ const fr: Dict = {
       newLesson: "+ Nouvelle leçon", newAssignment: "+ Devoir", gradeWork: "Noter les travaux", roster: "Liste",
       gradesDashboard: "Tableau des notes", classRoster: "Liste de la classe",
       lessonPlanning: "Planification des leçons et ressources", analytics: "Analyses",
+      submissionsTitle: "Travaux à corriger", gradeSubmissions: "Corriger les travaux",
     },
     student: {
       subtitle: "Continuez votre excellent travail — vous faites un travail formidable ce semestre",
@@ -489,6 +504,19 @@ const fr: Dict = {
     upcoming: "À venir", alerts: "Alertes", subjectProgress: "Progression par matière",
     upcomingAssignments: "Devoirs à venir", recentGrades: "Notes récentes", recentAttendance: "Présence récente",
   },
+  grade: {
+    loading: "Chargement des travaux...", noContent: "Aucun devoir pour le moment.",
+    noContentHint: "Créez des devoirs dans le Planificateur — les travaux des élèves apparaîtront ici à corriger.",
+    toGrade: "À corriger", graded: "Corrigés", awaiting: "En attente", notSubmitted: "Pas encore rendu",
+    submittedOn: "Rendu le {date}", viewWork: "Voir le travail", hideWork: "Masquer",
+    noText: "Aucune réponse écrite.", scoreLabel: "Note", feedbackLabel: "Commentaire (facultatif)",
+    feedbackPlaceholder: "Ajoutez un commentaire pour l'élève...",
+    gradePost: "Noter et publier", posting: "Publication...", posted: "Publié ✓", regrade: "Modifier la note",
+    term: "Trimestre", postedHint: "Les notes sont publiées automatiquement dans le carnet et le livret de progression de l'élève.",
+    subjectsHeading: "Matières", workHeading: "Devoirs et travaux",
+    missing: "Manquants", submitted: "Rendus", gradedWork: "Corrigés",
+    allCaughtUp: "Rien ne manque — bravo ! 🎉", due: "À rendre le {date}", noWorkYet: "Aucun devoir pour le moment.",
+  },
 };
 
 const ar: Dict = {
@@ -565,7 +593,7 @@ const ar: Dict = {
     tabs: {
       overview: "نظرة عامة", gradebook: "سجل الدرجات", roster: "قائمة الطلاب", planner: "المخطط",
       analytics: "التحليلات", messages: "الرسائل", assignments: "الواجبات",
-      grades: "الدرجات", progress: "التقدم",
+      grades: "الدرجات", progress: "التقدم", submissions: "للتصحيح",
     },
     welcomeBack: "مرحبًا بعودتك، {name}",
     goodDay: "يومًا سعيدًا، {name}",
@@ -581,6 +609,7 @@ const ar: Dict = {
       newLesson: "+ درس جديد", newAssignment: "+ واجب", gradeWork: "تقييم الأعمال", roster: "القائمة",
       gradesDashboard: "لوحة الدرجات", classRoster: "قائمة الفصل",
       lessonPlanning: "تخطيط الدروس والموارد", analytics: "التحليلات",
+      submissionsTitle: "الأعمال المطلوب تصحيحها", gradeSubmissions: "تصحيح الأعمال",
     },
     student: {
       subtitle: "واصل عملك الرائع — أنت تبلي بلاءً حسنًا هذا الفصل",
@@ -726,6 +755,19 @@ const ar: Dict = {
     progressShows: "يظهر التقدم بمجرد تسجيل الدرجات.",
     upcoming: "قادم", alerts: "تنبيهات", subjectProgress: "التقدم حسب المادة",
     upcomingAssignments: "الواجبات القادمة", recentGrades: "أحدث الدرجات", recentAttendance: "أحدث الحضور",
+  },
+  grade: {
+    loading: "جارٍ تحميل الأعمال...", noContent: "لا توجد واجبات بعد.",
+    noContentHint: "أنشئ واجبات في المخطط — ستظهر أعمال الطلاب هنا لتصحيحها.",
+    toGrade: "للتصحيح", graded: "مُصحَّحة", awaiting: "قيد الانتظار", notSubmitted: "لم يُسلَّم بعد",
+    submittedOn: "سُلِّم في {date}", viewWork: "عرض العمل", hideWork: "إخفاء",
+    noText: "لا توجد إجابة مكتوبة.", scoreLabel: "الدرجة", feedbackLabel: "ملاحظة (اختياري)",
+    feedbackPlaceholder: "أضف تعليقًا للطالب...",
+    gradePost: "تصحيح ونشر", posting: "جارٍ النشر...", posted: "تم النشر ✓", regrade: "تعديل الدرجة",
+    term: "الفصل الدراسي", postedHint: "تُنشر الدرجات تلقائيًا في سجل درجات الطالب وكتاب التقدم.",
+    subjectsHeading: "المواد", workHeading: "الواجبات والأعمال",
+    missing: "مفقودة", submitted: "مُسلَّمة", gradedWork: "مُصحَّحة",
+    allCaughtUp: "لا شيء مفقود — أحسنت! 🎉", due: "الاستحقاق {date}", noWorkYet: "لا توجد واجبات بعد.",
   },
 };
 
