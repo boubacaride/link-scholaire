@@ -8,6 +8,7 @@ import Performance from "@/components/Performance";
 import Messaging from "@/components/Messaging";
 import StudentAssignments from "@/components/dashboard/StudentAssignments";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
+import GradesPortal from "@/components/dashboard/GradesPortal";
 import { Panel, SummaryStat, MiniStat, AttendanceRing, EmptyHint, gradeColor, gradeBg } from "@/components/dashboard/PortalUI";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
@@ -298,46 +299,7 @@ const StudentPage = () => {
         </Panel>
       )}
 
-      {tab === "grades" && (
-        <Panel title={t("dash.student.gradesFeedback")} icon="🎓" accent="emerald">
-          {loading ? (
-            <EmptyHint text={t("common.loading")} />
-          ) : grades.length === 0 ? (
-            <div className="py-4">
-              <p className="text-gray-500 text-sm">{t("dash.student.noGrades")}</p>
-              <p className="text-gray-400 text-xs mt-1">{t("dash.student.gradesHint")}</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {grades.map((g) => {
-                const pct = (g.score / g.max_score) * 100;
-                return (
-                  <div key={g.id} className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] ${gradeBg(pct)}`}>
-                          {Math.round(pct)}%
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{g.subject_name}</p>
-                          <p className="text-xs text-gray-400">{g.exam_type}{g.term ? ` • ${g.term}` : ""}</p>
-                        </div>
-                      </div>
-                      <span className={`text-sm font-bold ${gradeColor(pct)}`}>{g.score}/{g.max_score}</span>
-                    </div>
-                    {g.remarks && (
-                      <div className="mt-2 ml-[52px] bg-purple-50 border border-purple-100 rounded-lg p-2.5">
-                        <p className="text-[10px] text-purple-500 uppercase tracking-wide font-medium">{t("dash.student.feedback")}</p>
-                        <p className="text-xs text-purple-800 mt-0.5">{g.remarks}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Panel>
-      )}
+      {tab === "grades" && <GradesPortal accent="emerald" />}
 
       {tab === "progress" && (
         <Panel title={t("dash.student.myProgress")} icon="📊" accent="purple">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Announcements from "@/components/Announcements";
 import Messaging from "@/components/Messaging";
 import ChildMonitor from "@/components/dashboard/ChildMonitor";
+import GradesPortal from "@/components/dashboard/GradesPortal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +17,7 @@ interface LinkedStudent {
   avatar_url: string | null;
 }
 
-type Tab = "overview" | "messages";
+type Tab = "overview" | "grades" | "messages";
 
 const ParentPage = () => {
   const { user } = useAuth();
@@ -78,6 +79,7 @@ const ParentPage = () => {
       <div className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
         {([
           { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
+          { id: "grades", tabKey: "dash.tabs.grades", icon: "📊" },
           { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
         ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
           <button
@@ -94,10 +96,10 @@ const ParentPage = () => {
 
       {tab === "messages" && <Messaging />}
 
-      {tab === "overview" && (
+      {(tab === "overview" || tab === "grades") && (
         <div className="flex gap-4 flex-col xl:flex-row">
           {/* LEFT */}
-          <div className="w-full xl:w-2/3 flex flex-col gap-6">
+          <div className={`w-full flex flex-col gap-6 ${tab === "overview" ? "xl:w-2/3" : ""}`}>
             {loading ? (
               <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">{t("common.loading")}</div>
             ) : children.length === 0 ? (
@@ -143,32 +145,38 @@ const ParentPage = () => {
                         </div>
                       </div>
                     </div>
-                    <ChildMonitor
-                      studentId={selectedStudent.id}
-                      studentName={selectedStudent.first_name}
-                    />
+                    {tab === "overview" ? (
+                      <ChildMonitor
+                        studentId={selectedStudent.id}
+                        studentName={selectedStudent.first_name}
+                      />
+                    ) : (
+                      <GradesPortal studentId={selectedStudent.id} accent="amber" />
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* RIGHT */}
-          <div className="w-full xl:w-1/3 flex flex-col gap-6">
-            <div className="bg-white rounded-xl p-4 border shadow-sm">
-              <h2 className="text-lg font-semibold mb-3">{t("dash.parent.contactTeachers")}</h2>
-              <p className="text-sm text-gray-500 mb-3">
-                {t("dash.parent.contactHint")}
-              </p>
-              <button
-                onClick={() => setTab("messages")}
-                className="w-full bg-orange-500 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                {t("dash.parent.openMessages")}
-              </button>
+          {/* RIGHT (overview only) */}
+          {tab === "overview" && (
+            <div className="w-full xl:w-1/3 flex flex-col gap-6">
+              <div className="bg-white rounded-xl p-4 border shadow-sm">
+                <h2 className="text-lg font-semibold mb-3">{t("dash.parent.contactTeachers")}</h2>
+                <p className="text-sm text-gray-500 mb-3">
+                  {t("dash.parent.contactHint")}
+                </p>
+                <button
+                  onClick={() => setTab("messages")}
+                  className="w-full bg-orange-500 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  {t("dash.parent.openMessages")}
+                </button>
+              </div>
+              <Announcements />
             </div>
-            <Announcements />
-          </div>
+          )}
         </div>
       )}
     </div>
