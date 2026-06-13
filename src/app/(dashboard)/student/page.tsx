@@ -9,6 +9,7 @@ import Messaging from "@/components/Messaging";
 import StudentAssignments from "@/components/dashboard/StudentAssignments";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
 import GradesPortal from "@/components/dashboard/GradesPortal";
+import StudentRecordTab, { type StudentRecordTabId } from "@/components/dashboard/StudentRecordTab";
 import { Panel, SummaryStat, MiniStat, AttendanceRing, EmptyHint, gradeColor, gradeBg } from "@/components/dashboard/PortalUI";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
@@ -32,13 +33,27 @@ interface Grade {
   remarks: string | null;
 }
 
-type Tab = "overview" | "assignments" | "grades" | "progress" | "messages";
+type Tab = "overview" | "assignments" | "grades" | "progress" | "messages" | StudentRecordTabId;
 
 const TABS: { id: Tab; tabKey: string; icon: string }[] = [
   { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
+  { id: "student-information", tabKey: "dash.tabs.studentInformation", icon: "👤" },
   { id: "assignments", tabKey: "dash.tabs.assignments", icon: "📝" },
   { id: "grades", tabKey: "dash.tabs.grades", icon: "🎯" },
+  { id: "planner", tabKey: "dash.tabs.planner", icon: "📋" },
+  { id: "schedule", tabKey: "dash.tabs.schedule", icon: "🗓️" },
+  { id: "attendance", tabKey: "dash.tabs.attendance", icon: "✅" },
+  { id: "activities", tabKey: "dash.tabs.activities", icon: "⭐" },
+  { id: "resources", tabKey: "dash.tabs.resources", icon: "📄" },
+  { id: "report-card", tabKey: "dash.tabs.reportCard", icon: "🔖" },
+  { id: "assessment-scores", tabKey: "dash.tabs.assessmentScores", icon: "📖" },
   { id: "progress", tabKey: "dash.tabs.progress", icon: "📈" },
+  { id: "school-information", tabKey: "dash.tabs.schoolInformation", icon: "🏫" },
+  { id: "news", tabKey: "dash.tabs.news", icon: "📰" },
+  { id: "calendar", tabKey: "dash.tabs.calendar", icon: "📅" },
+  { id: "class-information", tabKey: "dash.tabs.classInformation", icon: "🎓" },
+  { id: "family-information", tabKey: "dash.tabs.familyInformation", icon: "👨‍👩‍👧" },
+  { id: "alerts", tabKey: "dash.tabs.alerts", icon: "🔔" },
   { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
 ];
 
@@ -308,6 +323,10 @@ const StudentPage = () => {
       )}
 
       {tab === "messages" && <Messaging />}
+
+      {!["overview", "assignments", "grades", "progress", "messages"].includes(tab) && (
+        <StudentRecordTab tab={tab as StudentRecordTabId} accent="emerald" />
+      )}
     </div>
   );
 };
