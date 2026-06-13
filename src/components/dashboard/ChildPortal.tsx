@@ -85,6 +85,16 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
       }));
       setGrades(gRows);
 
+      // Assignments that already have a posted grade are "done" even without a
+      // submission row — match by subject + title (grades store the title in
+      // exam_type), mirroring the parent overview logic so they don't surface
+      // as outstanding homework.
+      const gKey = (subjectId: string, title: string) =>
+        `${subjectId}|::|${(title || "").trim().toLowerCase()}`;
+      const gradedKeys = new Set<string>(
+        (gradeData || []).map((g: any) => gKey(g.subject_id, g.exam_type))
+      );
+
       const { data: attData } = await supabase
         .from("attendance")
         .select("id, date, status")
@@ -120,6 +130,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
         const horizon = now + 2 * 86400000;
         setHomework((content || [])
           .filter((c: any) => c.due_date && !submitted.has(c.id) &&
+            !gradedKeys.has(gKey(c.subject_id, c.title)) &&
             new Date(c.due_date).getTime() >= now - 86400000 &&
             new Date(c.due_date).getTime() <= horizon)
           .map((c: any) => ({
@@ -229,7 +240,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
         icon="📊"
         accent="amber"
         action={
-          <button onClick={() => setView("home")} className="text-xs text-white/90 hover:text-white font-medium">
+          <button onClick={() => { setView("home"); setPeriod(ALL); }} className="text-xs text-white/90 hover:text-white font-medium">
             ← Back to Home
           </button>
         }
