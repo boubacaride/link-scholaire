@@ -5,6 +5,7 @@ import Announcements from "@/components/Announcements";
 import Messaging from "@/components/Messaging";
 import ChildMonitor from "@/components/dashboard/ChildMonitor";
 import GradesPortal from "@/components/dashboard/GradesPortal";
+import StudentRecordTab, { type StudentRecordTabId } from "@/components/dashboard/StudentRecordTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -17,7 +18,27 @@ interface LinkedStudent {
   avatar_url: string | null;
 }
 
-type Tab = "overview" | "grades" | "messages";
+type Tab = "overview" | "grades" | "messages" | StudentRecordTabId;
+
+const TABS: { id: Tab; tabKey: string; icon: string }[] = [
+  { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
+  { id: "student-information", tabKey: "dash.tabs.studentInformation", icon: "👤" },
+  { id: "grades", tabKey: "dash.tabs.grades", icon: "📊" },
+  { id: "planner", tabKey: "dash.tabs.planner", icon: "📋" },
+  { id: "schedule", tabKey: "dash.tabs.schedule", icon: "🗓️" },
+  { id: "attendance", tabKey: "dash.tabs.attendance", icon: "✅" },
+  { id: "activities", tabKey: "dash.tabs.activities", icon: "⭐" },
+  { id: "resources", tabKey: "dash.tabs.resources", icon: "📄" },
+  { id: "report-card", tabKey: "dash.tabs.reportCard", icon: "🔖" },
+  { id: "assessment-scores", tabKey: "dash.tabs.assessmentScores", icon: "📖" },
+  { id: "school-information", tabKey: "dash.tabs.schoolInformation", icon: "🏫" },
+  { id: "news", tabKey: "dash.tabs.news", icon: "📰" },
+  { id: "calendar", tabKey: "dash.tabs.calendar", icon: "📅" },
+  { id: "class-information", tabKey: "dash.tabs.classInformation", icon: "🎓" },
+  { id: "family-information", tabKey: "dash.tabs.familyInformation", icon: "👨‍👩‍👧" },
+  { id: "alerts", tabKey: "dash.tabs.alerts", icon: "🔔" },
+  { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
+];
 
 const ParentPage = () => {
   const { user } = useAuth();
@@ -77,11 +98,7 @@ const ParentPage = () => {
 
       {/* Tabs */}
       <div className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
-        {([
-          { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
-          { id: "grades", tabKey: "dash.tabs.grades", icon: "📊" },
-          { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
-        ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
+        {TABS.map((tb) => (
           <button
             key={tb.id}
             onClick={() => setTab(tb.id)}
@@ -96,7 +113,7 @@ const ParentPage = () => {
 
       {tab === "messages" && <Messaging />}
 
-      {(tab === "overview" || tab === "grades") && (
+      {tab !== "messages" && (
         <div className="flex gap-4 flex-col xl:flex-row">
           {/* LEFT */}
           <div className={`w-full flex flex-col gap-6 ${tab === "overview" ? "xl:w-2/3" : ""}`}>
@@ -150,8 +167,15 @@ const ParentPage = () => {
                         studentId={selectedStudent.id}
                         studentName={selectedStudent.first_name}
                       />
-                    ) : (
+                    ) : tab === "grades" ? (
                       <GradesPortal studentId={selectedStudent.id} accent="amber" />
+                    ) : (
+                      <StudentRecordTab
+                        tab={tab as StudentRecordTabId}
+                        studentId={selectedStudent.id}
+                        readOnly
+                        accent="amber"
+                      />
                     )}
                   </div>
                 )}
