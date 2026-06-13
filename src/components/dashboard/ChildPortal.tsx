@@ -126,13 +126,19 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
             .in("content_id", contentIds);
           (subs || []).forEach((s: any) => { if (s.status !== "pending") submitted.add(s.content_id); });
         }
-        const now = Date.now();
-        const horizon = now + 2 * 86400000;
+        // Calendar-day window: from the start of today through the end of the
+        // day two days out, so "due today or next 2 days" is inclusive of the
+        // whole final day regardless of the current clock time.
+        const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+        const endOfWindow = new Date(startOfToday);
+        endOfWindow.setDate(endOfWindow.getDate() + 2); endOfWindow.setHours(23, 59, 59, 999);
+        const windowStart = startOfToday.getTime();
+        const windowEnd = endOfWindow.getTime();
         setHomework((content || [])
           .filter((c: any) => c.due_date && !submitted.has(c.id) &&
             !gradedKeys.has(gKey(c.subject_id, c.title)) &&
-            new Date(c.due_date).getTime() >= now - 86400000 &&
-            new Date(c.due_date).getTime() <= horizon)
+            new Date(c.due_date).getTime() >= windowStart &&
+            new Date(c.due_date).getTime() <= windowEnd)
           .map((c: any) => ({
             id: c.id, title: c.title, due_date: c.due_date, subject_name: c.subject?.name || "",
           })));
