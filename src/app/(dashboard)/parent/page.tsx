@@ -102,7 +102,9 @@ const ParentPage = () => {
               key={tb.id}
               onClick={() => setTab(tb.id)}
               className={`flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                tab === tb.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
+                tab === tb.id
+                  ? "bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               <span>{tb.icon}</span>{t(tb.tabKey)}

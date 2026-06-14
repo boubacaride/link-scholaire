@@ -239,7 +239,13 @@ const Menu = () => {
               {SECTION_KEY[section.title] ? t(SECTION_KEY[section.title]) : section.title}
             </span>
             {visibleItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              // The "Home" sidebar item points to "/" but the actual landing
+              // route depends on the role (/parent, /student, /teacher,
+              // /admin), so treat any of those as the active home page.
+              const ROLE_HOMES = new Set(["/", "/parent", "/student", "/teacher", "/admin"]);
+              const isActive = item.href === "/"
+                ? ROLE_HOMES.has(pathname)
+                : pathname === item.href || pathname.startsWith(item.href + "/");
 
               if (item.href === "/sign-out") {
                 return (
@@ -258,10 +264,10 @@ const Menu = () => {
                 <Link
                   href={item.href}
                   key={item.label}
-                  className={`flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md transition-colors ${
+                  className={`flex items-center justify-center lg:justify-start gap-4 py-2 md:px-2 rounded-md transition-colors ${
                     isActive
-                      ? "bg-lamaSkyLight text-blue-600 font-medium"
-                      : "hover:bg-lamaSkyLight"
+                      ? "bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white font-medium shadow-sm"
+                      : "text-gray-500 hover:bg-lamaSkyLight"
                   }`}
                 >
                   <Image src={item.icon} alt="" width={20} height={20} />
