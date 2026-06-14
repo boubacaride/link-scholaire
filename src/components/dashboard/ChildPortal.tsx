@@ -159,8 +159,11 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
     return Array.from(set).sort((a, b) => periodRank(a) - periodRank(b) || a.localeCompare(b));
   }, [grades]);
 
-  // Default the home + details view to the most recent reporting period.
-  const currentPeriod = period !== ALL ? period : (terms[terms.length - 1] ?? ALL);
+  // Default the home + details view to the reporting period with the most
+  // recent grade activity (grades are loaded newest-first), so the current
+  // term is shown rather than just the highest-ranked label (e.g. Q4).
+  const latestActiveTerm = grades.find((g) => g.term && g.term !== "—")?.term;
+  const currentPeriod = period !== ALL ? period : (latestActiveTerm ?? terms[terms.length - 1] ?? ALL);
 
   const courses = useMemo(() => {
     const m = new Map<string, string>();
