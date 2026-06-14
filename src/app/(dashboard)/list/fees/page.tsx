@@ -123,33 +123,52 @@ function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [students, setStudents] = useState<StudentFeeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recording, setRecording] = useState(false);
 
-  useEffect(() => {
-    const fetchFees = async () => {
-      if (!supabase) { setLoading(false); return; }
-      // Fetch students with fee data
-      const { data } = await supabase
+  const loadFees = async () => {
+    if (!supabase || !user?.schoolId) { setLoading(false); return; }
+    // Pull all students for the school and any fee rows they have, so the
+    // table reflects real totals (assigned amount vs. paid amount).
+    const [{ data: studentProfiles }, { data: feeRows }] = await Promise.all([
+      supabase
         .from("profiles")
-        .select("id, first_name, last_name, email, phone")
+        .select("id, first_name, last_name")
+        .eq("school_id", user.schoolId)
         .eq("role", "student")
-        .order("first_name");
+        .order("first_name"),
+      supabase
+        .from("student_fees")
+        .select("student_id, amount, paid_amount, paid_at, fee_type")
+        .eq("school_id", user.schoolId),
+    ]);
 
-      if (data) {
-        // For now use profiles as student list — in production, join with student_fees view
-        setStudents(data.map((s: any) => ({
+    const feesByStudent = new Map<string, { total: number; paid: number; lastPayment: string | null }>();
+    (feeRows || []).forEach((f: any) => {
+      const cur = feesByStudent.get(f.student_id) || { total: 0, paid: 0, lastPayment: null };
+      cur.total += f.amount || 0;
+      cur.paid += f.paid_amount || 0;
+      if (f.paid_at && (!cur.lastPayment || f.paid_at > cur.lastPayment)) cur.lastPayment = f.paid_at;
+      feesByStudent.set(f.student_id, cur);
+    });
+
+    setStudents(
+      (studentProfiles || []).map((s: any) => {
+        const fees = feesByStudent.get(s.id) || { total: 0, paid: 0, lastPayment: null };
+        return {
           id: s.id,
           name: `${s.first_name} ${s.last_name}`,
           class: "—",
-          total: 0,
-          paid: 0,
-          lastPayment: null,
+          total: fees.total,
+          paid: fees.paid,
+          lastPayment: fees.lastPayment ? new Date(fees.lastPayment).toLocaleDateString() : null,
           guardian: "—",
-        })));
-      }
-      setLoading(false);
-    };
-    fetchFees();
-  }, []);
+        };
+      })
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => { loadFees(); }, [user?.schoolId]);
 
   const classes = ["All classes", ...Array.from(new Set(students.map((s) => s.class).filter(Boolean)))];
   const statuses = ["All", "Paid", "Partial", "Unpaid"];
@@ -183,14 +202,28 @@ function AdminDashboard() {
           <div className="text-sm text-gray-500 mt-1">{user?.schoolName} · {students.length} students enrolled</div>
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <button className="px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition flex items-center gap-2">
+          <button
+            onClick={() => exportCsv(filtered)}
+            className="px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition flex items-center gap-2"
+          >
             📥 Export
           </button>
-          <button className="px-4 py-2.5 text-sm rounded-xl bg-[#0F4F3C] text-white hover:bg-[#0A3D2E] transition flex items-center gap-2">
+          <button
+            onClick={() => setRecording(true)}
+            className="px-4 py-2.5 text-sm rounded-xl bg-[#0F4F3C] text-white hover:bg-[#0A3D2E] transition flex items-center gap-2"
+          >
             ＋ Record payment
           </button>
         </div>
       </header>
+
+      {recording && (
+        <RecordPaymentModal
+          students={students}
+          onClose={() => setRecording(false)}
+          onSaved={() => { setRecording(false); loadFees(); }}
+        />
+      )}
 
       {/* KPI cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
@@ -454,6 +487,212 @@ function ParentView() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT (CSV)
+// ═══════════════════════════════════════════════════════════════
+function exportCsv(rows: StudentFeeRow[]) {
+  if (rows.length === 0) {
+    alert("Nothing to export — the current filter has no rows.");
+    return;
+  }
+  const escape = (v: string | number | null) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Student", "Student ID", "Class", "Total fee", "Paid", "Outstanding", "Status", "Last payment"];
+  const lines = [header.join(",")];
+  rows.forEach((r) => {
+    const outstanding = r.total - r.paid;
+    const status = r.paid >= r.total && r.total > 0 ? "paid" : r.paid === 0 ? "unpaid" : "partial";
+    lines.push([
+      escape(r.name),
+      escape(r.id),
+      escape(r.class),
+      escape(r.total),
+      escape(r.paid),
+      escape(outstanding),
+      escape(status),
+      escape(r.lastPayment ?? ""),
+    ].join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `student-fees-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RECORD PAYMENT MODAL
+// ═══════════════════════════════════════════════════════════════
+const FEE_TYPES = ["tuition", "registration", "exam", "transport", "lunch", "other"] as const;
+
+function RecordPaymentModal({
+  students, onClose, onSaved,
+}: {
+  students: StudentFeeRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const supabase = createClient();
+  const [studentId, setStudentId] = useState(students[0]?.id || "");
+  const [feeType, setFeeType] = useState<(typeof FEE_TYPES)[number]>("tuition");
+  const [amount, setAmount] = useState<string>("0");
+  const [term, setTerm] = useState<string>("");
+  const [paidAt, setPaidAt] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !user?.schoolId) return;
+    if (!studentId) { setError("Pick a student"); return; }
+    const amt = Math.round(Number(amount));
+    if (!Number.isFinite(amt) || amt <= 0) { setError("Amount must be greater than 0"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      // Record the payment as a fully-paid student_fees row so the totals
+      // pick it up immediately and it shows on the Income side of the
+      // admin Finance chart. Each "record payment" is one row.
+      const { error: insertError } = await supabase.from("student_fees").insert({
+        school_id: user.schoolId,
+        student_id: studentId,
+        fee_type: feeType,
+        amount: amt,
+        paid_amount: amt,
+        due_date: paidAt,
+        paid_at: paidAt,
+        status: "paid",
+        term: term || `${new Date().getFullYear()}`,
+        notes: notes || null,
+      });
+      if (insertError) throw insertError;
+      onSaved();
+    } catch (err: any) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Record payment</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">
+            ✕
+          </button>
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+          Student
+          <select
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+          >
+            <option value="">Select a student</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Fee type
+            <select
+              value={feeType}
+              onChange={(e) => setFeeType(e.target.value as (typeof FEE_TYPES)[number])}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full capitalize"
+            >
+              {FEE_TYPES.map((f) => <option key={f} value={f} className="capitalize">{f}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Amount
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Paid on
+            <input
+              type="date"
+              value={paidAt}
+              onChange={(e) => setPaidAt(e.target.value)}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Term (optional)
+            <input
+              type="text"
+              placeholder="e.g. 2026-T1"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            />
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+          Notes / payment method (optional)
+          <textarea
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Cash · receipt #1043"
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+          />
+        </label>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <div className="flex gap-2 justify-end pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-md border border-gray-200 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save payment"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
