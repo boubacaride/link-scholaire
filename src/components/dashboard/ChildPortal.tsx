@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Panel, AttendanceRing, EmptyHint, gradeColor, gradeBg } from "./PortalUI";
+import { AttendanceRing, EmptyHint, gradeColor, gradeBg } from "./PortalUI";
 
 interface ChildPortalProps {
   studentId: string;
@@ -241,12 +241,10 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
     const periodTabs = [{ id: ALL, label: "All" }, ...terms.map((t) => ({ id: t, label: t }))];
 
     return (
-      <Panel
+      <PBCard
         title="Grade Details"
-        icon="📊"
-        accent="amber"
         action={
-          <button onClick={() => { setView("home"); setPeriod(ALL); }} className="text-xs text-white/90 hover:text-white font-medium">
+          <button onClick={() => { setView("home"); setPeriod(ALL); }} className="text-white/90 hover:text-white text-xs font-medium">
             ← Back to Home
           </button>
         }
@@ -342,7 +340,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
             </aside>
           )}
         </div>
-      </Panel>
+      </PBCard>
     );
   }
 
@@ -354,178 +352,195 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
       {/* LEFT — Grades, then Grade Details directly below */}
       <div className="flex flex-col gap-5">
-      {/* Grades */}
-      <Panel
-        title="Grades"
-        icon="📊"
-        accent="indigo"
-        action={<span className="text-[11px] text-white/80">Grades for {periodHeading}</span>}
-      >
-        {courses.length === 0 ? (
-          <EmptyHint text="No grades have been posted yet." />
-        ) : (
-          <>
-            <div className="overflow-hidden rounded-xl border border-gray-100">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#eef3f7] text-gray-600 text-xs">
-                    <th className="text-left font-semibold px-3 py-2">Course</th>
-                    <th className="text-left font-semibold px-3 py-2">Grade</th>
-                    <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">As Of</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {courses.map((c) => {
-                    const avg = avgFor(c.id, currentPeriod);
-                    return (
-                      <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2.5">
-                          <button
-                            onClick={() => openDetails(c.id)}
-                            className="text-left text-indigo-600 font-medium hover:text-indigo-700 hover:underline"
-                          >
-                            {c.name}
-                          </button>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {avg === null ? <span className="text-gray-400">—</span>
-                            : <span className={`font-semibold ${gradeColor(avg)}`}>{fmt(avg)}</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap">
-                          {shortDate(lastUpdated(c.id, currentPeriod))}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <button
-              onClick={() => openDetails(courses[0].id)}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs text-indigo-600 font-medium hover:text-indigo-700"
-            >
-              <SearchIcon /> View all grades
-            </button>
-          </>
-        )}
-      </Panel>
-
-      {/* Grade Details (recent activity) */}
-      <Panel
-        title="Grade Details"
-        icon="🎓"
-        accent="emerald"
-        action={<span className="text-[11px] text-white/80">Recent graded work</span>}
-      >
-        {recentGraded.length === 0 ? (
-          <EmptyHint text="There are no grade details available at this time." />
-        ) : (
-          <>
-            <div className="divide-y divide-gray-100">
-              {recentGraded.map((r) => {
-                const p = pct(r);
-                return (
-                  <div key={r.id} className="flex items-center gap-3 py-2.5">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] shrink-0 ${gradeBg(p)}`}>
-                      {Math.round(p)}%
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-800 truncate">{r.exam_type}</p>
-                      <p className="text-[11px] text-gray-400 truncate">
-                        {r.subject_name}{r.term && r.term !== "—" ? ` • ${r.term}` : ""} • {shortDate(r.created_at)}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-bold shrink-0 ${gradeColor(p)}`}>{r.score}/{r.max_score}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {courses.length > 0 && (
+        {/* Grades */}
+        <PBCard
+          title="Grades"
+          badge={`Grades for ${periodHeading}`}
+          action={courses.length > 0 ? <DetailsLink onClick={() => openDetails(courses[0].id)} /> : undefined}
+        >
+          {courses.length === 0 ? (
+            <EmptyHint text="No grades have been posted yet." />
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-md border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#eef3f7] text-gray-600 text-xs">
+                      <th className="text-left font-semibold px-3 py-2">Course</th>
+                      <th className="text-left font-semibold px-3 py-2">Grade</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">As Of</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courses.map((c) => {
+                      const avg = avgFor(c.id, currentPeriod);
+                      return (
+                        <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2.5">
+                            <button
+                              onClick={() => openDetails(c.id)}
+                              className="text-left text-[#2f6da3] font-medium hover:text-[#00467f] hover:underline"
+                            >
+                              {c.name}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {avg === null ? <span className="text-gray-400">—</span>
+                              : <span className={`font-semibold ${gradeColor(avg)}`}>{fmt(avg)}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap">
+                            {shortDate(lastUpdated(c.id, currentPeriod))}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <button
                 onClick={() => openDetails(courses[0].id)}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium hover:text-emerald-700"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#2f6da3] font-medium hover:text-[#00467f]"
               >
-                <SearchIcon /> View all grade details
+                <SearchIcon /> View all grades
               </button>
-            )}
-          </>
-        )}
-      </Panel>
+            </>
+          )}
+        </PBCard>
+
+        {/* Grade Details (recent activity) */}
+        <PBCard
+          title="Grade Details"
+          badge="Recent graded work"
+          action={courses.length > 0 ? <DetailsLink onClick={() => openDetails(courses[0].id)} /> : undefined}
+        >
+          {recentGraded.length === 0 ? (
+            <EmptyHint text="There are no grade details available at this time." />
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100">
+                {recentGraded.map((r) => {
+                  const p = pct(r);
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 py-2.5">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[11px] shrink-0 ${gradeBg(p)}`}>
+                        {Math.round(p)}%
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800 truncate">{r.exam_type}</p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {r.subject_name}{r.term && r.term !== "—" ? ` • ${r.term}` : ""} • {shortDate(r.created_at)}
+                        </p>
+                      </div>
+                      <span className={`text-sm font-bold shrink-0 ${gradeColor(p)}`}>{r.score}/{r.max_score}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {courses.length > 0 && (
+                <button
+                  onClick={() => openDetails(courses[0].id)}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#2f6da3] font-medium hover:text-[#00467f]"
+                >
+                  <SearchIcon /> View all grade details
+                </button>
+              )}
+            </>
+          )}
+        </PBCard>
       </div>
 
       {/* RIGHT — Homework, then Daily Attendance */}
       <div className="flex flex-col gap-5">
-      {/* Homework */}
-      <Panel
-        title="Homework"
-        icon="📝"
-        accent="amber"
-        action={<span className="text-[11px] text-white/80">Due today or next 2 days</span>}
-      >
-        {homework.length === 0 ? (
-          <EmptyHint text="No homework." />
-        ) : (
-          <div className="space-y-1.5">
-            {homework.map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{h.title}</p>
-                  <p className="text-[11px] text-gray-400 truncate">{h.subject_name}</p>
+        {/* Homework */}
+        <PBCard title="Homework" badge="Homework due today or next 2 days">
+          {homework.length === 0 ? (
+            <EmptyHint text="No homework." />
+          ) : (
+            <div className="space-y-1.5">
+              {homework.map((h) => (
+                <div key={h.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-800 truncate">{h.title}</p>
+                    <p className="text-[11px] text-gray-400 truncate">{h.subject_name}</p>
+                  </div>
+                  {h.due_date && (
+                    <span className="text-[11px] font-medium text-amber-600 shrink-0">
+                      {shortDate(h.due_date)}
+                    </span>
+                  )}
                 </div>
-                {h.due_date && (
-                  <span className="text-[11px] font-medium text-amber-600 shrink-0">
-                    {shortDate(h.due_date)}
-                  </span>
+              ))}
+            </div>
+          )}
+        </PBCard>
+
+        {/* Daily Attendance */}
+        <PBCard title="Daily Attendance" badge="Absence type summary for the year">
+          {attendance.length === 0 ? (
+            <EmptyHint text="No attendance records." />
+          ) : (
+            <div className="flex items-center gap-5">
+              <AttendanceRing rate={attRate ?? 0} />
+              <div className="flex-1 min-w-0">
+                {attendanceSummary.length === 0 ? (
+                  <p className="text-sm text-green-600 font-medium">Perfect attendance 🎉</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-500 text-xs border-b border-gray-100">
+                        <th className="text-left font-semibold pb-1.5">Absence Type</th>
+                        <th className="text-right font-semibold pb-1.5">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceSummary.map((a) => (
+                        <tr key={a.label} className="border-b border-gray-50 last:border-0">
+                          <td className={`py-1.5 ${a.tone}`}>{a.label}</td>
+                          <td className={`py-1.5 text-right font-bold ${a.tone}`}>{a.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      {/* Daily Attendance */}
-      <Panel
-        title="Daily Attendance"
-        icon="📅"
-        accent="sky"
-        action={<span className="text-[11px] text-white/80">Absence summary for the year</span>}
-      >
-        {attendance.length === 0 ? (
-          <EmptyHint text="No attendance records." />
-        ) : (
-          <div className="flex items-center gap-5">
-            <AttendanceRing rate={attRate ?? 0} />
-            <div className="flex-1 min-w-0">
-              {attendanceSummary.length === 0 ? (
-                <p className="text-sm text-green-600 font-medium">Perfect attendance 🎉</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-gray-500 text-xs border-b border-gray-100">
-                      <th className="text-left font-semibold pb-1.5">Absence Type</th>
-                      <th className="text-right font-semibold pb-1.5">Count</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendanceSummary.map((a) => (
-                      <tr key={a.label} className="border-b border-gray-50 last:border-0">
-                        <td className={`py-1.5 ${a.tone}`}>{a.label}</td>
-                        <td className={`py-1.5 text-right font-bold ${a.tone}`}>{a.count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
             </div>
-          </div>
-        )}
-      </Panel>
+          )}
+        </PBCard>
       </div>
     </div>
   );
 };
 
 /* ── small sub-components ────────────────────────────────────────────── */
+
+/** ProgressBook-style dashboard widget: a blue title bar with an optional
+ *  right-aligned action ("details" / back), a gray label badge, then content
+ *  on a white card with a soft bottom shadow ("one-edge-shadow"). */
+const PBCard = ({ title, badge, action, children }: {
+  title: string;
+  badge?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <div className="bg-white rounded-md border border-gray-200 shadow-[0_2px_5px_rgba(0,0,0,0.1)] overflow-hidden">
+    <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a]">
+      <h3 className="text-white font-bold text-base leading-none">{title}</h3>
+      {action && <div className="leading-none">{action}</div>}
+    </div>
+    {badge && (
+      <div className="px-4 pt-3">
+        <span className="inline-block bg-[#6b7785] text-white text-[11px] font-semibold px-2 py-1 rounded">{badge}</span>
+      </div>
+    )}
+    <div className="p-4">{children}</div>
+  </div>
+);
+
+const DetailsLink = ({ onClick }: { onClick: () => void }) => (
+  <button onClick={onClick} className="text-white/90 hover:text-white text-xs font-medium hover:underline underline-offset-2">
+    details
+  </button>
+);
 
 const DetailRow = ({ r, pct, hideType }: { r: GradeRow; pct: number; hideType?: boolean }) => (
   <tr className="border-t border-gray-100 hover:bg-gray-50 align-top">
