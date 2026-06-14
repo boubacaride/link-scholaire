@@ -43,6 +43,9 @@ const EventForm = dynamic(() => import("./forms/EventForm"), {
 const AnnouncementForm = dynamic(() => import("./forms/AnnouncementForm"), {
   loading: () => <h1>Loading...</h1>,
 });
+const PayrollForm = dynamic(() => import("./forms/PayrollForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
 
 const forms: {
   [key: string]: (type: "create" | "update", data?: any) => JSX.Element;
@@ -58,6 +61,7 @@ const forms: {
   result: (type, data) => <ResultForm type={type} data={data} />,
   event: (type, data) => <EventForm type={type} data={data} />,
   announcement: (type, data) => <AnnouncementForm type={type} data={data} />,
+  payroll: (type, data) => <PayrollForm type={type} data={data} />,
 };
 
 const FormModal = ({
@@ -78,7 +82,8 @@ const FormModal = ({
     | "result"
     | "attendance"
     | "event"
-    | "announcement";
+    | "announcement"
+    | "payroll";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | string;
@@ -109,6 +114,7 @@ const FormModal = ({
     attendance: "attendance",
     event: "events",
     announcement: "announcements",
+    payroll: "payroll",
   };
 
   const handleDelete = async () => {
