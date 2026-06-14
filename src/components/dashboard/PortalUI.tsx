@@ -119,3 +119,33 @@ export const AlertRow = ({ tone, title, detail }: { tone: keyof typeof ALERT_TON
 export const EmptyHint = ({ text }: { text: string }) => (
   <p className="text-xs text-gray-400 py-2">{text}</p>
 );
+
+/** ProgressBook-style dashboard widget: a blue title bar with an optional
+ *  right-aligned action ("details" / back), an optional gray label badge,
+ *  then content on a white card with a soft bottom shadow. */
+export const PBCard = ({ title, badge, action, children, className = "" }: {
+  title: string;
+  badge?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div className={`bg-white rounded-md border border-gray-200 shadow-[0_2px_5px_rgba(0,0,0,0.1)] overflow-hidden ${className}`}>
+    <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a]">
+      <h3 className="text-white font-bold text-base leading-none">{title}</h3>
+      {action && <div className="leading-none">{action}</div>}
+    </div>
+    {badge && (
+      <div className="px-4 pt-3">
+        <span className="inline-block bg-[#6b7785] text-white text-[11px] font-semibold px-2 py-1 rounded">{badge}</span>
+      </div>
+    )}
+    <div className="p-4">{children}</div>
+  </div>
+);
+
+export const DetailsLink = ({ onClick, label = "details" }: { onClick: () => void; label?: string }) => (
+  <button onClick={onClick} className="text-white/90 hover:text-white text-xs font-medium hover:underline underline-offset-2">
+    {label}
+  </button>
+);

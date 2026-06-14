@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AttendanceRing, EmptyHint, gradeColor, gradeBg } from "./PortalUI";
+import { AttendanceRing, EmptyHint, PBCard, DetailsLink, gradeColor, gradeBg } from "./PortalUI";
 
 interface ChildPortalProps {
   studentId: string;
@@ -515,35 +515,6 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
 };
 
 /* ── small sub-components ────────────────────────────────────────────── */
-
-/** ProgressBook-style dashboard widget: a blue title bar with an optional
- *  right-aligned action ("details" / back), a gray label badge, then content
- *  on a white card with a soft bottom shadow ("one-edge-shadow"). */
-const PBCard = ({ title, badge, action, children }: {
-  title: string;
-  badge?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) => (
-  <div className="bg-white rounded-md border border-gray-200 shadow-[0_2px_5px_rgba(0,0,0,0.1)] overflow-hidden">
-    <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a]">
-      <h3 className="text-white font-bold text-base leading-none">{title}</h3>
-      {action && <div className="leading-none">{action}</div>}
-    </div>
-    {badge && (
-      <div className="px-4 pt-3">
-        <span className="inline-block bg-[#6b7785] text-white text-[11px] font-semibold px-2 py-1 rounded">{badge}</span>
-      </div>
-    )}
-    <div className="p-4">{children}</div>
-  </div>
-);
-
-const DetailsLink = ({ onClick }: { onClick: () => void }) => (
-  <button onClick={onClick} className="text-white/90 hover:text-white text-xs font-medium hover:underline underline-offset-2">
-    details
-  </button>
-);
 
 const DetailRow = ({ r, pct, hideType }: { r: GradeRow; pct: number; hideType?: boolean }) => (
   <tr className="border-t border-gray-100 hover:bg-gray-50 align-top">
