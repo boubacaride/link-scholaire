@@ -50,6 +50,12 @@ const menuItems = [
         visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
       },
       {
+        icon: "/parent.png",
+        label: "Employees",
+        href: "/list/employees",
+        visible: ["platform_admin", "school_admin"],
+      },
+      {
         icon: "/teacher.png",
         label: "Teachers",
         href: "/list/teachers",

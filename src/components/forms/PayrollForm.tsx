@@ -62,7 +62,7 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         .from("profiles")
         .select("id, first_name, last_name, role")
         .eq("school_id", user.schoolId)
-        .in("role", ["teacher", "school_admin"])
+        .in("role", ["teacher", "school_admin", "employee"])
         .eq("is_active", true)
         .order("last_name");
       setEmployees((rows as Employee[]) || []);
