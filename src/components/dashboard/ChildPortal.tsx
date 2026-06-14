@@ -351,7 +351,9 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
   const periodHeading = currentPeriod === ALL ? "all reporting periods" : currentPeriod;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+      {/* LEFT — Grades, then Grade Details directly below */}
+      <div className="flex flex-col gap-5">
       {/* Grades */}
       <Panel
         title="Grades"
@@ -408,34 +410,6 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
         )}
       </Panel>
 
-      {/* Homework */}
-      <Panel
-        title="Homework"
-        icon="📝"
-        accent="amber"
-        action={<span className="text-[11px] text-white/80">Due today or next 2 days</span>}
-      >
-        {homework.length === 0 ? (
-          <EmptyHint text="No homework." />
-        ) : (
-          <div className="space-y-1.5">
-            {homework.map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{h.title}</p>
-                  <p className="text-[11px] text-gray-400 truncate">{h.subject_name}</p>
-                </div>
-                {h.due_date && (
-                  <span className="text-[11px] font-medium text-amber-600 shrink-0">
-                    {shortDate(h.due_date)}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-
       {/* Grade Details (recent activity) */}
       <Panel
         title="Grade Details"
@@ -477,6 +451,37 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
           </>
         )}
       </Panel>
+      </div>
+
+      {/* RIGHT — Homework, then Daily Attendance */}
+      <div className="flex flex-col gap-5">
+      {/* Homework */}
+      <Panel
+        title="Homework"
+        icon="📝"
+        accent="amber"
+        action={<span className="text-[11px] text-white/80">Due today or next 2 days</span>}
+      >
+        {homework.length === 0 ? (
+          <EmptyHint text="No homework." />
+        ) : (
+          <div className="space-y-1.5">
+            {homework.map((h) => (
+              <div key={h.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{h.title}</p>
+                  <p className="text-[11px] text-gray-400 truncate">{h.subject_name}</p>
+                </div>
+                {h.due_date && (
+                  <span className="text-[11px] font-medium text-amber-600 shrink-0">
+                    {shortDate(h.due_date)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       {/* Daily Attendance */}
       <Panel
@@ -515,6 +520,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
           </div>
         )}
       </Panel>
+      </div>
     </div>
   );
 };
