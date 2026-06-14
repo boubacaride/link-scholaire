@@ -123,27 +123,11 @@ const ParentPage = () => {
               <p className="text-gray-400 text-xs mt-1">{t("dash.parent.noChildrenHint")}</p>
             </div>
           ) : selectedStudent ? (
-            <>
-              {/* Selected child header */}
-              <div className="flex items-center gap-4 bg-white border shadow-sm rounded-2xl p-4">
-                <ChildAvatar student={selectedStudent} size={56} />
-                <div className="min-w-0">
-                  <h2 className="font-bold text-lg text-gray-800 truncate">
-                    {selectedStudent.first_name} {selectedStudent.last_name}
-                  </h2>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
-                    Student
-                  </span>
-                </div>
-              </div>
-
-              {/* ProgressBook-style portal for the selected child */}
-              <ChildPortal
-                key={selectedStudent.id}
-                studentId={selectedStudent.id}
-                studentName={selectedStudent.first_name}
-              />
-            </>
+            <ChildPortal
+              key={selectedStudent.id}
+              studentId={selectedStudent.id}
+              studentName={selectedStudent.first_name}
+            />
           ) : (
             <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">
               Select a child below to view their academic record.
