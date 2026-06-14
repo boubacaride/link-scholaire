@@ -220,7 +220,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
   if (loading) {
     return (
       <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-400">
-        <div className="w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
         <p className="text-sm">Loading {studentName}&apos;s records…</p>
       </div>
     );
