@@ -66,15 +66,15 @@ const ParentPage = () => {
   const selectedStudent = children.find((c) => c.id === selectedChild);
 
   return (
-    <div className="p-4 flex flex-col gap-4 min-h-full">
+    <div className="p-4 flex flex-col gap-4">
       {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white shrink-0">
         <h1 className="text-2xl font-bold mb-1">{t("dash.hello", { name: user?.firstName || "Parent" })}</h1>
         <p className="text-orange-100 text-sm">{t("dash.parent.subtitle")}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
+      <div className="relative z-10 shrink-0 flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
         {([
           { id: "home", tabKey: "dash.tabs.overview", icon: "🏠" },
           { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
@@ -94,7 +94,7 @@ const ParentPage = () => {
       {tab === "messages" && <Messaging />}
 
       {tab === "home" && (
-        <div className="flex-1 flex flex-col gap-4 pb-28">
+        <div className="flex flex-col gap-4 pb-28">
           {loading ? (
             <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">{t("common.loading")}</div>
           ) : children.length === 0 ? (
@@ -131,9 +131,9 @@ const ParentPage = () => {
             </div>
           )}
 
-          {/* ── Children switcher (bottom-left corner) ───────────────── */}
+          {/* ── Children switcher (fixed bottom-left corner) ───────────── */}
           {children.length > 0 && (
-            <div className="sticky bottom-3 z-30 flex items-end gap-2.5 mt-auto">
+            <div className="fixed bottom-4 left-[16%] xl:left-[14%] z-20 pl-4">
               <div className="bg-[#1f3a5f] text-white rounded-2xl shadow-lg px-3 py-2 flex items-center gap-3">
                 <div className="flex flex-col leading-tight pr-1">
                   <span className="text-lg font-bold">{children.length}</span>
