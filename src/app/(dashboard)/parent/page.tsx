@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Announcements from "@/components/Announcements";
 import Messaging from "@/components/Messaging";
-import ChildMonitor from "@/components/dashboard/ChildMonitor";
-import GradesPortal from "@/components/dashboard/GradesPortal";
+import ChildPortal from "@/components/dashboard/ChildPortal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -17,7 +15,7 @@ interface LinkedStudent {
   avatar_url: string | null;
 }
 
-type Tab = "overview" | "grades" | "messages";
+type Tab = "home" | "messages";
 
 const ParentPage = () => {
   const { user } = useAuth();
@@ -25,7 +23,7 @@ const ParentPage = () => {
   const [children, setChildren] = useState<LinkedStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("home");
 
   const supabase = createClient();
 
@@ -68,7 +66,7 @@ const ParentPage = () => {
   const selectedStudent = children.find((c) => c.id === selectedChild);
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-4 min-h-full">
       {/* Welcome banner */}
       <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold mb-1">{t("dash.hello", { name: user?.firstName || "Parent" })}</h1>
@@ -78,8 +76,7 @@ const ParentPage = () => {
       {/* Tabs */}
       <div className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
         {([
-          { id: "overview", tabKey: "dash.tabs.overview", icon: "🏠" },
-          { id: "grades", tabKey: "dash.tabs.grades", icon: "📊" },
+          { id: "home", tabKey: "dash.tabs.overview", icon: "🏠" },
           { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
         ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
           <button
@@ -96,89 +93,102 @@ const ParentPage = () => {
 
       {tab === "messages" && <Messaging />}
 
-      {(tab === "overview" || tab === "grades") && (
-        <div className="flex gap-4 flex-col xl:flex-row">
-          {/* LEFT */}
-          <div className={`w-full flex flex-col gap-6 ${tab === "overview" ? "xl:w-2/3" : ""}`}>
-            {loading ? (
-              <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">{t("common.loading")}</div>
-            ) : children.length === 0 ? (
-              <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
-                <div className="text-4xl mb-3">👨‍👧‍👦</div>
-                <p className="text-gray-500 text-sm">{t("dash.parent.noChildren")}</p>
-                <p className="text-gray-400 text-xs mt-1">
-                  {t("dash.parent.noChildrenHint")}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                {/* Child tabs */}
-                <div className="flex border-b overflow-x-auto">
-                  {children.map((child) => (
-                    <button
-                      key={child.id}
-                      onClick={() => setSelectedChild(child.id)}
-                      className={`px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
-                        selectedChild === child.id
-                          ? "text-orange-600 border-b-2 border-orange-500 bg-orange-50/50"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      {child.first_name} {child.last_name}
-                    </button>
-                  ))}
+      {tab === "home" && (
+        <div className="flex-1 flex flex-col gap-4 pb-28">
+          {loading ? (
+            <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">{t("common.loading")}</div>
+          ) : children.length === 0 ? (
+            <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+              <div className="text-4xl mb-3">👨‍👧‍👦</div>
+              <p className="text-gray-500 text-sm">{t("dash.parent.noChildren")}</p>
+              <p className="text-gray-400 text-xs mt-1">{t("dash.parent.noChildrenHint")}</p>
+            </div>
+          ) : selectedStudent ? (
+            <>
+              {/* Selected child header */}
+              <div className="flex items-center gap-4 bg-white border shadow-sm rounded-2xl p-4">
+                <ChildAvatar student={selectedStudent} size={56} />
+                <div className="min-w-0">
+                  <h2 className="font-bold text-lg text-gray-800 truncate">
+                    {selectedStudent.first_name} {selectedStudent.last_name}
+                  </h2>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                    Student
+                  </span>
                 </div>
-
-                {selectedStudent && (
-                  <div className="p-4">
-                    <div className="flex items-center gap-4 mb-5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 rounded-2xl p-4">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-xl font-bold shadow-sm">
-                        {selectedStudent.first_name[0]}{selectedStudent.last_name[0]}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-lg text-gray-800 truncate">
-                          {selectedStudent.first_name} {selectedStudent.last_name}
-                        </h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">Student</span>
-                          {selectedStudent.email && <p className="text-xs text-gray-400 truncate">{selectedStudent.email}</p>}
-                        </div>
-                      </div>
-                    </div>
-                    {tab === "overview" ? (
-                      <ChildMonitor
-                        studentId={selectedStudent.id}
-                        studentName={selectedStudent.first_name}
-                      />
-                    ) : (
-                      <GradesPortal studentId={selectedStudent.id} accent="amber" />
-                    )}
-                  </div>
-                )}
               </div>
-            )}
-          </div>
 
-          {/* RIGHT (overview only) */}
-          {tab === "overview" && (
-            <div className="w-full xl:w-1/3 flex flex-col gap-6">
-              <div className="bg-white rounded-xl p-4 border shadow-sm">
-                <h2 className="text-lg font-semibold mb-3">{t("dash.parent.contactTeachers")}</h2>
-                <p className="text-sm text-gray-500 mb-3">
-                  {t("dash.parent.contactHint")}
-                </p>
-                <button
-                  onClick={() => setTab("messages")}
-                  className="w-full bg-orange-500 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                  {t("dash.parent.openMessages")}
-                </button>
+              {/* ProgressBook-style portal for the selected child */}
+              <ChildPortal
+                key={selectedStudent.id}
+                studentId={selectedStudent.id}
+                studentName={selectedStudent.first_name}
+              />
+            </>
+          ) : (
+            <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">
+              Select a child below to view their academic record.
+            </div>
+          )}
+
+          {/* ── Children switcher (bottom-left corner) ───────────────── */}
+          {children.length > 0 && (
+            <div className="sticky bottom-3 z-30 flex items-end gap-2.5 mt-auto">
+              <div className="bg-[#1f3a5f] text-white rounded-2xl shadow-lg px-3 py-2 flex items-center gap-3">
+                <div className="flex flex-col leading-tight pr-1">
+                  <span className="text-lg font-bold">{children.length}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-white/70">
+                    {children.length === 1 ? "Child" : "Children"}
+                  </span>
+                </div>
+                <div className="flex items-end gap-2">
+                  {children.map((child) => {
+                    const active = child.id === selectedChild;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => setSelectedChild(child.id)}
+                        title={`${child.first_name} ${child.last_name}`}
+                        className={`flex flex-col items-center gap-1 rounded-xl px-2.5 py-1.5 transition-colors ${
+                          active ? "bg-white/15 ring-1 ring-white/40" : "hover:bg-white/10"
+                        }`}
+                      >
+                        <ChildAvatar student={child} size={40} ring={active} />
+                        <span className={`text-[11px] font-medium max-w-[72px] truncate ${active ? "text-white" : "text-white/70"}`}>
+                          {child.first_name} {child.last_name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <Announcements />
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+/* Avatar with image fallback to initials. */
+const ChildAvatar = ({
+  student, size, ring,
+}: { student: LinkedStudent; size: number; ring?: boolean }) => {
+  const initials = `${student.first_name[0] || ""}${student.last_name[0] || ""}`.toUpperCase();
+  return student.avatar_url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={student.avatar_url}
+      alt={`${student.first_name} ${student.last_name}`}
+      className={`rounded-xl object-cover ${ring ? "ring-2 ring-white" : ""}`}
+      style={{ width: size, height: size }}
+    />
+  ) : (
+    <div
+      className={`rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white font-bold shadow-sm ${ring ? "ring-2 ring-white" : ""}`}
+      style={{ width: size, height: size, fontSize: size * 0.34 }}
+    >
+      {initials}
     </div>
   );
 };
