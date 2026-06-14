@@ -124,6 +124,7 @@ function AdminDashboard() {
   const [students, setStudents] = useState<StudentFeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [recording, setRecording] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   const loadFees = async () => {
     if (!supabase || !user?.schoolId) { setLoading(false); return; }
@@ -209,14 +210,27 @@ function AdminDashboard() {
             📥 Export
           </button>
           <button
+            onClick={() => setAssigning(true)}
+            className="px-4 py-2.5 text-sm rounded-xl border border-[#0F4F3C] text-[#0F4F3C] bg-white hover:bg-[#0F4F3C]/5 transition flex items-center gap-2"
+          >
+            ＋ Assign fee
+          </button>
+          <button
             onClick={() => setRecording(true)}
             className="px-4 py-2.5 text-sm rounded-xl bg-[#0F4F3C] text-white hover:bg-[#0A3D2E] transition flex items-center gap-2"
           >
-            ＋ Record payment
+            💳 Record payment
           </button>
         </div>
       </header>
 
+      {assigning && (
+        <AssignFeeModal
+          students={students}
+          onClose={() => setAssigning(false)}
+          onSaved={() => { setAssigning(false); loadFees(); }}
+        />
+      )}
       {recording && (
         <RecordPaymentModal
           students={students}
@@ -531,11 +545,39 @@ function exportCsv(rows: StudentFeeRow[]) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// RECORD PAYMENT MODAL
+// SHARED MODAL TYPES
 // ═══════════════════════════════════════════════════════════════
 const FEE_TYPES = ["tuition", "registration", "exam", "transport", "lunch", "other"] as const;
 
-function RecordPaymentModal({
+interface FeeAssignment {
+  id: string;
+  fee_type: string;
+  amount: number;
+  paid_amount: number;
+  due_date: string | null;
+  term: string;
+  status: string;
+}
+
+const Shell = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
+  <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// ASSIGN FEE MODAL — sets a student's Total fee (status = pending)
+// ═══════════════════════════════════════════════════════════════
+function AssignFeeModal({
   students, onClose, onSaved,
 }: {
   students: StudentFeeRow[];
@@ -547,8 +589,8 @@ function RecordPaymentModal({
   const [studentId, setStudentId] = useState(students[0]?.id || "");
   const [feeType, setFeeType] = useState<(typeof FEE_TYPES)[number]>("tuition");
   const [amount, setAmount] = useState<string>("0");
+  const [dueDate, setDueDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [term, setTerm] = useState<string>("");
-  const [paidAt, setPaidAt] = useState<string>(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>("");
@@ -558,22 +600,19 @@ function RecordPaymentModal({
     if (!supabase || !user?.schoolId) return;
     if (!studentId) { setError("Pick a student"); return; }
     const amt = Math.round(Number(amount));
-    if (!Number.isFinite(amt) || amt <= 0) { setError("Amount must be greater than 0"); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { setError("Total fee must be greater than 0"); return; }
     setSaving(true);
     setError("");
     try {
-      // Record the payment as a fully-paid student_fees row so the totals
-      // pick it up immediately and it shows on the Income side of the
-      // admin Finance chart. Each "record payment" is one row.
       const { error: insertError } = await supabase.from("student_fees").insert({
         school_id: user.schoolId,
         student_id: studentId,
         fee_type: feeType,
         amount: amt,
-        paid_amount: amt,
-        due_date: paidAt,
-        paid_at: paidAt,
-        status: "paid",
+        paid_amount: 0,
+        due_date: dueDate,
+        paid_at: null,
+        status: "pending",
         term: term || `${new Date().getFullYear()}`,
         notes: notes || null,
       });
@@ -587,21 +626,11 @@ function RecordPaymentModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Record payment</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">
-            ✕
-          </button>
-        </div>
+    <Shell title="Assign fee" onClose={onClose}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <p className="text-xs text-gray-500 -mt-1">
+          Creates a pending fee for the student. Use <strong>Record payment</strong> later to mark it (fully or partially) as paid.
+        </p>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
           Student
@@ -611,9 +640,7 @@ function RecordPaymentModal({
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           >
             <option value="">Select a student</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+            {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
 
@@ -629,11 +656,9 @@ function RecordPaymentModal({
             </select>
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Amount
+            Total fee
             <input
-              type="number"
-              min="0"
-              step="1"
+              type="number" min="0" step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
@@ -643,11 +668,11 @@ function RecordPaymentModal({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Paid on
+            Due date
             <input
               type="date"
-              value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
               className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             />
           </label>
@@ -658,6 +683,171 @@ function RecordPaymentModal({
               placeholder="e.g. 2026-T1"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            />
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+          Notes (optional)
+          <textarea
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+          />
+        </label>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <div className="flex gap-2 justify-end pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving}
+            className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50">
+            {saving ? "Saving..." : "Assign fee"}
+          </button>
+        </div>
+      </form>
+    </Shell>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RECORD PAYMENT MODAL — applies a payment to an existing assignment
+// ═══════════════════════════════════════════════════════════════
+function RecordPaymentModal({
+  students, onClose, onSaved,
+}: {
+  students: StudentFeeRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const supabase = createClient();
+  const [studentId, setStudentId] = useState(students[0]?.id || "");
+  const [fees, setFees] = useState<FeeAssignment[]>([]);
+  const [feeId, setFeeId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("0");
+  const [paidAt, setPaidAt] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState<string>("");
+  const [feesLoading, setFeesLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  // Load the student's outstanding fees whenever the student changes.
+  useEffect(() => {
+    const loadStudentFees = async () => {
+      if (!supabase || !studentId) { setFees([]); setFeeId(""); return; }
+      setFeesLoading(true);
+      const { data } = await supabase
+        .from("student_fees")
+        .select("id, fee_type, amount, paid_amount, due_date, term, status")
+        .eq("student_id", studentId)
+        .in("status", ["pending", "partial", "overdue"])
+        .order("due_date", { ascending: true });
+      const rows = (data as FeeAssignment[]) || [];
+      setFees(rows);
+      setFeeId(rows[0]?.id || "");
+      setFeesLoading(false);
+    };
+    loadStudentFees();
+  }, [studentId]);
+
+  const selectedFee = fees.find((f) => f.id === feeId);
+  const remaining = selectedFee ? Math.max(0, selectedFee.amount - selectedFee.paid_amount) : 0;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase || !user?.schoolId) return;
+    if (!studentId) { setError("Pick a student"); return; }
+    if (!selectedFee) { setError("Pick a fee assignment, or assign one first"); return; }
+    const amt = Math.round(Number(amount));
+    if (!Number.isFinite(amt) || amt <= 0) { setError("Amount must be greater than 0"); return; }
+    if (amt > remaining) { setError(`Payment cannot exceed remaining ${fmt(remaining)}`); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const newPaid = selectedFee.paid_amount + amt;
+      const newStatus = newPaid >= selectedFee.amount ? "paid" : "partial";
+      const payload: Record<string, unknown> = {
+        paid_amount: newPaid,
+        status: newStatus,
+        paid_at: paidAt,
+      };
+      if (notes) {
+        payload.notes = (selectedFee as any).notes
+          ? `${(selectedFee as any).notes}\n${paidAt}: ${notes}`
+          : `${paidAt}: ${notes}`;
+      }
+      const { error: updateError } = await supabase
+        .from("student_fees")
+        .update(payload)
+        .eq("id", selectedFee.id);
+      if (updateError) throw updateError;
+      onSaved();
+    } catch (err: any) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Shell title="Record payment" onClose={onClose}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <p className="text-xs text-gray-500 -mt-1">
+          Applies a payment to one of the student&apos;s existing assigned fees. If the student has no pending fees yet, use <strong>Assign fee</strong> first.
+        </p>
+
+        <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+          Student
+          <select
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+          >
+            <option value="">Select a student</option>
+            {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+          Fee assignment
+          <select
+            value={feeId}
+            onChange={(e) => setFeeId(e.target.value)}
+            disabled={feesLoading || fees.length === 0}
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:bg-gray-100 disabled:text-gray-400 capitalize"
+          >
+            {feesLoading ? <option>Loading…</option>
+              : fees.length === 0 ? <option value="">No pending fees — assign one first</option>
+              : fees.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.fee_type} · {fmt(f.amount)} ({fmt(Math.max(0, f.amount - f.paid_amount))} left)
+                    {f.due_date ? ` · due ${new Date(f.due_date).toLocaleDateString()}` : ""}
+                  </option>
+                ))}
+          </select>
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Amount (max {fmt(remaining)})
+            <input
+              type="number" min="0" step="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs text-gray-500">
+            Paid on
+            <input
+              type="date"
+              value={paidAt}
+              onChange={(e) => setPaidAt(e.target.value)}
               className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             />
           </label>
@@ -677,23 +867,16 @@ function RecordPaymentModal({
         {error && <p className="text-xs text-red-500">{error}</p>}
 
         <div className="flex gap-2 justify-end pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-md border border-gray-200 text-sm"
-          >
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50"
-          >
+          <button type="submit" disabled={saving || !selectedFee}
+            className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50">
             {saving ? "Saving..." : "Save payment"}
           </button>
         </div>
       </form>
-    </div>
+    </Shell>
   );
 }
 
