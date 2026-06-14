@@ -18,23 +18,31 @@ import { createClient } from "@/lib/supabase/client";
 interface FeeRow {
   paid_amount: number | null;
   paid_at: string | null;
+  created_at: string | null;
 }
 interface PayrollRow {
   net_salary: number | null;
   paid_at: string | null;
+  created_at: string | null;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
-/** Finance chart for the admin dashboard. Aggregates real income and expense
- *  transactions for the current calendar year by month:
- *   - Income  = sum of `paid_amount` from `student_fees` whose `paid_at`
- *               falls in that month (fee payments received)
- *   - Expense = sum of `net_salary` from `payroll` whose `paid_at` falls in
- *               that month and whose `status = 'paid'` (salaries paid out)
- *  Both queries are RLS-safe and school-scoped via `school_id`. */
+/** Bucket date for a transaction: prefer paid_at (when the money actually
+ *  moved), otherwise fall back to created_at so rows recorded without an
+ *  explicit paid_at still land on the chart and in the totals. */
+const bucketDate = (paidAt: string | null, createdAt: string | null) => paidAt ?? createdAt;
+
+/** Finance chart for the admin dashboard.
+ *  - **Income** = sum of `student_fees.paid_amount` for the school
+ *    (all-time on the stat card, monthly current-year on the bar chart)
+ *  - **Expense** = sum of `payroll.net_salary` for the school where
+ *    `status = 'paid'` (same time bases)
+ *  The totals match the Student Fees page's "Collected" KPI so the two
+ *  surfaces stay in sync; the chart bars show the calendar-year
+ *  distribution. */
 const FinanceChart = () => {
   const { user } = useAuth();
   const supabase = createClient();
@@ -48,25 +56,22 @@ const FinanceChart = () => {
     const load = async () => {
       if (!supabase || !user?.schoolId) { setLoading(false); return; }
       setLoading(true);
-      const yearStart = `${year}-01-01`;
-      const yearEnd = `${year}-12-31T23:59:59`;
 
+      // Pull every paid_amount and every paid payroll row for the school,
+      // regardless of paid_at — this is what makes the totals match the
+      // Student Fees page. The bar chart still buckets per month using
+      // bucketDate() below.
       const [feeRes, payRes] = await Promise.all([
         supabase
           .from("student_fees")
-          .select("paid_amount, paid_at")
+          .select("paid_amount, paid_at, created_at")
           .eq("school_id", user.schoolId)
-          .not("paid_at", "is", null)
-          .gte("paid_at", yearStart)
-          .lte("paid_at", yearEnd),
+          .gt("paid_amount", 0),
         supabase
           .from("payroll")
-          .select("net_salary, paid_at")
+          .select("net_salary, paid_at, created_at")
           .eq("school_id", user.schoolId)
-          .eq("status", "paid")
-          .not("paid_at", "is", null)
-          .gte("paid_at", yearStart)
-          .lte("paid_at", yearEnd),
+          .eq("status", "paid"),
       ]);
 
       setFees((feeRes.data as FeeRow[]) || []);
@@ -76,42 +81,52 @@ const FinanceChart = () => {
     load();
   }, [user?.schoolId, year]);
 
-  const data = useMemo(() => {
+  const chartData = useMemo(() => {
     const income = new Array(12).fill(0);
     const expense = new Array(12).fill(0);
     fees.forEach((r) => {
-      if (!r.paid_at) return;
-      const m = new Date(r.paid_at).getMonth();
-      income[m] += r.paid_amount ?? 0;
+      const d = bucketDate(r.paid_at, r.created_at);
+      if (!d) return;
+      const t = new Date(d);
+      if (t.getFullYear() !== year) return;
+      income[t.getMonth()] += r.paid_amount ?? 0;
     });
     salaries.forEach((r) => {
-      if (!r.paid_at) return;
-      const m = new Date(r.paid_at).getMonth();
-      expense[m] += r.net_salary ?? 0;
+      const d = bucketDate(r.paid_at, r.created_at);
+      if (!d) return;
+      const t = new Date(d);
+      if (t.getFullYear() !== year) return;
+      expense[t.getMonth()] += r.net_salary ?? 0;
     });
     return MONTHS.map((name, i) => ({ name, income: income[i], expense: expense[i] }));
-  }, [fees, salaries]);
+  }, [fees, salaries, year]);
 
   const totals = useMemo(() => {
-    const income = data.reduce((s, d) => s + d.income, 0);
-    const expense = data.reduce((s, d) => s + d.expense, 0);
+    const income = fees.reduce((s, r) => s + (r.paid_amount ?? 0), 0);
+    const expense = salaries.reduce((s, r) => s + (r.net_salary ?? 0), 0);
     return { income, expense, net: income - expense };
-  }, [data]);
+  }, [fees, salaries]);
 
   return (
     <div className="bg-white rounded-xl w-full h-full p-4 flex flex-col">
       <div className="flex justify-between items-center">
-        <h1 className="text-lg font-semibold">Finance · {year}</h1>
+        <h1 className="text-lg font-semibold">Finance</h1>
         <Image src="/moreDark.png" alt="" width={20} height={20} />
       </div>
 
-      {/* Year-to-date totals */}
+      {/* All-time totals — stay in sync with the Student Fees "Collected" KPI */}
       <div className="grid grid-cols-3 gap-3 mt-2 mb-3">
-        <Stat label="Income" value={fmtMoney(totals.income)} tone="text-green-600" />
-        <Stat label="Expense" value={fmtMoney(totals.expense)} tone="text-red-600" />
-        <Stat label="Net" value={fmtMoney(totals.net)} tone={totals.net >= 0 ? "text-blue-600" : "text-red-600"} />
+        <Stat label="Income" value={fmtMoney(totals.income)} tone="text-green-600" sub="All-time collected" />
+        <Stat label="Expense" value={fmtMoney(totals.expense)} tone="text-red-600" sub="All-time paid out" />
+        <Stat
+          label="Net"
+          value={fmtMoney(totals.net)}
+          tone={totals.net >= 0 ? "text-blue-600" : "text-red-600"}
+          sub="Income − expense"
+        />
       </div>
 
+      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{year} · monthly distribution</p>
       <div className="flex-1 min-h-0 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 pointer-events-none">
@@ -119,14 +134,16 @@ const FinanceChart = () => {
           </div>
         )}
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={data}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-          >
+          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ddd" />
             <XAxis dataKey="name" axisLine={false} tick={{ fill: "#9ca3af" }} tickLine={false} tickMargin={10} />
-            <YAxis axisLine={false} tick={{ fill: "#9ca3af" }} tickLine={false} tickMargin={20}
-              tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))} />
+            <YAxis
+              axisLine={false}
+              tick={{ fill: "#9ca3af" }}
+              tickLine={false}
+              tickMargin={20}
+              tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
+            />
             <Tooltip formatter={(v: number) => fmtMoney(v)} />
             <Legend align="center" verticalAlign="top" wrapperStyle={{ paddingTop: "10px", paddingBottom: "20px" }} />
             <Line type="monotone" dataKey="income" stroke="#3a6d9a" strokeWidth={3} dot={{ r: 3 }} />
@@ -138,10 +155,11 @@ const FinanceChart = () => {
   );
 };
 
-const Stat = ({ label, value, tone }: { label: string; value: string; tone: string }) => (
+const Stat = ({ label, value, tone, sub }: { label: string; value: string; tone: string; sub?: string }) => (
   <div className="bg-gray-50 rounded-lg px-3 py-2">
     <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
     <p className={`text-sm font-bold mt-0.5 truncate ${tone}`}>{value}</p>
+    {sub && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</p>}
   </div>
 );
 
