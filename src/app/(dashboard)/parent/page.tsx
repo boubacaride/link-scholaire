@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Messaging from "@/components/Messaging";
+import PageHeader from "@/components/PageHeader";
 import ChildPortal from "@/components/dashboard/ChildPortal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
@@ -65,31 +66,49 @@ const ParentPage = () => {
 
   const selectedStudent = children.find((c) => c.id === selectedChild);
 
-  return (
-    <div className="p-4 flex flex-col gap-4">
-      {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white shrink-0">
-        <h1 className="text-2xl font-bold mb-1">{t("dash.hello", { name: user?.firstName || "Parent" })}</h1>
-        <p className="text-orange-100 text-sm">{t("dash.parent.subtitle")}</p>
-      </div>
+  // Short, stable display ID derived from the student's profile UUID — we
+  // don't have a separate numeric student_id column, so use the last six hex
+  // chars uppercased (e.g. "A2B3C4") which still identifies the record.
+  const studentShortId = (id?: string) =>
+    id ? id.replace(/-/g, "").slice(-6).toUpperCase() : "";
 
-      {/* Tabs */}
-      <div className="relative z-10 shrink-0 flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
-        {([
-          { id: "home", tabKey: "dash.tabs.overview", icon: "🏠" },
-          { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
-        ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
-          <button
-            key={tb.id}
-            onClick={() => setTab(tb.id)}
-            className={`flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg whitespace-nowrap transition-colors ${
-              tab === tb.id ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <span>{tb.icon}</span>{t(tb.tabKey)}
-          </button>
-        ))}
-      </div>
+  const pageTitle = tab === "messages" ? "Messages" : "Home";
+
+  return (
+    <div className="flex flex-col">
+      {/* Gray content-header: page title on the left, selected student on the right */}
+      <PageHeader
+        title={pageTitle}
+        right={selectedStudent && (
+          <>
+            <h4 className="text-sm font-bold text-gray-700 leading-tight truncate">
+              {selectedStudent.first_name.toUpperCase()} {selectedStudent.last_name.toUpperCase()}
+            </h4>
+            <p className="text-[11px] text-gray-500 leading-tight">
+              Student ID: {studentShortId(selectedStudent.id)}
+            </p>
+          </>
+        )}
+      />
+
+      <div className="p-4 flex flex-col gap-4">
+        {/* Tabs */}
+        <div className="relative z-10 shrink-0 flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-xl border shadow-sm">
+          {([
+            { id: "home", tabKey: "dash.tabs.overview", icon: "🏠" },
+            { id: "messages", tabKey: "dash.tabs.messages", icon: "💬" },
+          ] as { id: Tab; tabKey: string; icon: string }[]).map((tb) => (
+            <button
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
+              className={`flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                tab === tb.id ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <span>{tb.icon}</span>{t(tb.tabKey)}
+            </button>
+          ))}
+        </div>
 
       {tab === "messages" && <Messaging />}
 
@@ -166,6 +185,7 @@ const ParentPage = () => {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 };
