@@ -111,7 +111,7 @@ const ParentGradesView = () => {
                   <img src={c.avatar_url} alt="" className="w-6 h-6 rounded-md object-cover" />
                 ) : (
                   <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                    active ? "bg-white/15 text-white" : "bg-orange-100 text-orange-700"
+                    active ? "bg-white/15 text-white" : "bg-blue-100 text-blue-700"
                   }`}>
                     {initials}
                   </span>
