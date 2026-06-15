@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 
 const labs = [
   {
     id: "math",
-    title: "Mathematics",
-    subtitle: "Algebra, Calculus, Geometry & more",
-    description: "Solve equations step-by-step, plot functions, and explore mathematical concepts with our AI-powered math engine.",
+    title: "labs.mathTitle",
+    subtitle: "labs.mathSubtitle",
+    description: "labs.mathDescription",
     href: "/list/labs/math",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -21,9 +22,9 @@ const labs = [
   },
   {
     id: "physics",
-    title: "Physics",
-    subtitle: "Mechanics, Waves, Thermodynamics",
-    description: "Explore physics simulations, solve mechanics problems, and visualize wave phenomena interactively.",
+    title: "labs.physicsTitle",
+    subtitle: "labs.physicsSubtitle",
+    description: "labs.physicsDescription",
     href: "/list/labs/physics",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -39,9 +40,9 @@ const labs = [
   },
   {
     id: "chemistry",
-    title: "Chimie",
-    subtitle: "Tableau Périodique & Réactions",
-    description: "Explorez le tableau périodique interactif, étudiez les éléments chimiques et les réactions en détail.",
+    title: "labs.chemistryTitle",
+    subtitle: "labs.chemistrySubtitle",
+    description: "labs.chemistryDescription",
     href: "/list/labs/chemistry",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -59,9 +60,9 @@ const labs = [
   },
   {
     id: "sciences",
-    title: "Sciences",
-    subtitle: "Human Body & Biology",
-    description: "Explore the human body in 3D, study anatomy, and understand biological systems with interactive models.",
+    title: "labs.sciencesTitle",
+    subtitle: "labs.sciencesSubtitle",
+    description: "labs.sciencesDescription",
     href: "/list/labs/sciences",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -80,17 +81,18 @@ const labs = [
 const LabsLandingPage = () => {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useI18n();
 
   return (
     <div className="flex-1 p-6 md:p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">Learning · Laboratories</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">{t("labs.breadcrumb")}</div>
         <h1 className="text-3xl md:text-4xl font-bold text-gray-800 tracking-tight">
-          Science Labs
+          {t("labs.landingTitle")}
         </h1>
         <p className="text-gray-500 text-sm mt-2">
-          Choose a subject to start exploring. Interactive tools powered by AI and real-time simulations.
+          {t("labs.landingSubtitle")}
         </p>
       </div>
 
@@ -106,8 +108,8 @@ const LabsLandingPage = () => {
             <div className={`bg-gradient-to-r ${lab.gradient} p-5 flex items-start gap-4`}>
               <div className="flex-shrink-0">{lab.icon}</div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-white">{lab.title}</h2>
-                <p className="text-white/70 text-sm mt-0.5">{lab.subtitle}</p>
+                <h2 className="text-xl font-bold text-white">{t(lab.title)}</h2>
+                <p className="text-white/70 text-sm mt-0.5">{t(lab.subtitle)}</p>
               </div>
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -118,7 +120,7 @@ const LabsLandingPage = () => {
 
             {/* Card body */}
             <div className="p-5">
-              <p className="text-gray-600 text-sm leading-relaxed mb-4">{lab.description}</p>
+              <p className="text-gray-600 text-sm leading-relaxed mb-4">{t(lab.description)}</p>
               <div className="flex flex-wrap gap-2">
                 {lab.features.map((f) => (
                   <span key={f} className="text-[11px] bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">

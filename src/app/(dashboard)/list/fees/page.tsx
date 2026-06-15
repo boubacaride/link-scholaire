@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG
@@ -45,21 +46,22 @@ const statusOf = (s: { paid: number; total: number }): FeeStatus => {
   return "partial";
 };
 
-const statusStyles: Record<FeeStatus, { bg: string; text: string; dot: string; label: string }> = {
-  paid: { bg: "bg-emerald-50", text: "text-emerald-800", dot: "bg-emerald-700", label: "Paid in full" },
-  partial: { bg: "bg-amber-50", text: "text-amber-800", dot: "bg-amber-600", label: "Partial" },
-  unpaid: { bg: "bg-red-50", text: "text-red-800", dot: "bg-red-700", label: "Unpaid" },
+const statusStyles: Record<FeeStatus, { bg: string; text: string; dot: string; labelKey: string }> = {
+  paid: { bg: "bg-emerald-50", text: "text-emerald-800", dot: "bg-emerald-700", labelKey: "fin.statusPaidInFull" },
+  partial: { bg: "bg-amber-50", text: "text-amber-800", dot: "bg-amber-600", labelKey: "fin.statusPartial" },
+  unpaid: { bg: "bg-red-50", text: "text-red-800", dot: "bg-red-700", labelKey: "fin.statusUnpaid" },
 };
 
 // ═══════════════════════════════════════════════════════════════
 // SHARED UI
 // ═══════════════════════════════════════════════════════════════
 function StatusPill({ status }: { status: FeeStatus }) {
+  const { t } = useI18n();
   const s = statusStyles[status];
   return (
     <span className={`${s.bg} ${s.text} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium`}>
       <span className={`${s.dot} w-1.5 h-1.5 rounded-full`} />
-      {s.label}
+      {t(s.labelKey)}
     </span>
   );
 }
@@ -116,6 +118,7 @@ const FeesPage = () => {
 // ADMIN DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function AdminDashboard() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const supabase = createClient();
   const [search, setSearch] = useState("");
@@ -191,35 +194,42 @@ function AdminDashboard() {
     return { expected, collected, outstanding, rate, paidCount, unpaidCount };
   }, [students]);
 
-  if (loading) return <div className="bg-white p-8 rounded-2xl text-center text-gray-400">Loading fees...</div>;
+  const statusLabel = (s: string) =>
+    s === "All" ? t("fin.filterAll")
+    : s === "Paid" ? t("fin.filterPaid")
+    : s === "Partial" ? t("fin.filterPartial")
+    : s === "Unpaid" ? t("fin.filterUnpaid")
+    : s;
+
+  if (loading) return <div className="bg-white p-8 rounded-2xl text-center text-gray-400">{t("fin.loadingFees")}</div>;
 
   return (
     <div>
       {/* Header */}
       <header className="flex items-center justify-between mb-8">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Finance · Overview</div>
-          <h1 className="text-3xl md:text-4xl tracking-tight font-serif font-semibold">Student Fees</h1>
-          <div className="text-sm text-gray-500 mt-1">{user?.schoolName} · {students.length} students enrolled</div>
+          <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">{t("fin.financeOverview")}</div>
+          <h1 className="text-3xl md:text-4xl tracking-tight font-serif font-semibold">{t("fin.studentFees")}</h1>
+          <div className="text-sm text-gray-500 mt-1">{t("fin.schoolStudentsEnrolled", { school: user?.schoolName || "", count: students.length })}</div>
         </div>
         <div className="hidden md:flex items-center gap-2">
           <button
-            onClick={() => exportCsv(filtered)}
+            onClick={() => exportCsv(filtered, t)}
             className="px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition flex items-center gap-2"
           >
-            📥 Export
+            📥 {t("fin.export")}
           </button>
           <button
             onClick={() => setAssigning(true)}
             className="px-4 py-2.5 text-sm rounded-xl border border-[#0F4F3C] text-[#0F4F3C] bg-white hover:bg-[#0F4F3C]/5 transition flex items-center gap-2"
           >
-            ＋ Assign fee
+            ＋ {t("fin.assignFee")}
           </button>
           <button
             onClick={() => setRecording(true)}
             className="px-4 py-2.5 text-sm rounded-xl bg-[#0F4F3C] text-white hover:bg-[#0A3D2E] transition flex items-center gap-2"
           >
-            💳 Record payment
+            💳 {t("fin.recordPayment")}
           </button>
         </div>
       </header>
@@ -241,10 +251,10 @@ function AdminDashboard() {
 
       {/* KPI cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <KpiCard tone="primary" label="Collected" value={fmt(totals.collected)} sub={`${totals.rate}% of expected`} icon="💰" />
-        <KpiCard tone="cream" label="Expected" value={fmt(totals.expected)} sub="This term" icon="📈" />
-        <KpiCard tone="white" label="Outstanding" value={fmt(totals.outstanding)} sub={`${totals.unpaidCount} unpaid, ${students.length - totals.paidCount - totals.unpaidCount} partial`} icon="⚠️" accent />
-        <KpiCard tone="white" label="Fully paid" value={`${totals.paidCount} / ${students.length}`} sub={`${students.length ? Math.round(totals.paidCount / students.length * 100) : 0}% of students`} icon="✅" />
+        <KpiCard tone="primary" label={t("fin.collected")} value={fmt(totals.collected)} sub={t("fin.collectedSub", { rate: totals.rate })} icon="💰" />
+        <KpiCard tone="cream" label={t("fin.expected")} value={fmt(totals.expected)} sub={t("fin.expectedSub")} icon="📈" />
+        <KpiCard tone="white" label={t("fin.outstanding")} value={fmt(totals.outstanding)} sub={t("fin.outstandingSub", { unpaid: totals.unpaidCount, partial: students.length - totals.paidCount - totals.unpaidCount })} icon="⚠️" accent />
+        <KpiCard tone="white" label={t("fin.fullyPaid")} value={`${totals.paidCount} / ${students.length}`} sub={t("fin.fullyPaidSub", { rate: students.length ? Math.round(totals.paidCount / students.length * 100) : 0 })} icon="✅" />
       </section>
 
       {/* Filters */}
@@ -254,17 +264,17 @@ function AdminDashboard() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search student by name…"
+            placeholder={t("fin.searchStudentPlaceholder")}
             className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#0F4F3C] transition"
           />
         </div>
         <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}
           className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#0F4F3C] min-w-[170px]">
-          {classes.map((o) => <option key={o}>{o}</option>)}
+          {classes.map((o) => <option key={o} value={o}>{o === "All classes" ? t("fin.allClasses") : o}</option>)}
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
           className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#0F4F3C] min-w-[130px]">
-          {statuses.map((o) => <option key={o}>{o}</option>)}
+          {statuses.map((o) => <option key={o} value={o}>{statusLabel(o)}</option>)}
         </select>
       </div>
 
@@ -274,13 +284,13 @@ function AdminDashboard() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="text-left font-medium px-6 py-4">Student</th>
-                <th className="text-left font-medium px-6 py-4 hidden md:table-cell">Class</th>
-                <th className="text-right font-medium px-6 py-4">Total fee</th>
-                <th className="text-right font-medium px-6 py-4 hidden sm:table-cell">Paid</th>
-                <th className="text-right font-medium px-6 py-4">Outstanding</th>
-                <th className="text-left font-medium px-6 py-4 hidden lg:table-cell">Status</th>
-                <th className="text-left font-medium px-6 py-4 hidden lg:table-cell">Last payment</th>
+                <th className="text-left font-medium px-6 py-4">{t("fin.colStudent")}</th>
+                <th className="text-left font-medium px-6 py-4 hidden md:table-cell">{t("fin.colClass")}</th>
+                <th className="text-right font-medium px-6 py-4">{t("fin.colTotalFee")}</th>
+                <th className="text-right font-medium px-6 py-4 hidden sm:table-cell">{t("fin.colPaid")}</th>
+                <th className="text-right font-medium px-6 py-4">{t("fin.colOutstanding")}</th>
+                <th className="text-left font-medium px-6 py-4 hidden lg:table-cell">{t("fin.colStatus")}</th>
+                <th className="text-left font-medium px-6 py-4 hidden lg:table-cell">{t("fin.colLastPayment")}</th>
               </tr>
             </thead>
             <tbody>
@@ -319,7 +329,7 @@ function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 hidden lg:table-cell"><StatusPill status={status} /></td>
                     <td className="px-6 py-4 hidden lg:table-cell text-gray-400 text-xs">
-                      {s.lastPayment || <span className="italic">No payment yet</span>}
+                      {s.lastPayment || <span className="italic">{t("fin.noPaymentYet")}</span>}
                     </td>
                   </tr>
                 );
@@ -328,10 +338,10 @@ function AdminDashboard() {
           </table>
         </div>
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-gray-400 text-sm">No students match your filters.</div>
+          <div className="text-center py-16 text-gray-400 text-sm">{t("fin.noStudentsMatch")}</div>
         )}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-          <span>Showing {filtered.length} of {students.length} students</span>
+          <span>{t("fin.showingOf", { shown: filtered.length, total: students.length })}</span>
         </div>
       </div>
     </div>
@@ -342,6 +352,7 @@ function AdminDashboard() {
 // PARENT VIEW
 // ═══════════════════════════════════════════════════════════════
 function ParentView() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const supabase = createClient();
   const [children, setChildren] = useState<any[]>([]);
@@ -349,7 +360,7 @@ function ParentView() {
 
   // Mock child data — in production, fetch from parent_students + student_fees
   const child = {
-    name: user?.firstName ? `${user.firstName} ${user.lastName}` : "Student",
+    name: user?.firstName ? `${user.firstName} ${user.lastName}` : t("fin.studentFallback"),
     grade: "—",
     id: user?.profileId?.slice(0, 12) || "—",
     total: 0,
@@ -384,20 +395,22 @@ function ParentView() {
   const remaining = child.total - child.paid;
   const pct = child.total > 0 ? (child.paid / child.total) * 100 : 0;
 
-  if (loading) return <div className="bg-white p-8 rounded-2xl text-center text-gray-400">Loading...</div>;
+  if (loading) return <div className="bg-white p-8 rounded-2xl text-center text-gray-400">{t("fin.loading")}</div>;
 
   return (
     <div>
       {/* Greeting */}
       <header className="mb-8">
-        <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Parent portal</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">{t("fin.parentPortal")}</div>
         <h1 className="text-3xl md:text-4xl tracking-tight font-serif font-semibold">
-          Hello, {user?.firstName || "Parent"}
+          {t("fin.helloName", { name: user?.firstName || t("fin.parentFallback") })}
         </h1>
         <div className="text-sm text-gray-500 mt-2">
           {children.length > 0
-            ? `Fee summary for ${children.length} student${children.length > 1 ? "s" : ""}`
-            : "No students linked to your account yet."}
+            ? (children.length > 1
+                ? t("fin.feeSummaryForStudents", { count: children.length })
+                : t("fin.feeSummaryForStudent", { count: children.length }))
+            : t("fin.noStudentsLinked")}
         </div>
       </header>
 
@@ -421,7 +434,7 @@ function ParentView() {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="text-4xl tracking-tight font-serif font-semibold">{Math.round(pct)}%</div>
-              <div className="text-xs uppercase tracking-widest opacity-70 mt-1">Paid</div>
+              <div className="text-xs uppercase tracking-widest opacity-70 mt-1">{t("fin.paid")}</div>
             </div>
           </div>
 
@@ -439,15 +452,15 @@ function ParentView() {
 
             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">Total fee</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">{t("fin.colTotalFee")}</div>
                 <div className="text-xl font-serif">{fmt(child.total)}</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">Paid</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">{t("fin.paid")}</div>
                 <div className="text-xl font-serif text-emerald-200">{fmt(child.paid)}</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">Remaining</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] opacity-60 mb-1">{t("fin.remaining")}</div>
                 <div className="text-xl font-serif text-amber-300">{fmt(remaining)}</div>
               </div>
             </div>
@@ -455,10 +468,10 @@ function ParentView() {
             {remaining > 0 && (
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button className="flex-1 px-5 py-3 bg-amber-600 hover:bg-amber-700 transition rounded-xl text-sm font-medium flex items-center justify-center gap-2">
-                  💳 Pay {fmt(remaining)} now
+                  💳 {t("fin.payAmountNow", { amount: fmt(remaining) })}
                 </button>
                 <button className="px-5 py-3 bg-white/10 hover:bg-white/15 transition rounded-xl text-sm flex items-center justify-center gap-2">
-                  📥 Statement
+                  📥 {t("fin.statement")}
                 </button>
               </div>
             )}
@@ -469,7 +482,7 @@ function ParentView() {
       {/* Children list */}
       {children.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-          <h2 className="text-xl font-serif font-semibold mb-4">My Children</h2>
+          <h2 className="text-xl font-serif font-semibold mb-4">{t("fin.myChildren")}</h2>
           <div className="space-y-3">
             {children.map((c: any) => (
               <div key={c.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
@@ -489,15 +502,15 @@ function ParentView() {
       <div className="bg-[#F4EFE3] rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center gap-4">
         <span className="text-xl">🛡️</span>
         <div className="flex-1 text-sm">
-          <div className="font-medium">Need help with a payment?</div>
-          <div className="text-gray-500">Reach the Bursar&apos;s office weekdays 8am–4pm.</div>
+          <div className="font-medium">{t("fin.needHelpPayment")}</div>
+          <div className="text-gray-500">{t("fin.bursarHours")}</div>
         </div>
         <div className="flex gap-2">
           <button className="px-3 py-2 bg-white rounded-lg text-xs flex items-center gap-2 hover:bg-gray-50 transition">
-            📞 Call
+            📞 {t("fin.call")}
           </button>
           <button className="px-3 py-2 bg-white rounded-lg text-xs flex items-center gap-2 hover:bg-gray-50 transition">
-            ✉️ Email
+            ✉️ {t("fin.email")}
           </button>
         </div>
       </div>
@@ -508,16 +521,22 @@ function ParentView() {
 // ═══════════════════════════════════════════════════════════════
 // EXPORT (CSV)
 // ═══════════════════════════════════════════════════════════════
-function exportCsv(rows: StudentFeeRow[]) {
+function exportCsv(
+  rows: StudentFeeRow[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   if (rows.length === 0) {
-    alert("Nothing to export — the current filter has no rows.");
+    alert(t("fin.nothingToExport"));
     return;
   }
   const escape = (v: string | number | null) => {
     const s = v == null ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ["Student", "Student ID", "Class", "Total fee", "Paid", "Outstanding", "Status", "Last payment"];
+  const header = [
+    t("fin.csvStudent"), t("fin.csvStudentId"), t("fin.csvClass"), t("fin.csvTotalFee"),
+    t("fin.csvPaid"), t("fin.csvOutstanding"), t("fin.csvStatus"), t("fin.csvLastPayment"),
+  ];
   const lines = [header.join(",")];
   rows.forEach((r) => {
     const outstanding = r.total - r.paid;
@@ -548,6 +567,21 @@ function exportCsv(rows: StudentFeeRow[]) {
 // SHARED MODAL TYPES
 // ═══════════════════════════════════════════════════════════════
 const FEE_TYPES = ["tuition", "registration", "exam", "transport", "lunch", "other"] as const;
+
+const feeTypeLabel = (
+  f: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) => {
+  const map: Record<string, string> = {
+    tuition: "fin.feeTypeTuition",
+    registration: "fin.feeTypeRegistration",
+    exam: "fin.feeTypeExam",
+    transport: "fin.feeTypeTransport",
+    lunch: "fin.feeTypeLunch",
+    other: "fin.feeTypeOther",
+  };
+  return map[f] ? t(map[f]) : f;
+};
 
 interface FeeAssignment {
   id: string;
@@ -584,6 +618,7 @@ function AssignFeeModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const supabase = createClient();
   const [studentId, setStudentId] = useState(students[0]?.id || "");
@@ -598,9 +633,9 @@ function AssignFeeModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !user?.schoolId) return;
-    if (!studentId) { setError("Pick a student"); return; }
+    if (!studentId) { setError(t("fin.pickStudent")); return; }
     const amt = Math.round(Number(amount));
-    if (!Number.isFinite(amt) || amt <= 0) { setError("Total fee must be greater than 0"); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { setError(t("fin.totalFeeMustBeGreater")); return; }
     setSaving(true);
     setError("");
     try {
@@ -619,44 +654,44 @@ function AssignFeeModal({
       if (insertError) throw insertError;
       onSaved();
     } catch (err: any) {
-      setError(err.message || "Failed to save");
+      setError(err.message || t("fin.failedToSave"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Shell title="Assign fee" onClose={onClose}>
+    <Shell title={t("fin.assignFee")} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-xs text-gray-500 -mt-1">
-          Creates a pending fee for the student. Use <strong>Record payment</strong> later to mark it (fully or partially) as paid.
+          {t("fin.assignFeeIntro")}
         </p>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Student
+          {t("fin.fieldStudent")}
           <select
             value={studentId}
             onChange={(e) => setStudentId(e.target.value)}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           >
-            <option value="">Select a student</option>
+            <option value="">{t("fin.selectStudent")}</option>
             {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Fee type
+            {t("fin.fieldFeeType")}
             <select
               value={feeType}
               onChange={(e) => setFeeType(e.target.value as (typeof FEE_TYPES)[number])}
-              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full capitalize"
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             >
-              {FEE_TYPES.map((f) => <option key={f} value={f} className="capitalize">{f}</option>)}
+              {FEE_TYPES.map((f) => <option key={f} value={f}>{feeTypeLabel(f, t)}</option>)}
             </select>
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Total fee
+            {t("fin.fieldTotalFee")}
             <input
               type="number" min="0" step="1"
               value={amount}
@@ -668,7 +703,7 @@ function AssignFeeModal({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Due date
+            {t("fin.fieldDueDate")}
             <input
               type="date"
               value={dueDate}
@@ -677,10 +712,10 @@ function AssignFeeModal({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Term (optional)
+            {t("fin.fieldTermOptional")}
             <input
               type="text"
-              placeholder="e.g. 2026-T1"
+              placeholder={t("fin.termPlaceholder")}
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
@@ -689,7 +724,7 @@ function AssignFeeModal({
         </div>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Notes (optional)
+          {t("fin.fieldNotesOptional")}
           <textarea
             rows={2}
             value={notes}
@@ -702,11 +737,11 @@ function AssignFeeModal({
 
         <div className="flex gap-2 justify-end pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">
-            Cancel
+            {t("fin.cancel")}
           </button>
           <button type="submit" disabled={saving}
             className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50">
-            {saving ? "Saving..." : "Assign fee"}
+            {saving ? t("fin.saving") : t("fin.assignFee")}
           </button>
         </div>
       </form>
@@ -724,6 +759,7 @@ function RecordPaymentModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const supabase = createClient();
   const [studentId, setStudentId] = useState(students[0]?.id || "");
@@ -761,11 +797,11 @@ function RecordPaymentModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !user?.schoolId) return;
-    if (!studentId) { setError("Pick a student"); return; }
-    if (!selectedFee) { setError("Pick a fee assignment, or assign one first"); return; }
+    if (!studentId) { setError(t("fin.pickStudent")); return; }
+    if (!selectedFee) { setError(t("fin.pickFeeAssignment")); return; }
     const amt = Math.round(Number(amount));
-    if (!Number.isFinite(amt) || amt <= 0) { setError("Amount must be greater than 0"); return; }
-    if (amt > remaining) { setError(`Payment cannot exceed remaining ${fmt(remaining)}`); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { setError(t("fin.amountMustBeGreater")); return; }
+    if (amt > remaining) { setError(t("fin.paymentCannotExceed", { amount: fmt(remaining) })); return; }
     setSaving(true);
     setError("");
     try {
@@ -788,45 +824,45 @@ function RecordPaymentModal({
       if (updateError) throw updateError;
       onSaved();
     } catch (err: any) {
-      setError(err.message || "Failed to save");
+      setError(err.message || t("fin.failedToSave"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Shell title="Record payment" onClose={onClose}>
+    <Shell title={t("fin.recordPayment")} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-xs text-gray-500 -mt-1">
-          Applies a payment to one of the student&apos;s existing assigned fees. If the student has no pending fees yet, use <strong>Assign fee</strong> first.
+          {t("fin.recordPaymentIntro")}
         </p>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Student
+          {t("fin.fieldStudent")}
           <select
             value={studentId}
             onChange={(e) => setStudentId(e.target.value)}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           >
-            <option value="">Select a student</option>
+            <option value="">{t("fin.selectStudent")}</option>
             {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Fee assignment
+          {t("fin.fieldFeeAssignment")}
           <select
             value={feeId}
             onChange={(e) => setFeeId(e.target.value)}
             disabled={feesLoading || fees.length === 0}
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:bg-gray-100 disabled:text-gray-400 capitalize"
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:bg-gray-100 disabled:text-gray-400"
           >
-            {feesLoading ? <option>Loading…</option>
-              : fees.length === 0 ? <option value="">No pending fees — assign one first</option>
+            {feesLoading ? <option>{t("fin.loadingEllipsis")}</option>
+              : fees.length === 0 ? <option value="">{t("fin.noPendingFees")}</option>
               : fees.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.fee_type} · {fmt(f.amount)} ({fmt(Math.max(0, f.amount - f.paid_amount))} left)
-                    {f.due_date ? ` · due ${new Date(f.due_date).toLocaleDateString()}` : ""}
+                    {feeTypeLabel(f.fee_type, t)} · {fmt(f.amount)} ({t("fin.feeOptionLeft", { left: fmt(Math.max(0, f.amount - f.paid_amount)) })})
+                    {f.due_date ? ` · ${t("fin.feeOptionDue", { date: new Date(f.due_date).toLocaleDateString() })}` : ""}
                   </option>
                 ))}
           </select>
@@ -834,7 +870,7 @@ function RecordPaymentModal({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Amount (max {fmt(remaining)})
+            {t("fin.fieldAmountMax", { max: fmt(remaining) })}
             <input
               type="number" min="0" step="1"
               value={amount}
@@ -843,7 +879,7 @@ function RecordPaymentModal({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Paid on
+            {t("fin.fieldPaidOn")}
             <input
               type="date"
               value={paidAt}
@@ -854,12 +890,12 @@ function RecordPaymentModal({
         </div>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Notes / payment method (optional)
+          {t("fin.fieldNotesMethodOptional")}
           <textarea
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Cash · receipt #1043"
+            placeholder={t("fin.paymentMethodPlaceholder")}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           />
         </label>
@@ -868,11 +904,11 @@ function RecordPaymentModal({
 
         <div className="flex gap-2 justify-end pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">
-            Cancel
+            {t("fin.cancel")}
           </button>
           <button type="submit" disabled={saving || !selectedFee}
             className="px-4 py-2 rounded-md bg-[#0F4F3C] text-white text-sm font-medium disabled:opacity-50">
-            {saving ? "Saving..." : "Save payment"}
+            {saving ? t("fin.saving") : t("fin.savePayment")}
           </button>
         </div>
       </form>

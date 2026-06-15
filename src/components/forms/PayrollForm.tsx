@@ -7,20 +7,24 @@ import { z } from "zod";
 import InputField from "../InputField";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 
-const schema = z.object({
-  employee_id: z.string().min(1, { message: "Employee is required!" }),
-  base_salary: z.coerce.number().nonnegative({ message: "Must be 0 or more" }),
-  deductions: z.coerce.number().nonnegative().optional(),
-  bonuses: z.coerce.number().nonnegative().optional(),
-  net_salary: z.coerce.number().nonnegative().optional(),
-  pay_period: z.string().min(1, { message: "Pay period is required!" }),
-  status: z.enum(["paid", "pending", "overdue", "partial"]),
-  paid_at: z.string().optional(),
-  notes: z.string().optional(),
-});
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
-type Inputs = z.infer<typeof schema>;
+const makeSchema = (t: TFn) =>
+  z.object({
+    employee_id: z.string().min(1, { message: t("fin.employeeRequired") }),
+    base_salary: z.coerce.number().nonnegative({ message: t("fin.mustBeZeroOrMore") }),
+    deductions: z.coerce.number().nonnegative().optional(),
+    bonuses: z.coerce.number().nonnegative().optional(),
+    net_salary: z.coerce.number().nonnegative().optional(),
+    pay_period: z.string().min(1, { message: t("fin.payPeriodRequired") }),
+    status: z.enum(["paid", "pending", "overdue", "partial"]),
+    paid_at: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
+type Inputs = z.infer<ReturnType<typeof makeSchema>>;
 
 interface Employee {
   id: string;
@@ -30,16 +34,18 @@ interface Employee {
 }
 
 const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
+  const { t } = useI18n();
   const supabase = createClient();
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [isError, setIsError] = useState(false);
 
   const {
     register, handleSubmit, watch, setValue, formState: { errors },
   } = useForm<Inputs>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
     defaultValues: {
       employee_id: data?.employee_id || "",
       base_salary: data?.base_salary ?? 0,
@@ -85,6 +91,7 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
     if (!supabase || !user?.schoolId) return;
     setLoading(true);
     setMsg("");
+    setIsError(false);
     try {
       const payload: Record<string, unknown> = {
         school_id: user.schoolId,
@@ -103,15 +110,16 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
       if (type === "create") {
         const { error } = await supabase.from("payroll").insert(payload);
         if (error) throw error;
-        setMsg("Payroll record created!");
+        setMsg(t("fin.payrollCreated"));
       } else {
         const { error } = await supabase.from("payroll").update(payload).eq("id", data?.id);
         if (error) throw error;
-        setMsg("Payroll record updated!");
+        setMsg(t("fin.payrollUpdated"));
       }
       setTimeout(() => window.location.reload(), 800);
     } catch (err: any) {
-      setMsg(`Error: ${err.message}`);
+      setIsError(true);
+      setMsg(t("fin.errorPrefix", { message: err.message }));
     } finally {
       setLoading(false);
     }
@@ -120,17 +128,17 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
-        {type === "create" ? "Add payroll record" : "Update payroll record"}
+        {type === "create" ? t("fin.addPayrollRecord") : t("fin.updatePayrollRecord")}
       </h1>
 
       <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-2 text-xs text-gray-500 flex-1">
-          Employee
+          {t("fin.fieldEmployee")}
           <select
             {...register("employee_id")}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           >
-            <option value="">Select an employee</option>
+            <option value="">{t("fin.selectEmployee")}</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.first_name} {e.last_name} ({e.role.replace("_", " ")})
@@ -141,33 +149,33 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         </label>
 
         <div className="flex justify-between flex-wrap gap-4">
-          <InputField label="Base salary" name="base_salary" type="number" register={register} error={errors?.base_salary} />
-          <InputField label="Deductions" name="deductions" type="number" register={register} error={errors?.deductions} />
-          <InputField label="Bonuses" name="bonuses" type="number" register={register} error={errors?.bonuses} />
-          <InputField label="Net salary" name="net_salary" type="number" register={register} error={errors?.net_salary} />
+          <InputField label={t("fin.fieldBaseSalary")} name="base_salary" type="number" register={register} error={errors?.base_salary} />
+          <InputField label={t("fin.fieldDeductions")} name="deductions" type="number" register={register} error={errors?.deductions} />
+          <InputField label={t("fin.fieldBonuses")} name="bonuses" type="number" register={register} error={errors?.bonuses} />
+          <InputField label={t("fin.fieldNetSalary")} name="net_salary" type="number" register={register} error={errors?.net_salary} />
         </div>
 
         <div className="flex justify-between flex-wrap gap-4">
-          <InputField label="Pay period (e.g. 2026-06)" name="pay_period" register={register} error={errors?.pay_period} />
+          <InputField label={t("fin.fieldPayPeriod")} name="pay_period" register={register} error={errors?.pay_period} />
           <label className="flex flex-col gap-2 text-xs text-gray-500 flex-1 min-w-[180px]">
-            Status
+            {t("fin.fieldStatus")}
             <select
               {...register("status")}
               className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             >
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="overdue">Overdue</option>
-              <option value="partial">Partial</option>
+              <option value="pending">{t("fin.statusPending")}</option>
+              <option value="paid">{t("fin.statusPaid")}</option>
+              <option value="overdue">{t("fin.statusOverdue")}</option>
+              <option value="partial">{t("fin.statusPartial")}</option>
             </select>
           </label>
           {status === "paid" && (
-            <InputField label="Paid at" name="paid_at" type="date" register={register} error={errors?.paid_at} />
+            <InputField label={t("fin.fieldPaidAt")} name="paid_at" type="date" register={register} error={errors?.paid_at} />
           )}
         </div>
 
         <label className="flex flex-col gap-2 text-xs text-gray-500">
-          Notes (optional)
+          {t("fin.fieldNotesOptional")}
           <textarea
             {...register("notes")}
             rows={3}
@@ -176,13 +184,13 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         </label>
       </div>
 
-      {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
+      {msg && <p className={`text-sm ${isError ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button
         type="submit"
         disabled={loading}
         className="bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white p-2 rounded-md disabled:opacity-50"
       >
-        {loading ? "Saving..." : type === "create" ? "Create" : "Update"}
+        {loading ? t("fin.saving") : type === "create" ? t("fin.create") : t("fin.update")}
       </button>
     </form>
   );

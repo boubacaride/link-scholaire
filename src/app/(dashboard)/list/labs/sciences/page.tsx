@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/contexts/LanguageContext";
 import { HumanProvider } from "@/contexts/HumanContext";
 import Viewer from "@/components/biodigital/Viewer";
 import CameraControls from "@/components/biodigital/CameraControls";
@@ -143,6 +144,7 @@ type ViewMode = "browse" | "viewer";
 
 const SciencesPage = () => {
   const router = useRouter();
+  const { t } = useI18n();
   const [developerKey, setDeveloperKey] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("browse");
   const [currentModelId, setCurrentModelId] = useState("");
@@ -210,7 +212,7 @@ const SciencesPage = () => {
           <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center gap-3">
               <button onClick={() => setViewMode("browse")} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition font-medium">
-                ← Bibliothèque
+                ← {t("labs.library")}
               </button>
               <div className="w-px h-5 bg-gray-200" />
               <h1 className="text-sm font-semibold text-gray-800 truncate max-w-md">
@@ -220,7 +222,7 @@ const SciencesPage = () => {
             <div className="flex items-center gap-2">
               <button onClick={() => setControlsOpen(!controlsOpen)}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${controlsOpen ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {controlsOpen ? "Masquer contrôles" : "Contrôles 3D"}
+                {controlsOpen ? t("labs.hideControls") : t("labs.controls3D")}
               </button>
             </div>
           </div>
@@ -267,19 +269,19 @@ const SciencesPage = () => {
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/list/labs")} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition">
-            ← Labs
+            ← {t("labs.backToLabs")}
           </button>
           <div className="w-px h-5 bg-gray-200" />
           <div>
-            <h1 className="text-base font-bold text-gray-900">Explorer l&apos;anatomie 3D</h1>
-            <p className="text-[10px] text-gray-400">BioDigital Human — {MODELS.length} modèles interactifs</p>
+            <h1 className="text-base font-bold text-gray-900">{t("labs.sciencesExploreTitle")}</h1>
+            <p className="text-[10px] text-gray-400">{t("labs.sciencesModelsCount", { n: MODELS.length })}</p>
           </div>
         </div>
         {/* Search */}
         <div className="relative w-80">
           <input
             type="text"
-            placeholder="Rechercher un modèle..."
+            placeholder={t("labs.sciencesSearchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full text-sm pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 text-gray-700"
@@ -294,7 +296,7 @@ const SciencesPage = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — categories */}
         <div className="w-56 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 py-3" style={{ scrollbarWidth: "thin" }}>
-          <p className="px-4 text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-2">Catégories</p>
+          <p className="px-4 text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-2">{t("labs.categories")}</p>
           {CATEGORIES.map((cat) => {
             const count = MODELS.filter((m) => m.category === cat).length;
             return (
@@ -318,10 +320,10 @@ const SciencesPage = () => {
 
           {/* Custom ID */}
           <div className="px-4 pt-4 mt-4 border-t border-gray-100">
-            <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-2">ID personnalisé</p>
+            <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-2">{t("labs.customId")}</p>
             <input
               type="text"
-              placeholder="Coller un ID..."
+              placeholder={t("labs.pasteId")}
               className="w-full text-[11px] px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-red-400 mb-1.5"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -330,7 +332,7 @@ const SciencesPage = () => {
                 }
               }}
             />
-            <p className="text-[9px] text-gray-400">Appuyez Entrée pour charger</p>
+            <p className="text-[9px] text-gray-400">{t("labs.pressEnterToLoad")}</p>
           </div>
         </div>
 
@@ -342,7 +344,7 @@ const SciencesPage = () => {
               <span className="text-2xl">{CATEGORY_ICONS[activeCategory]}</span>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">{activeCategory}</h2>
-                <p className="text-xs text-gray-500">{filteredModels.length} modèle{filteredModels.length !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-gray-500">{filteredModels.length} {filteredModels.length !== 1 ? t("labs.models_other") : t("labs.models_one")}</p>
               </div>
             </div>
 
@@ -364,7 +366,7 @@ const SciencesPage = () => {
                 ))}
                 {activeTags.length > 0 && (
                   <button onClick={() => setActiveTags([])} className="text-[11px] px-3 py-1 rounded-full text-red-500 hover:text-red-700 transition font-medium">
-                    ✕ Réinitialiser
+                    ✕ {t("labs.reset")}
                   </button>
                 )}
               </div>
@@ -376,8 +378,8 @@ const SciencesPage = () => {
             {filteredModels.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
                 <p className="text-4xl mb-3">🔍</p>
-                <p className="text-sm">Aucun modèle trouvé</p>
-                <p className="text-xs mt-1">Essayez de modifier vos filtres</p>
+                <p className="text-sm">{t("labs.noModelsFound")}</p>
+                <p className="text-xs mt-1">{t("labs.tryFilters")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -395,7 +397,7 @@ const SciencesPage = () => {
                       {/* Hover overlay */}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all flex items-center justify-center">
                         <div className="opacity-0 group-hover:opacity-100 transition-all bg-red-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg">
-                          Voir en 3D →
+                          {t("labs.view3D")} →
                         </div>
                       </div>
                     </div>

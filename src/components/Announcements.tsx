@@ -1,9 +1,14 @@
+"use client";
+
+import { useI18n } from "@/contexts/LanguageContext";
+
 const Announcements = () => {
+  const { t } = useI18n();
   return (
     <div className="bg-white p-4 rounded-md">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Announcements</h1>
-        <span className="text-xs text-gray-400">View All</span>
+        <h1 className="text-xl font-semibold">{t("ui.announcements")}</h1>
+        <span className="text-xs text-gray-400">{t("ui.viewAll")}</span>
       </div>
       <div className="flex flex-col gap-4 mt-4">
         <div className="bg-lamaSkyLight rounded-md p-4">

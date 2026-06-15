@@ -7,6 +7,7 @@ import { z } from "zod";
 import InputField from "../InputField";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { EMPLOYEE_CATEGORIES, rolesForCategory } from "@/lib/employeeRoles";
 
 const schema = z.object({
@@ -29,6 +30,7 @@ type Inputs = z.infer<typeof schema>;
 const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
   const supabase = createClient();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -107,24 +109,24 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
-        {type === "create" ? "Add employee" : "Update employee"}
+        {type === "create" ? t("emp.addEmployeeTitle") : t("emp.updateEmployeeTitle")}
       </h1>
 
-      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Identity</span>
+      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t("emp.sectionIdentity")}</span>
       <div className="flex justify-between flex-wrap gap-4">
-        <InputField label="First name" name="first_name" register={register} error={errors.first_name} />
-        <InputField label="Last name" name="last_name" register={register} error={errors.last_name} />
-        <InputField label="Email" name="email" register={register} error={errors.email} />
-        <InputField label="Phone" name="phone" register={register} error={errors.phone} />
+        <InputField label={t("emp.firstName")} name="first_name" register={register} error={errors.first_name} />
+        <InputField label={t("emp.lastName")} name="last_name" register={register} error={errors.last_name} />
+        <InputField label={t("emp.email")} name="email" register={register} error={errors.email} />
+        <InputField label={t("emp.phone")} name="phone" register={register} error={errors.phone} />
         {type === "create" && (
-          <InputField label="Password" name="password" type="password" register={register} error={errors.password} />
+          <InputField label={t("emp.password")} name="password" type="password" register={register} error={errors.password} />
         )}
       </div>
 
-      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Role</span>
+      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{t("emp.sectionRole")}</span>
       <div className="flex justify-between flex-wrap gap-4">
         <label className="flex flex-col gap-2 text-xs text-gray-500 w-full md:w-[48%]">
-          Category
+          {t("emp.category")}
           <select
             value={category}
             {...register("category", {
@@ -136,7 +138,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
             })}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           >
-            <option value="">Select a category</option>
+            <option value="">{t("emp.selectCategory")}</option>
             {EMPLOYEE_CATEGORIES.map((c, i) => (
               <option key={c.category} value={c.category}>
                 {i + 1}. {c.category}
@@ -147,13 +149,13 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
         </label>
 
         <label className="flex flex-col gap-2 text-xs text-gray-500 w-full md:w-[48%]">
-          Job title
+          {t("emp.jobTitle")}
           <select
             {...register("job_title")}
             disabled={!category}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:bg-gray-100 disabled:text-gray-400"
           >
-            <option value="">{category ? "Select a job title" : "Pick a category first"}</option>
+            <option value="">{category ? t("emp.selectJobTitle") : t("emp.pickCategoryFirst")}</option>
             {roleOptions.map((r) => (
               <option key={r} value={r}>{r}</option>
             ))}
@@ -161,7 +163,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
           {errors.job_title && <span className="text-red-400 text-xs">{errors.job_title.message}</span>}
         </label>
 
-        <InputField label="Hire date" name="hire_date" type="date" register={register} error={errors.hire_date} />
+        <InputField label={t("emp.hireDate")} name="hire_date" type="date" register={register} error={errors.hire_date} />
       </div>
 
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
@@ -170,7 +172,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
         disabled={loading}
         className="bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white p-2 rounded-md disabled:opacity-50"
       >
-        {loading ? "Saving..." : type === "create" ? "Add employee" : "Update employee"}
+        {loading ? t("emp.saving") : type === "create" ? t("emp.addEmployeeTitle") : t("emp.updateEmployeeTitle")}
       </button>
     </form>
   );

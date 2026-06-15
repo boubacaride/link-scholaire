@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Calendar, Radio, Video } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import {
   useLiveMeetings,
   usePastMeetings,
@@ -15,35 +16,18 @@ import {
 import MeetingCard from "@/components/meetings/MeetingCard";
 import ScheduleMeetingModal from "@/components/meetings/ScheduleMeetingModal";
 
-const t = {
-  pageTitle: "Classe Virtuelle",
-  subtitle: "Sessions vidéo pour cours, conférences et réunions.",
-  scheduleMeeting: "Planifier une session",
-  tabUpcoming: "À venir",
-  tabLive: "En direct",
-  tabPast: "Passées",
-  emptyUpcoming: "Aucune session planifiée",
-  emptyUpcomingHint: "Cliquez sur \"Planifier une session\" pour démarrer.",
-  emptyLive: "Aucune session en cours",
-  emptyLiveHint: "Les sessions actives apparaîtront ici.",
-  emptyPast: "Aucune session passée",
-  emptyPastHint: "L'historique de vos sessions s'affichera ici.",
-  loading: "Chargement…",
-  cancelConfirm: "Annuler cette session ?",
-  cancelled: "Session annulée",
-};
-
 type Tab = "upcoming" | "live" | "past";
 
-const TAB_CONFIG: { id: Tab; label: string; icon: typeof Calendar }[] = [
-  { id: "upcoming", label: t.tabUpcoming, icon: Calendar },
-  { id: "live", label: t.tabLive, icon: Radio },
-  { id: "past", label: t.tabPast, icon: Video },
+const TAB_CONFIG: { id: Tab; labelKey: string; icon: typeof Calendar }[] = [
+  { id: "upcoming", labelKey: "labs.vcTabUpcoming", icon: Calendar },
+  { id: "live", labelKey: "labs.vcTabLive", icon: Radio },
+  { id: "past", labelKey: "labs.vcTabPast", icon: Video },
 ];
 
 const ClasseVirtuellePage = () => {
   const { user } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("upcoming");
   const [scheduleOpen, setScheduleOpen] = useState(false);
 
@@ -64,9 +48,9 @@ const ClasseVirtuellePage = () => {
   };
 
   const handleCancel = async (meeting: MeetingListItem) => {
-    if (!confirm(t.cancelConfirm)) return;
+    if (!confirm(t("labs.vcCancelConfirm"))) return;
     await cancelMeeting(meeting.id);
-    toast.success(t.cancelled);
+    toast.success(t("labs.vcCancelled"));
     upcoming.refresh();
   };
 
@@ -75,8 +59,8 @@ const ClasseVirtuellePage = () => {
       <div className="rounded-md bg-white p-4">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">{t.pageTitle}</h1>
-            <p className="mt-1 text-sm text-gray-500">{t.subtitle}</p>
+            <h1 className="text-xl font-semibold text-gray-900">{t("labs.vcPageTitle")}</h1>
+            <p className="mt-1 text-sm text-gray-500">{t("labs.vcSubtitle")}</p>
           </div>
           {canCreate && (
             <button
@@ -85,7 +69,7 @@ const ClasseVirtuellePage = () => {
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
               <Calendar className="h-4 w-4" />
-              {t.scheduleMeeting}
+              {t("labs.vcScheduleMeeting")}
             </button>
           )}
         </div>
@@ -110,7 +94,7 @@ const ClasseVirtuellePage = () => {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {c.label}
+                {t(c.labelKey)}
                 {count > 0 && (
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-xs ${
@@ -136,7 +120,7 @@ const ClasseVirtuellePage = () => {
             {current.error}
           </div>
         ) : current.data.length === 0 ? (
-          <EmptyState tab={tab} />
+          <EmptyState tab={tab} t={t} />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {current.data.map((m) => (
@@ -162,11 +146,11 @@ const ClasseVirtuellePage = () => {
   );
 };
 
-const EmptyState = ({ tab }: { tab: Tab }) => {
+const EmptyState = ({ tab, t }: { tab: Tab; t: (key: string, vars?: Record<string, string | number>) => string }) => {
   const message =
-    tab === "upcoming" ? { title: t.emptyUpcoming, hint: t.emptyUpcomingHint } :
-    tab === "live" ? { title: t.emptyLive, hint: t.emptyLiveHint } :
-    { title: t.emptyPast, hint: t.emptyPastHint };
+    tab === "upcoming" ? { title: t("labs.vcEmptyUpcoming"), hint: t("labs.vcEmptyUpcomingHint") } :
+    tab === "live" ? { title: t("labs.vcEmptyLive"), hint: t("labs.vcEmptyLiveHint") } :
+    { title: t("labs.vcEmptyPast"), hint: t("labs.vcEmptyPastHint") };
 
   return (
     <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">

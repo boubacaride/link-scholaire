@@ -6,7 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   EXPENSE_CATEGORIES,
   PAYROLL_MENU_ITEMS,
+  tLabelForCategory,
+  tItemForCategory,
+  tPayrollItem,
 } from "@/lib/expenseCategories";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface ExpensesMenuItemProps {
   icon: string;
@@ -30,6 +34,7 @@ interface FlyoutPos {
  *  specific line items, each linking to the relevant ledger page with a
  *  `?item=` query param so the Add form opens pre-filled. */
 const ExpensesMenuItem = ({ icon, label, pathname }: ExpensesMenuItemProps) => {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [pos, setPos] = useState<FlyoutPos | null>(null);
@@ -111,14 +116,17 @@ const ExpensesMenuItem = ({ icon, label, pathname }: ExpensesMenuItemProps) => {
         >
           {/* ── Payroll node (special-cased, links to /list/payroll) ─── */}
           <FlyoutRow
-            label="Payroll"
+            label={t("exp.payroll")}
             isActive={activeKey === "payroll" || pathname === "/list/payroll"}
             highlighted={activeKey === "payroll"}
             onMouseEnter={() => setActiveKey("payroll")}
             onClick={() => setActiveKey(activeKey === "payroll" ? null : "payroll")}
             subItems={
               activeKey === "payroll"
-                ? PAYROLL_MENU_ITEMS.map((label) => ({ label, href: itemLink("payroll", label) }))
+                ? PAYROLL_MENU_ITEMS.map((item, i) => {
+                    const label = tPayrollItem(t, i, item);
+                    return { label, href: itemLink("payroll", label) };
+                  })
                 : null
             }
             onSubItemClick={() => { setOpen(false); setActiveKey(null); }}
@@ -132,14 +140,17 @@ const ExpensesMenuItem = ({ icon, label, pathname }: ExpensesMenuItemProps) => {
             return (
               <FlyoutRow
                 key={cat.key}
-                label={cat.label}
+                label={tLabelForCategory(t, cat.key)}
                 isActive={activeKey === cat.key || onThisCat}
                 highlighted={activeKey === cat.key}
                 onMouseEnter={() => setActiveKey(cat.key)}
                 onClick={() => setActiveKey(activeKey === cat.key ? null : cat.key)}
                 subItems={
                   activeKey === cat.key
-                    ? cat.items.map((label) => ({ label, href: itemLink(cat.key, label) }))
+                    ? cat.items.map((item, i) => {
+                        const label = tItemForCategory(t, cat.key, i, item);
+                        return { label, href: itemLink(cat.key, label) };
+                      })
                     : null
                 }
                 onSubItemClick={() => { setOpen(false); setActiveKey(null); }}

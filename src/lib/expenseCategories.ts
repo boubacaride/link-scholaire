@@ -168,6 +168,35 @@ export const isExpenseCategory = (s: string): s is ExpenseCategoryKey =>
 export const labelForCategory = (key: string): string =>
   EXPENSE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
 
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+/** Translated category label via the i18n dictionary (exp.cat.<key>),
+ *  falling back to the canonical English label if no translation exists. */
+export const tLabelForCategory = (t: TFn, key: string): string => {
+  const translated = t(`exp.cat.${key}`);
+  return translated === `exp.cat.${key}` ? labelForCategory(key) : translated;
+};
+
+/** Translated line item for a category by index (exp.item.<key>.<index>),
+ *  falling back to the canonical English item string. */
+export const tItemForCategory = (
+  t: TFn,
+  key: string,
+  index: number,
+  fallback: string,
+): string => {
+  const tk = `exp.item.${key}.${index}`;
+  const translated = t(tk);
+  return translated === tk ? fallback : translated;
+};
+
+/** Translated payroll line item by index (exp.payrollItem.<index>). */
+export const tPayrollItem = (t: TFn, index: number, fallback: string): string => {
+  const tk = `exp.payrollItem.${index}`;
+  const translated = t(tk);
+  return translated === tk ? fallback : translated;
+};
+
 /** Line items shown under the Payroll node in the sidebar flyout. They
  *  all navigate to /list/payroll — the payroll page tracks individual
  *  employee records, not buckets, so these serve as a visual index of

@@ -72,7 +72,7 @@ const ParentPage = () => {
   const studentShortId = (id?: string) =>
     id ? id.replace(/-/g, "").slice(-6).toUpperCase() : "";
 
-  const pageTitle = tab === "messages" ? "Messages" : "Home";
+  const pageTitle = tab === "messages" ? t("dashx.messages") : t("dashx.home");
 
   return (
     <div className="flex flex-col">
@@ -85,7 +85,7 @@ const ParentPage = () => {
               {selectedStudent.first_name.toUpperCase()} {selectedStudent.last_name.toUpperCase()}
             </h4>
             <p className="text-[11px] text-gray-500 leading-tight">
-              Student ID: {studentShortId(selectedStudent.id)}
+              {t("dashx.studentId", { id: studentShortId(selectedStudent.id) })}
             </p>
           </>
         )}
@@ -132,7 +132,7 @@ const ParentPage = () => {
             />
           ) : (
             <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 text-sm">
-              Select a child below to view their academic record.
+              {t("dashx.selectChild")}
             </div>
           )}
 

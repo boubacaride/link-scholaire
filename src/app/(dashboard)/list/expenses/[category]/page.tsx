@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import {
   isExpenseCategory,
   labelForCategory,
+  tLabelForCategory,
   type ExpenseCategoryKey,
 } from "@/lib/expenseCategories";
 
@@ -36,6 +38,7 @@ const ExpenseCategoryPage = () => {
   const searchParams = useSearchParams();
   const slug = params?.category || "";
   const { user } = useAuth();
+  const { t } = useI18n();
   const supabase = createClient();
 
   // Hooks must run in the same order on every render, so DON'T short-circuit
@@ -43,7 +46,10 @@ const ExpenseCategoryPage = () => {
   // they've all been declared.
   const validCategory = isExpenseCategory(slug);
   const category = (validCategory ? slug : "facilities") as ExpenseCategoryKey;
-  const label = labelForCategory(category);
+  // English label kept for logic (e.g. the Utilities placeholder check);
+  // `label` is the translated label used everywhere it's shown to the user.
+  const enLabel = labelForCategory(category);
+  const label = tLabelForCategory(t, category);
 
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,14 +105,14 @@ const ExpenseCategoryPage = () => {
 
   const remove = async (id: string) => {
     if (!supabase) return;
-    if (!confirm("Delete this expense?")) return;
+    if (!confirm(t("exp.deleteConfirm"))) return;
     setBusyId(id);
     try {
       const { error } = await supabase.from("expenses").delete().eq("id", id);
       if (error) throw error;
       setRows((prev) => prev.filter((r) => r.id !== id));
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      alert(t("exp.errorPrefix", { message: err.message }));
     } finally {
       setBusyId(null);
     }
@@ -117,7 +123,7 @@ const ExpenseCategoryPage = () => {
       {/* Header */}
       <div className="bg-white rounded-md border border-gray-200 p-4 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-400">Expenses</p>
+          <p className="text-[10px] uppercase tracking-wider text-gray-400">{t("exp.expenses")}</p>
           <h1 className="text-lg font-semibold text-gray-800">{label}</h1>
         </div>
         {canEdit && (
@@ -125,38 +131,38 @@ const ExpenseCategoryPage = () => {
             onClick={() => setCreating(true)}
             className="px-4 py-2 text-sm rounded-md bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white font-medium hover:opacity-95"
           >
-            + Add expense
+            {t("exp.addExpensePlus")}
           </button>
         )}
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Total" value={fmt(totals.total)} sub={`${totals.count} record${totals.count === 1 ? "" : "s"}`} />
-        <Stat label="Paid" value={fmt(totals.paid)} tone="text-green-600" />
-        <Stat label="Pending" value={fmt(totals.pending)} tone="text-amber-600" />
-        <Stat label="Overdue" value={fmt(totals.overdue)} tone="text-red-600" />
+        <Stat label={t("exp.total")} value={fmt(totals.total)} sub={totals.count === 1 ? t("exp.record", { n: totals.count }) : t("exp.records", { n: totals.count })} />
+        <Stat label={t("exp.paid")} value={fmt(totals.paid)} tone="text-green-600" />
+        <Stat label={t("exp.pending")} value={fmt(totals.pending)} tone="text-amber-600" />
+        <Stat label={t("exp.overdue")} value={fmt(totals.overdue)} tone="text-red-600" />
       </div>
 
       {/* Table */}
       <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+          <div className="p-8 text-center text-sm text-gray-400">{t("exp.loading")}</div>
         ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-400">
-            No {label.toLowerCase()} expenses yet.
-            {canEdit && " Click “+ Add expense” to record one."}
+            {t("exp.noExpensesYet", { label: label.toLowerCase() })}
+            {canEdit && t("exp.clickToRecord")}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#eef3f7] text-gray-600 text-xs">
-                <th className="text-left font-semibold px-4 py-2">Title</th>
-                <th className="text-left font-semibold px-4 py-2 hidden md:table-cell">Vendor</th>
-                <th className="text-right font-semibold px-4 py-2">Amount</th>
-                <th className="text-left font-semibold px-4 py-2 hidden md:table-cell">Paid on</th>
-                <th className="text-left font-semibold px-4 py-2">Status</th>
-                {canEdit && <th className="text-right font-semibold px-4 py-2">Actions</th>}
+                <th className="text-left font-semibold px-4 py-2">{t("exp.title")}</th>
+                <th className="text-left font-semibold px-4 py-2 hidden md:table-cell">{t("exp.vendor")}</th>
+                <th className="text-right font-semibold px-4 py-2">{t("exp.amount")}</th>
+                <th className="text-left font-semibold px-4 py-2 hidden md:table-cell">{t("exp.paidOn")}</th>
+                <th className="text-left font-semibold px-4 py-2">{t("exp.status")}</th>
+                {canEdit && <th className="text-right font-semibold px-4 py-2">{t("exp.actions")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -177,13 +183,13 @@ const ExpenseCategoryPage = () => {
                   {canEdit && (
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-3">
-                        <button onClick={() => setEditing(r)} className="text-[11px] text-[#2f6da3] hover:underline">Edit</button>
+                        <button onClick={() => setEditing(r)} className="text-[11px] text-[#2f6da3] hover:underline">{t("exp.edit")}</button>
                         <button
                           onClick={() => remove(r.id)}
                           disabled={busyId === r.id}
                           className="text-[11px] text-red-600 hover:underline disabled:opacity-50"
                         >
-                          Delete
+                          {t("exp.delete")}
                         </button>
                       </div>
                     </td>
@@ -199,6 +205,7 @@ const ExpenseCategoryPage = () => {
         <ExpenseForm
           category={category}
           label={label}
+          enLabel={enLabel}
           existing={editing}
           defaultTitle={creating && !editing ? prefillTitle : ""}
           onClose={() => { setCreating(false); setEditing(null); }}
@@ -218,14 +225,20 @@ const Stat = ({ label, value, sub, tone = "text-gray-800" }: { label: string; va
 );
 
 const StatusPill = ({ status }: { status: ExpenseRow["status"] }) => {
+  const { t } = useI18n();
   const styles: Record<ExpenseRow["status"], string> = {
     paid: "bg-green-100 text-green-700",
     pending: "bg-amber-100 text-amber-700",
     overdue: "bg-red-100 text-red-700",
   };
+  const labels: Record<ExpenseRow["status"], string> = {
+    paid: t("exp.statusPaid"),
+    pending: t("exp.statusPending"),
+    overdue: t("exp.statusOverdue"),
+  };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${styles[status]}`}>
-      {status}
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
+      {labels[status]}
     </span>
   );
 };
@@ -233,16 +246,18 @@ const StatusPill = ({ status }: { status: ExpenseRow["status"] }) => {
 /* ── Add / edit form ─────────────────────────────────────────────────── */
 
 function ExpenseForm({
-  category, label, existing, defaultTitle = "", onClose, onSaved,
+  category, label, enLabel, existing, defaultTitle = "", onClose, onSaved,
 }: {
   category: ExpenseCategoryKey;
   label: string;
+  enLabel: string;
   existing: ExpenseRow | null;
   defaultTitle?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const supabase = createClient();
 
   const [title, setTitle] = useState(existing?.title || defaultTitle || "");
@@ -257,9 +272,9 @@ function ExpenseForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !user?.schoolId) return;
-    if (!title.trim()) { setError("Title is required"); return; }
+    if (!title.trim()) { setError(t("exp.titleRequired")); return; }
     const amt = Math.round(Number(amount));
-    if (!Number.isFinite(amt) || amt < 0) { setError("Amount must be 0 or more"); return; }
+    if (!Number.isFinite(amt) || amt < 0) { setError(t("exp.amountMin")); return; }
     setSaving(true);
     setError("");
     try {
@@ -284,7 +299,7 @@ function ExpenseForm({
       }
       onSaved();
     } catch (err: any) {
-      setError(err.message || "Failed to save");
+      setError(err.message || t("exp.failedToSave"));
     } finally {
       setSaving(false);
     }
@@ -298,24 +313,24 @@ function ExpenseForm({
         className="bg-white rounded-2xl w-full max-w-md p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{existing ? "Edit" : "Add"} {label.toLowerCase()} expense</h2>
+          <h2 className="text-lg font-semibold">{existing ? t("exp.editTitle", { label: label.toLowerCase() }) : t("exp.addTitle", { label: label.toLowerCase() })}</h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
         </div>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Title
+          {t("exp.title")}
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={`e.g. ${label === "Utilities" ? "April electricity bill" : "..."}`}
+            placeholder={t("exp.titlePlaceholder", { example: enLabel === "Utilities" ? t("exp.utilitiesExample") : t("exp.genericExample") })}
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
           />
         </label>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Amount
+            {t("exp.amount")}
             <input
               type="number" min="0" step="1"
               value={amount}
@@ -324,7 +339,7 @@ function ExpenseForm({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Vendor (optional)
+            {t("exp.vendorOptional")}
             <input
               type="text"
               value={vendor}
@@ -336,7 +351,7 @@ function ExpenseForm({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Paid on
+            {t("exp.paidOn")}
             <input
               type="date"
               value={paidAt}
@@ -345,21 +360,21 @@ function ExpenseForm({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-            Status
+            {t("exp.status")}
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ExpenseRow["status"])}
-              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full capitalize"
+              className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             >
-              <option value="paid">Paid</option>
-              <option value="pending">Pending</option>
-              <option value="overdue">Overdue</option>
+              <option value="paid">{t("exp.statusPaid")}</option>
+              <option value="pending">{t("exp.statusPending")}</option>
+              <option value="overdue">{t("exp.statusOverdue")}</option>
             </select>
           </label>
         </div>
 
         <label className="flex flex-col gap-1.5 text-xs text-gray-500">
-          Notes (optional)
+          {t("exp.notesOptional")}
           <textarea
             rows={2}
             value={notes}
@@ -371,13 +386,13 @@ function ExpenseForm({
         {error && <p className="text-xs text-red-500">{error}</p>}
 
         <div className="flex gap-2 justify-end pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-200 text-sm">{t("exp.cancel")}</button>
           <button
             type="submit"
             disabled={saving}
             className="px-4 py-2 rounded-md bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white text-sm font-medium disabled:opacity-50"
           >
-            {saving ? "Saving..." : existing ? "Save changes" : "Add expense"}
+            {saving ? t("exp.saving") : existing ? t("exp.saveChanges") : t("exp.addExpense")}
           </button>
         </div>
       </form>
