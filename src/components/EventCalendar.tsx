@@ -20,7 +20,10 @@ interface EventRow {
 
 /** Render an event's time as a "10:00 AM – 12:00 PM" range, or "All day"
  *  when start and end land on midnight (the value entered by the date-only
- *  form input). */
+ *  form input). The form's `<input type="date">` serializes as UTC
+ *  midnight in TIMESTAMPTZ, so the all-day check must use UTC components
+ *  — otherwise a non-UTC viewer sees a non-zero local hour and never gets
+ *  the "All day" label. */
 const formatTimeRange = (
   start: string,
   end: string,
@@ -29,9 +32,9 @@ const formatTimeRange = (
 ) => {
   const s = new Date(start);
   const e = new Date(end);
-  const isMidnight = (d: Date) =>
-    d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
-  if (isMidnight(s) && isMidnight(e)) return allDayLabel;
+  const isUtcMidnight = (d: Date) =>
+    d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  if (isUtcMidnight(s) && isUtcMidnight(e)) return allDayLabel;
   const fmt = (d: Date) =>
     d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   return `${fmt(s)} – ${fmt(e)}`;
@@ -49,10 +52,16 @@ const EventCalendar = () => {
   const selectedDate: Date | null = Array.isArray(value) ? value[0] : value;
 
   useEffect(() => {
+    // Guard against a slow earlier request resolving after the user has
+    // already clicked a newer day — without this flag the older response
+    // would overwrite the newer day's events.
+    let cancelled = false;
     const load = async () => {
       if (!supabase || !selectedDate) {
-        setEvents([]);
-        setLoading(false);
+        if (!cancelled) {
+          setEvents([]);
+          setLoading(false);
+        }
         return;
       }
       setLoading(true);
@@ -68,10 +77,14 @@ const EventCalendar = () => {
         .lte("start_date", dayEnd.toISOString())
         .gte("end_date", dayStart.toISOString())
         .order("start_date", { ascending: true });
+      if (cancelled) return;
       setEvents((data as EventRow[]) || []);
       setLoading(false);
     };
     load();
+    return () => {
+      cancelled = true;
+    };
     // selectedDate is a Date; depend on its day to avoid refetch on every
     // re-render with a structurally-equal Date.
   }, [selectedDate?.toDateString()]);
