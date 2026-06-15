@@ -29,6 +29,10 @@ export interface ShapeSubmitData {
 
 export interface MathInputHandle {
   clearShape: () => void;
+  /** Insert a literal text template (e.g. "sin(□)") at the current
+   *  cursor slot. □ placeholders are inserted verbatim — the user replaces
+   *  them by typing. Used by the All-Math-Inputs panel. */
+  insertText: (text: string) => void;
 }
 
 interface MathInputProps {
@@ -774,6 +778,7 @@ export default function MathInput({
   const [showMatrixModal, setShowMatrixModal] = useState(false);
   const [matrixRows, setMatrixRows] = useState(3);
   const [matrixCols, setMatrixCols] = useState(3);
+  const [showAllMath, setShowAllMath] = useState(false);
   const [matrixData, setMatrixData] = useState<string[][] | null>(null);
   const [matrixActiveCell, setMatrixActiveCell] = useState<[number, number]>([0, 0]);
 
@@ -808,10 +813,16 @@ export default function MathInput({
     setActiveParamIdx(0);
   }, []);
 
-  // Expose clearShape via ref
+  // Expose handle methods via ref. `insertText` is wired below the
+  // `typeChar` definition; we capture a stable wrapper here that reads
+  // the latest typeChar/clearShape from the closure on every call.
+  const insertTextRef = useRef<(text: string) => void>(() => {});
   useEffect(() => {
     if (externalRef && typeof externalRef === "object") {
-      (externalRef as React.MutableRefObject<MathInputHandle | null>).current = { clearShape };
+      (externalRef as React.MutableRefObject<MathInputHandle | null>).current = {
+        clearShape,
+        insertText: (text: string) => insertTextRef.current(text),
+      };
     }
   });
 
@@ -946,6 +957,29 @@ export default function MathInput({
     setNodes(newNodes);
     syncToParent(newNodes);
   };
+
+  // Append an entire template at the current cursor slot in one state
+  // update (looping `typeChar` would only see the stale `nodes` snapshot
+  // on each call). □ placeholders are inserted verbatim and the user
+  // replaces them by typing.
+  const insertText = (text: string) => {
+    if (!text) return;
+    if (activeShape) {
+      const param = activeShape.params[activeParamIdx];
+      setShapeValues({ ...shapeValues, [param.symbol]: (shapeValues[param.symbol] || "") + text });
+      return;
+    }
+    const curNode = nodes[cursor.nodeIdx];
+    const currentVal = getSlotValue(curNode, cursor.slotIdx);
+    const updatedNode = setSlotValue(curNode, cursor.slotIdx, currentVal + text);
+    const newNodes = [...nodes];
+    newNodes[cursor.nodeIdx] = updatedNode;
+    setNodes(newNodes);
+    syncToParent(newNodes);
+  };
+  // Keep the ref pointed at the latest closure so the imperative handle
+  // sees the current `nodes` / `cursor` / `activeShape` on every call.
+  insertTextRef.current = insertText;
 
   // ── Backspace ──
   const doBackspace = () => {
@@ -1199,6 +1233,27 @@ export default function MathInput({
             }}
           />
         )}
+
+        {/* All Math Inputs trigger — opens the comprehensive purple panel
+            with Basic Math / Calculus / Vectors & Matrices / Trigonometry
+            / Symbols sections. Sits just before the Send/Camera control on
+            the right edge of the input bar. */}
+        <button
+          type="button"
+          aria-label="All math inputs"
+          onClick={() => setShowAllMath(true)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", height: 34, borderRadius: 8,
+            background: "linear-gradient(180deg, #7c5fd3 0%, #6b46c1 100%)",
+            color: "#fff", border: "none", cursor: "pointer", flexShrink: 0,
+            fontSize: 12, fontWeight: 600, letterSpacing: 0.2,
+            boxShadow: "0 1px 2px rgba(76, 29, 149, 0.25)",
+          }}
+        >
+          <span style={{ fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 14 }}>fx</span>
+          <span className="hidden sm:inline">All Math Inputs</span>
+        </button>
 
         {/* Send / Camera icon */}
         {hasContent ? (
@@ -1487,10 +1542,337 @@ export default function MathInput({
         </div>
       )}
 
+      {/* All Math Inputs panel — purple modal with 5 sections */}
+      {showAllMath && (
+        <AllMathInputsPanel
+          onClose={() => setShowAllMath(false)}
+          onInsert={(text) => insertText(text)}
+        />
+      )}
+
       {/* Blink cursor keyframe */}
       <style jsx global>{`
         @keyframes blink { 50% { opacity: 0; } }
       `}</style>
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   All Math Inputs panel — comprehensive template-insertion keyboard
+   styled after Mathway's "All Math Inputs" overlay. 5 collapsible
+   sections (Basic Math, Calculus & Sums, Vectors & Matrices,
+   Trigonometry, Symbols). Each button inserts a plain-text template
+   into the parent MathInput via the supplied onInsert callback. □
+   placeholders are inserted verbatim and the user replaces them.
+   ──────────────────────────────────────────────────────────────────── */
+
+interface MathBtnDef {
+  label: string;
+  insert: string;
+  tooltip: string;
+}
+
+interface MathSectionDef {
+  title: string;
+  buttons: MathBtnDef[];
+}
+
+const SECTIONS: MathSectionDef[] = [
+  {
+    title: "BASIC MATH",
+    buttons: [
+      { label: "□/□", insert: "(□)/(□)", tooltip: "Fraction" },
+      { label: "□²", insert: "□^2", tooltip: "Square" },
+      { label: "□ⁿ", insert: "□^□", tooltip: "Power" },
+      { label: "√□", insert: "sqrt(□)", tooltip: "Square root" },
+      { label: "ⁿ√□", insert: "root(□,□)", tooltip: "Nth root" },
+      { label: "∛□", insert: "root(3,□)", tooltip: "Cube root" },
+      { label: "∞", insert: "∞", tooltip: "Infinity" },
+      { label: "-∞", insert: "-∞", tooltip: "Negative infinity" },
+      { label: "π", insert: "π", tooltip: "Pi" },
+      { label: "e", insert: "e", tooltip: "Euler's number" },
+      { label: "eˣ", insert: "e^(□)", tooltip: "Exponential" },
+      { label: "ln(□)", insert: "ln(□)", tooltip: "Natural logarithm" },
+      { label: "log_□(□)", insert: "log_□(□)", tooltip: "Logarithm with base" },
+      { label: "log₁₀(□)", insert: "log_10(□)", tooltip: "Common logarithm" },
+      { label: "|□|", insert: "abs(□)", tooltip: "Absolute value" },
+      { label: "□≤□", insert: "□ ≤ □", tooltip: "Less than or equal" },
+      { label: "□≥□", insert: "□ ≥ □", tooltip: "Greater than or equal" },
+      { label: "□≠□", insert: "□ ≠ □", tooltip: "Not equal" },
+    ],
+  },
+  {
+    title: "CALCULUS & SUMS",
+    buttons: [
+      { label: "d/d□", insert: "d/d□ (□)", tooltip: "Derivative" },
+      { label: "d²/d□²", insert: "d^2/d□^2 (□)", tooltip: "Second derivative" },
+      { label: "∂/∂□", insert: "∂/∂□ (□)", tooltip: "Partial derivative" },
+      { label: "∂²/∂□²", insert: "∂^2/∂□^2 (□)", tooltip: "Second partial derivative" },
+      { label: "∂²/∂□∂□", insert: "∂^2/(∂□ ∂□) (□)", tooltip: "Mixed partial derivative" },
+      { label: "∫□", insert: "∫ □ d□", tooltip: "Indefinite integral" },
+      { label: "∫∫□□", insert: "∫∫ □ d□ d□", tooltip: "Double integral" },
+      { label: "∫∫∫□□□", insert: "∫∫∫ □ d□ d□ d□", tooltip: "Triple integral" },
+      { label: "∫_□^□", insert: "∫_□^□ □ d□", tooltip: "Definite integral" },
+      { label: "∮", insert: "∮ □ d□", tooltip: "Contour integral" },
+      { label: "∮_□", insert: "∮_□ □ d□", tooltip: "Line integral with domain" },
+      { label: "∑", insert: "∑_(□=□)^□ □", tooltip: "Summation" },
+      { label: "∏", insert: "∏_(□=□)^□ □", tooltip: "Product" },
+      { label: "lim", insert: "lim_(□→□) □", tooltip: "Limit" },
+      { label: "lim⁺", insert: "lim_(□→□⁺) □", tooltip: "Right-hand limit" },
+      { label: "lim⁻", insert: "lim_(□→□⁻) □", tooltip: "Left-hand limit" },
+      { label: "lim_∞", insert: "lim_(□→∞) □", tooltip: "Limit to infinity" },
+      { label: "θ(□)", insert: "θ(□)", tooltip: "Theta function" },
+      { label: "δ(□)", insert: "δ(□)", tooltip: "Dirac delta function" },
+      { label: "{cases", insert: "{ □ if □; □ if □ }", tooltip: "Piecewise function" },
+      { label: "{cases₃", insert: "{ □ if □; □ if □; □ if □ }", tooltip: "Piecewise (3 cases)" },
+      { label: "ℒ{□}", insert: "L{□}", tooltip: "Laplace transform" },
+      { label: "ℒ⁻¹{□}", insert: "L^(-1){□}", tooltip: "Inverse Laplace transform" },
+      { label: "ℱ{□}", insert: "F{□}", tooltip: "Fourier transform" },
+      { label: "ℱ⁻¹{□}", insert: "F^(-1){□}", tooltip: "Inverse Fourier transform" },
+    ],
+  },
+  {
+    title: "VECTORS & MATRICES",
+    buttons: [
+      { label: "[□,□]", insert: "[□, □]", tooltip: "2-element row vector" },
+      { label: "[□,□,□]", insert: "[□, □, □]", tooltip: "3-element row vector" },
+      { label: "[□,□,□,□]", insert: "[□, □, □, □]", tooltip: "4-element row vector" },
+      { label: "col 2×1", insert: "[[□],[□]]", tooltip: "2×1 column vector" },
+      { label: "col 3×1", insert: "[[□],[□],[□]]", tooltip: "3×1 column vector" },
+      { label: "col 4×1", insert: "[[□],[□],[□],[□]]", tooltip: "4×1 column vector" },
+      { label: "2×2", insert: "[[□,□],[□,□]]", tooltip: "2×2 matrix" },
+      { label: "3×3", insert: "[[□,□,□],[□,□,□],[□,□,□]]", tooltip: "3×3 matrix" },
+      { label: "4×4", insert:
+        "[[□,□,□,□],[□,□,□,□],[□,□,□,□],[□,□,□,□]]", tooltip: "4×4 matrix" },
+      { label: "5×5", insert:
+        "[[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□]]", tooltip: "5×5 matrix" },
+      { label: "6×6", insert:
+        "[[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□]]", tooltip: "6×6 matrix" },
+    ],
+  },
+  {
+    title: "TRIGONOMETRY",
+    buttons: [
+      { label: "π", insert: "π", tooltip: "Pi" },
+      { label: "°", insert: "°", tooltip: "Degree" },
+      { label: "rad", insert: "rad", tooltip: "Radian" },
+      { label: "sin□", insert: "sin(□)", tooltip: "Sine" },
+      { label: "cos□", insert: "cos(□)", tooltip: "Cosine" },
+      { label: "tan□", insert: "tan(□)", tooltip: "Tangent" },
+      { label: "sec□", insert: "sec(□)", tooltip: "Secant" },
+      { label: "csc□", insert: "csc(□)", tooltip: "Cosecant" },
+      { label: "cot□", insert: "cot(□)", tooltip: "Cotangent" },
+      { label: "sin⁻¹□", insert: "arcsin(□)", tooltip: "Inverse sine" },
+      { label: "cos⁻¹□", insert: "arccos(□)", tooltip: "Inverse cosine" },
+      { label: "tan⁻¹□", insert: "arctan(□)", tooltip: "Inverse tangent" },
+      { label: "sinh□", insert: "sinh(□)", tooltip: "Hyperbolic sine" },
+      { label: "cosh□", insert: "cosh(□)", tooltip: "Hyperbolic cosine" },
+      { label: "tanh□", insert: "tanh(□)", tooltip: "Hyperbolic tangent" },
+      { label: "sech□", insert: "sech(□)", tooltip: "Hyperbolic secant" },
+      { label: "csch□", insert: "csch(□)", tooltip: "Hyperbolic cosecant" },
+      { label: "coth□", insert: "coth(□)", tooltip: "Hyperbolic cotangent" },
+      { label: "sinh⁻¹□", insert: "arcsinh(□)", tooltip: "Inverse hyperbolic sine" },
+      { label: "cosh⁻¹□", insert: "arccosh(□)", tooltip: "Inverse hyperbolic cosine" },
+      { label: "tanh⁻¹□", insert: "arctanh(□)", tooltip: "Inverse hyperbolic tangent" },
+      { label: "sech⁻¹□", insert: "arcsech(□)", tooltip: "Inverse hyperbolic secant" },
+      { label: "csch⁻¹□", insert: "arccsch(□)", tooltip: "Inverse hyperbolic cosecant" },
+      { label: "coth⁻¹□", insert: "arccoth(□)", tooltip: "Inverse hyperbolic cotangent" },
+    ],
+  },
+  {
+    title: "SYMBOLS",
+    buttons: [
+      { label: "Π", insert: "Π", tooltip: "Capital pi" },
+      { label: "°", insert: "°", tooltip: "Degree" },
+      { label: "∞", insert: "∞", tooltip: "Infinity" },
+      { label: "∀", insert: "∀", tooltip: "For all" },
+      { label: "∃", insert: "∃", tooltip: "Exists" },
+      { label: "∪", insert: "∪", tooltip: "Union" },
+      { label: "∩", insert: "∩", tooltip: "Intersection" },
+      { label: "∇", insert: "∇", tooltip: "Nabla" },
+      { label: "Δ", insert: "Δ", tooltip: "Delta (capital)" },
+      { label: "α", insert: "α", tooltip: "Alpha" },
+      { label: "β", insert: "β", tooltip: "Beta" },
+      { label: "γ", insert: "γ", tooltip: "Gamma" },
+      { label: "δ", insert: "δ", tooltip: "Delta" },
+      { label: "ε", insert: "ε", tooltip: "Epsilon" },
+      { label: "ζ", insert: "ζ", tooltip: "Zeta" },
+      { label: "η", insert: "η", tooltip: "Eta" },
+      { label: "θ", insert: "θ", tooltip: "Theta" },
+      { label: "κ", insert: "κ", tooltip: "Kappa" },
+      { label: "λ", insert: "λ", tooltip: "Lambda" },
+      { label: "μ", insert: "μ", tooltip: "Mu" },
+      { label: "ν", insert: "ν", tooltip: "Nu" },
+      { label: "ξ", insert: "ξ", tooltip: "Xi" },
+      { label: "ρ", insert: "ρ", tooltip: "Rho" },
+      { label: "σ", insert: "σ", tooltip: "Sigma" },
+      { label: "τ", insert: "τ", tooltip: "Tau" },
+      { label: "φ", insert: "φ", tooltip: "Phi" },
+      { label: "χ", insert: "χ", tooltip: "Chi" },
+      { label: "ψ", insert: "ψ", tooltip: "Psi" },
+      { label: "ω", insert: "ω", tooltip: "Omega" },
+      { label: "Γ", insert: "Γ", tooltip: "Gamma (capital)" },
+      { label: "Θ", insert: "Θ", tooltip: "Theta (capital)" },
+      { label: "Λ", insert: "Λ", tooltip: "Lambda (capital)" },
+      { label: "Ξ", insert: "Ξ", tooltip: "Xi (capital)" },
+      { label: "Υ", insert: "Υ", tooltip: "Upsilon (capital)" },
+      { label: "Φ", insert: "Φ", tooltip: "Phi (capital)" },
+      { label: "Ψ", insert: "Ψ", tooltip: "Psi (capital)" },
+      { label: "Ω", insert: "Ω", tooltip: "Omega (capital)" },
+      { label: "ℵ", insert: "ℵ", tooltip: "Aleph" },
+      { label: "ℏ", insert: "ℏ", tooltip: "Reduced Planck constant" },
+      { label: "÷", insert: "÷", tooltip: "Division sign" },
+      { label: "→", insert: "→", tooltip: "Right arrow" },
+      { label: "⊕", insert: "⊕", tooltip: "Direct sum" },
+      { label: "⊙", insert: "⊙", tooltip: "Circled dot" },
+      { label: "≠", insert: "≠", tooltip: "Not equal" },
+      { label: "≥", insert: "≥", tooltip: "Greater than or equal" },
+      { label: "≤", insert: "≤", tooltip: "Less than or equal" },
+    ],
+  },
+];
+
+function AllMathInputsPanel({
+  onClose,
+  onInsert,
+}: {
+  onClose: () => void;
+  onInsert: (text: string) => void;
+}) {
+  // Close on Escape.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(15, 11, 35, 0.55)",
+        backdropFilter: "blur(2px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(820px, 100%)",
+          maxHeight: "85vh",
+          background: "#6B46C1",
+          color: "#fff",
+          borderRadius: 16,
+          boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
+          display: "flex", flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.12)",
+        }}>
+          <h2 style={{
+            margin: 0, fontSize: 13, fontWeight: 700,
+            letterSpacing: 1.2, textTransform: "uppercase",
+          }}>All Math Inputs</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 28, height: 28, borderRadius: 6,
+              background: "transparent", color: "rgba(255,255,255,0.85)",
+              border: "none", cursor: "pointer",
+              fontSize: 20, lineHeight: 1, display: "flex",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >×</button>
+        </div>
+
+        {/* Sections */}
+        <div style={{
+          padding: "12px 20px 20px",
+          overflowY: "auto", display: "flex", flexDirection: "column", gap: 20,
+        }}>
+          {SECTIONS.map((sec) => (
+            <Section key={sec.title} section={sec} onInsert={onInsert} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  section,
+  onInsert,
+}: { section: MathSectionDef; onInsert: (text: string) => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%", textAlign: "left",
+          background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
+          fontSize: 12, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase",
+          padding: "4px 0 8px", cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 6,
+        }}
+      >
+        <span style={{ fontSize: 10, opacity: 0.75 }}>{open ? "▾" : "▸"}</span>
+        {section.title}
+      </button>
+      {open && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(54px, 1fr))",
+          gap: 8,
+        }}>
+          {section.buttons.map((b, i) => (
+            <MathBtn key={`${section.title}-${i}`} def={b} onInsert={onInsert} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MathBtn({
+  def,
+  onInsert,
+}: { def: MathBtnDef; onInsert: (text: string) => void }) {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <button
+      title={def.tooltip}
+      aria-label={def.tooltip}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
+      onClick={() => onInsert(def.insert)}
+      style={{
+        height: 44,
+        padding: "0 6px",
+        borderRadius: 8,
+        background: pressed ? "#5A37B0" : "#7C5FD3",
+        color: "#fff",
+        border: "1px solid rgba(255,255,255,0.08)",
+        cursor: "pointer",
+        fontSize: 13,
+        fontFamily: "'Times New Roman', Georgia, serif",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "background 0.12s, transform 0.08s",
+        transform: pressed ? "scale(0.96)" : "scale(1)",
+        overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? "#5A37B0" : "#9B7FE6"; }}
+      onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? "#5A37B0" : "#7C5FD3"; }}
+    >
+      {def.label}
+    </button>
   );
 }
