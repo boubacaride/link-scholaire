@@ -65,12 +65,21 @@ const EventCalendar = () => {
         return;
       }
       setLoading(true);
-      // Fetch any event that intersects the selected calendar day.
-      // RLS scopes the result to the user's school automatically.
-      const dayStart = new Date(selectedDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(selectedDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      // Fetch any event that intersects the selected calendar day, in
+      // UTC. The EventForm's <input type="date"> stores values as UTC
+      // midnight in the TIMESTAMPTZ column, so anchoring the window in
+      // the viewer's local timezone would skew it (e.g. a viewer in
+      // America/Los_Angeles asking for "June 15" would look at
+      // 2026-06-15 07:00Z–2026-06-16 06:59Z and miss an event whose
+      // end_date is 2026-06-15 00:00Z). Use the calendar's local
+      // year/month/day as the UTC anchor to match how the data was
+      // entered. RLS scopes the result to the user's school
+      // automatically.
+      const y = selectedDate.getFullYear();
+      const m = selectedDate.getMonth();
+      const d = selectedDate.getDate();
+      const dayStart = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
+      const dayEnd = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
       const { data } = await supabase
         .from("events")
         .select("id, title, description, start_date, end_date")
