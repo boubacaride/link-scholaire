@@ -31,9 +31,29 @@ export interface MathInputHandle {
   clearShape: () => void;
   /** Insert a literal text template (e.g. "sin(□)") at the current
    *  cursor slot. □ placeholders are inserted verbatim — the user replaces
-   *  them by typing. Used by the All-Math-Inputs panel. */
+   *  them by typing. Kept for backwards compatibility. */
   insertText: (text: string) => void;
+  /** Insert a structured math node (frac, integral, matrix, etc.) at the
+   *  current cursor position. The All-Math-Inputs panel uses this to
+   *  render proper math typography instead of plain text. */
+  insertNode: (descriptor: MathNodeDescriptor) => void;
 }
+
+/** Lightweight, JSON-friendly description of a structured math node the
+ *  All-Math-Inputs panel can request. Decouples the panel from the
+ *  internal ExprNode union (which lives only inside MathInput.tsx). */
+export type MathNodeDescriptor =
+  | { kind: "frac" }
+  | { kind: "exp" }
+  | { kind: "sub" }
+  | { kind: "sqrt" }
+  | { kind: "nthrt" }
+  | { kind: "abs" }
+  | { kind: "func"; name: string }
+  | { kind: "bigop"; sym: string }                          // Σ, ∏, ∮
+  | { kind: "integral"; sym: string; nDvars?: 1 | 2 | 3; withBounds?: boolean }
+  | { kind: "lim"; toInfinity?: boolean; side?: "left" | "right" }
+  | { kind: "matrix"; rows: number; cols: number };
 
 interface MathInputProps {
   subject?: MathSubject;
@@ -55,7 +75,20 @@ type ExprNode =
   | { type: "nthrt"; n: string; content: string }
   | { type: "sci"; coeff: string; power: string }
   | { type: "mixed"; whole: string; num: string; den: string }
-  | { type: "coord"; x: string; y: string };
+  | { type: "coord"; x: string; y: string }
+  // Big operator with bounds and integrand/expression: covers Σ, ∏, ∮.
+  | { type: "bigop"; sym: string; lower: string; upper: string; body: string }
+  // Integral(s): sym is "∫", "∫∫", "∫∫∫" or "∮". For multi-integrals,
+  // body is rendered before a "d□ d□ ..." trail (one d-var per ∫).
+  | { type: "integral"; sym: string; lower: string; upper: string; body: string; dvar: string; dvar2?: string; dvar3?: string }
+  // Limit: lim_{variable → approach} body
+  | { type: "lim"; variable: string; approach: string; body: string }
+  // Generic function call: name(arg). `name` is a literal (not a slot).
+  | { type: "func"; name: string; arg: string }
+  // Absolute value |content|
+  | { type: "abs"; content: string }
+  // Matrix: rows-by-cols grid of editable cells.
+  | { type: "matrix"; rows: string[][] };
 
 interface CursorPos {
   nodeIdx: number;
@@ -73,6 +106,18 @@ function getSlotCount(node: ExprNode): number {
     case "sci": return 2;
     case "mixed": return 3;
     case "coord": return 2;
+    case "bigop": return 3;          // lower, upper, body
+    case "integral": {
+      // bounds (2) + body + dvar1 + optional dvar2/dvar3
+      let n = 4;
+      if (node.dvar2 !== undefined) n += 1;
+      if (node.dvar3 !== undefined) n += 1;
+      return n;
+    }
+    case "lim": return 3;            // variable, approach, body
+    case "func": return 1;           // arg
+    case "abs": return 1;            // content
+    case "matrix": return node.rows.length * (node.rows[0]?.length ?? 0);
   }
 }
 
@@ -87,6 +132,24 @@ function getSlotValue(node: ExprNode, slotIdx: number): string {
     case "sci": return slotIdx === 0 ? node.coeff : node.power;
     case "mixed": return slotIdx === 0 ? node.whole : slotIdx === 1 ? node.num : node.den;
     case "coord": return slotIdx === 0 ? node.x : node.y;
+    case "bigop": return slotIdx === 0 ? node.lower : slotIdx === 1 ? node.upper : node.body;
+    case "integral": {
+      if (slotIdx === 0) return node.lower;
+      if (slotIdx === 1) return node.upper;
+      if (slotIdx === 2) return node.body;
+      if (slotIdx === 3) return node.dvar;
+      if (slotIdx === 4) return node.dvar2 ?? "";
+      return node.dvar3 ?? "";
+    }
+    case "lim": return slotIdx === 0 ? node.variable : slotIdx === 1 ? node.approach : node.body;
+    case "func": return node.arg;
+    case "abs": return node.content;
+    case "matrix": {
+      const cols = node.rows[0]?.length ?? 0;
+      const r = Math.floor(slotIdx / cols);
+      const c = slotIdx % cols;
+      return node.rows[r]?.[c] ?? "";
+    }
   }
 }
 
@@ -102,6 +165,36 @@ function setSlotValue(node: ExprNode, slotIdx: number, value: string): ExprNode 
     case "sci": if (slotIdx === 0) n.coeff = value; else n.power = value; break;
     case "mixed": if (slotIdx === 0) n.whole = value; else if (slotIdx === 1) n.num = value; else n.den = value; break;
     case "coord": if (slotIdx === 0) n.x = value; else n.y = value; break;
+    case "bigop":
+      if (slotIdx === 0) n.lower = value;
+      else if (slotIdx === 1) n.upper = value;
+      else n.body = value;
+      break;
+    case "integral":
+      if (slotIdx === 0) n.lower = value;
+      else if (slotIdx === 1) n.upper = value;
+      else if (slotIdx === 2) n.body = value;
+      else if (slotIdx === 3) n.dvar = value;
+      else if (slotIdx === 4) n.dvar2 = value;
+      else n.dvar3 = value;
+      break;
+    case "lim":
+      if (slotIdx === 0) n.variable = value;
+      else if (slotIdx === 1) n.approach = value;
+      else n.body = value;
+      break;
+    case "func": n.arg = value; break;
+    case "abs": n.content = value; break;
+    case "matrix": {
+      const cols = n.rows[0]?.length ?? 0;
+      const r = Math.floor(slotIdx / cols);
+      const c = slotIdx % cols;
+      // Deep-copy the affected row so React sees a new reference.
+      const newRows = n.rows.map((row) => [...row]);
+      if (newRows[r]) newRows[r][c] = value;
+      n.rows = newRows;
+      break;
+    }
   }
   return n;
 }
@@ -118,6 +211,19 @@ function nodesToString(nodes: ExprNode[]): string {
       case "sci": return `${n.coeff}*10^${n.power}`;
       case "mixed": return `${n.whole} ${n.num}/${n.den}`;
       case "coord": return `(${n.x},${n.y})`;
+      case "bigop": {
+        const bounds = n.lower || n.upper ? `_(${n.lower})^(${n.upper})` : "";
+        return `${n.sym}${bounds} ${n.body}`;
+      }
+      case "integral": {
+        const bounds = n.lower || n.upper ? `_(${n.lower})^(${n.upper})` : "";
+        const dvars = [n.dvar, n.dvar2, n.dvar3].filter((v) => v !== undefined).map((v) => `d${v}`).join(" ");
+        return `${n.sym}${bounds} ${n.body} ${dvars}`;
+      }
+      case "lim": return `lim_(${n.variable}→${n.approach}) ${n.body}`;
+      case "func": return `${n.name}(${n.arg})`;
+      case "abs": return `|${n.content}|`;
+      case "matrix": return `[${n.rows.map((r) => `[${r.join(",")}]`).join(",")}]`;
     }
   }).join("");
 }
@@ -433,6 +539,9 @@ function renderNode(
 ): JSX.Element {
   const isActive = (slot: number) => cursor.nodeIdx === nodeIdx && cursor.slotIdx === slot;
 
+  // Empty slot renders as a small soft-yellow filled square (Mathway
+  // style); filled slots render the typed content. Active slot keeps the
+  // blue underline + blink cursor cues so the user knows where they are.
   const slotBox = (value: string, slotIdx: number, style?: React.CSSProperties) => (
     <span
       key={`${nodeIdx}-${slotIdx}`}
@@ -441,23 +550,28 @@ function renderNode(
         onSlotClick?.(nodeIdx, slotIdx);
       }}
       className={`inline-flex items-center justify-center cursor-text rounded-sm ${
-        isActive(slotIdx)
-          ? "border-b-2 border-blue-400"
-          : value ? "" : "border-b border-dashed border-slate-500"
+        isActive(slotIdx) ? "border-b-2 border-blue-400" : ""
       }`}
       style={{
-        padding: "2px 4px",
-        minWidth: 20,
-        minHeight: 18,
+        padding: value ? "2px 4px" : 0,
+        minWidth: value ? 20 : 0,
+        minHeight: value ? 18 : 0,
         transition: "background 0.15s",
-        background: isActive(slotIdx) ? "rgba(96,165,250,0.15)" : value ? "transparent" : "rgba(255,255,255,0.05)",
+        background: isActive(slotIdx) ? "rgba(96,165,250,0.15)" : "transparent",
         ...style,
       }}
     >
       {value ? (
         <span style={{ color: "#1a1a2e", fontFamily: "'Georgia', serif", fontSize: 18 }}>{renderSlotContent(value)}</span>
       ) : (
-        <span style={{ color: "#999", fontSize: 16 }}>?</span>
+        <span
+          aria-label="empty slot"
+          style={{
+            display: "inline-block", width: 14, height: 14,
+            background: "#fde68a", border: "1px solid #facc15",
+            borderRadius: 2,
+          }}
+        />
       )}
       {isActive(slotIdx) && (
         <span className="inline-block w-[2px] h-[1.1em] ml-px animate-[blink_1s_step-end_infinite]" style={{ background: "#2c5aa0" }} />
@@ -576,6 +690,114 @@ function renderNode(
           {sep}
         </span>
       );
+
+    case "bigop":
+      // Σ / ∏ / ∮ — glyph centered with upper bound above and lower
+      // bound below (lower as "i = 0" style), then the body slot.
+      return (
+        <span key={nodeIdx} className="inline-flex items-center mx-1">
+          <span className="inline-flex flex-col items-center" style={{ lineHeight: 1 }}>
+            <span style={{ fontSize: "0.65em" }}>{slotBox(node.upper, 1)}</span>
+            <span style={{ fontSize: "1.6em", lineHeight: 0.9, color: "#1a1a2e" }}>{node.sym}</span>
+            <span style={{ fontSize: "0.65em" }}>{slotBox(node.lower, 0)}</span>
+          </span>
+          <span style={{ marginLeft: 4 }}>{slotBox(node.body, 2)}</span>
+          {sep}
+        </span>
+      );
+
+    case "integral":
+      // ∫ / ∫∫ / ∫∫∫ / ∮ — single tall glyph (or repeated for multi),
+      // optional bounds on the right of the sym, then body, then d-vars.
+      return (
+        <span key={nodeIdx} className="inline-flex items-center mx-1">
+          <span style={{ fontSize: "1.8em", lineHeight: 0.9, color: "#1a1a2e", fontFamily: "'Cambria Math', 'Times New Roman', serif" }}>{node.sym}</span>
+          {(node.lower || node.upper || isActive(0) || isActive(1)) && (
+            <span className="inline-flex flex-col items-start ml-0.5" style={{ lineHeight: 1, fontSize: "0.6em" }}>
+              <span>{slotBox(node.upper, 1)}</span>
+              <span>{slotBox(node.lower, 0)}</span>
+            </span>
+          )}
+          <span style={{ marginLeft: 4 }}>{slotBox(node.body, 2)}</span>
+          <span style={{ marginLeft: 4, fontStyle: "italic" }}>d</span>
+          {slotBox(node.dvar, 3)}
+          {node.dvar2 !== undefined && (
+            <>
+              <span style={{ marginLeft: 4, fontStyle: "italic" }}>d</span>
+              {slotBox(node.dvar2, 4)}
+            </>
+          )}
+          {node.dvar3 !== undefined && (
+            <>
+              <span style={{ marginLeft: 4, fontStyle: "italic" }}>d</span>
+              {slotBox(node.dvar3, 5)}
+            </>
+          )}
+          {sep}
+        </span>
+      );
+
+    case "lim":
+      // lim_{variable → approach} body
+      return (
+        <span key={nodeIdx} className="inline-flex items-center mx-1">
+          <span className="inline-flex flex-col items-center" style={{ lineHeight: 1 }}>
+            <span style={{ fontSize: "1em", fontStyle: "italic", color: "#1a1a2e" }}>lim</span>
+            <span className="inline-flex items-center" style={{ fontSize: "0.6em" }}>
+              {slotBox(node.variable, 0)}
+              <span style={{ margin: "0 2px" }}>→</span>
+              {slotBox(node.approach, 1)}
+            </span>
+          </span>
+          <span style={{ marginLeft: 4 }}>{slotBox(node.body, 2)}</span>
+          {sep}
+        </span>
+      );
+
+    case "func":
+      // name(arg) — name is a literal label (sin, csc, ln, etc.).
+      return (
+        <span key={nodeIdx} className="inline-flex items-baseline">
+          <span style={{ color: "#1a1a2e", fontStyle: "italic" }}>{node.name}</span>
+          <span>(</span>
+          {slotBox(node.arg, 0)}
+          <span>)</span>
+          {sep}
+        </span>
+      );
+
+    case "abs":
+      return (
+        <span key={nodeIdx} className="inline-flex items-baseline">
+          <span style={{ color: "#1a1a2e", fontSize: "1.2em" }}>|</span>
+          {slotBox(node.content, 0)}
+          <span style={{ color: "#1a1a2e", fontSize: "1.2em" }}>|</span>
+          {sep}
+        </span>
+      );
+
+    case "matrix": {
+      const cols = node.rows[0]?.length ?? 0;
+      return (
+        <span key={nodeIdx} className="inline-flex items-center mx-1">
+          <span style={{ fontSize: `${1 + node.rows.length * 0.3}em`, color: "#1a1a2e" }}>(</span>
+          <span className="inline-grid" style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, auto))`,
+            rowGap: 2, columnGap: 4, margin: "0 4px",
+          }}>
+            {node.rows.flatMap((row, r) =>
+              row.map((cell, c) => (
+                <span key={`${r}-${c}`} style={{ display: "inline-flex", justifyContent: "center" }}>
+                  {slotBox(cell, r * cols + c)}
+                </span>
+              ))
+            )}
+          </span>
+          <span style={{ fontSize: `${1 + node.rows.length * 0.3}em`, color: "#1a1a2e" }}>)</span>
+          {sep}
+        </span>
+      );
+    }
   }
 }
 
@@ -813,15 +1035,17 @@ export default function MathInput({
     setActiveParamIdx(0);
   }, []);
 
-  // Expose handle methods via ref. `insertText` is wired below the
-  // `typeChar` definition; we capture a stable wrapper here that reads
-  // the latest typeChar/clearShape from the closure on every call.
+  // Expose handle methods via ref. `insertText` / `insertNode` are wired
+  // below the `typeChar` definition; we capture stable wrappers here
+  // that read the latest closure on every call.
   const insertTextRef = useRef<(text: string) => void>(() => {});
+  const insertNodeRef = useRef<(desc: MathNodeDescriptor) => void>(() => {});
   useEffect(() => {
     if (externalRef && typeof externalRef === "object") {
       (externalRef as React.MutableRefObject<MathInputHandle | null>).current = {
         clearShape,
         insertText: (text: string) => insertTextRef.current(text),
+        insertNode: (desc: MathNodeDescriptor) => insertNodeRef.current(desc),
       };
     }
   });
@@ -980,6 +1204,54 @@ export default function MathInput({
   // Keep the ref pointed at the latest closure so the imperative handle
   // sees the current `nodes` / `cursor` / `activeShape` on every call.
   insertTextRef.current = insertText;
+
+  // Build a fresh ExprNode from a MathNodeDescriptor and splice it after
+  // the current cursor node, then jump the cursor into the first slot
+  // (matches how `insertTemplate` behaves for the legacy keyboard).
+  const insertNode = (desc: MathNodeDescriptor) => {
+    let newNode: ExprNode;
+    switch (desc.kind) {
+      case "frac": newNode = { type: "frac", num: "", den: "" }; break;
+      case "exp": newNode = { type: "exp", base: "", power: "" }; break;
+      case "sub": newNode = { type: "sub", base: "", subscript: "" }; break;
+      case "sqrt": newNode = { type: "sqrt", content: "" }; break;
+      case "nthrt": newNode = { type: "nthrt", n: "", content: "" }; break;
+      case "abs": newNode = { type: "abs", content: "" }; break;
+      case "func": newNode = { type: "func", name: desc.name, arg: "" }; break;
+      case "bigop":
+        newNode = { type: "bigop", sym: desc.sym, lower: "", upper: "", body: "" };
+        break;
+      case "integral": {
+        const n: ExprNode = {
+          type: "integral", sym: desc.sym,
+          lower: "", upper: "", body: "", dvar: "",
+        };
+        if ((desc.nDvars ?? 1) >= 2) (n as any).dvar2 = "";
+        if ((desc.nDvars ?? 1) >= 3) (n as any).dvar3 = "";
+        newNode = n;
+        break;
+      }
+      case "lim": {
+        const approach = desc.toInfinity ? "∞" : desc.side === "left" ? "" : desc.side === "right" ? "" : "";
+        newNode = { type: "lim", variable: "", approach, body: "" };
+        break;
+      }
+      case "matrix":
+        newNode = {
+          type: "matrix",
+          rows: Array.from({ length: desc.rows }, () =>
+            Array.from({ length: desc.cols }, () => "")
+          ),
+        };
+        break;
+    }
+    const newNodes = [...nodes];
+    newNodes.splice(cursor.nodeIdx + 1, 0, newNode);
+    setNodes(newNodes);
+    setCursor({ nodeIdx: cursor.nodeIdx + 1, slotIdx: 0 });
+    syncToParent(newNodes);
+  };
+  insertNodeRef.current = insertNode;
 
   // ── Backspace ──
   const doBackspace = () => {
@@ -1245,10 +1517,10 @@ export default function MathInput({
           style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "6px 12px", height: 34, borderRadius: 8,
-            background: "linear-gradient(180deg, #7c5fd3 0%, #6b46c1 100%)",
+            background: "linear-gradient(180deg, #4a7eb0 0%, #3a6d9a 100%)",
             color: "#fff", border: "none", cursor: "pointer", flexShrink: 0,
             fontSize: 12, fontWeight: 600, letterSpacing: 0.2,
-            boxShadow: "0 1px 2px rgba(76, 29, 149, 0.25)",
+            boxShadow: "0 1px 2px rgba(44, 90, 160, 0.25)",
           }}
         >
           <span style={{ fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 14 }}>fx</span>
@@ -1542,11 +1814,12 @@ export default function MathInput({
         </div>
       )}
 
-      {/* All Math Inputs panel — purple modal with 5 sections */}
+      {/* All Math Inputs panel — blue modal with 5 sections */}
       {showAllMath && (
         <AllMathInputsPanel
           onClose={() => setShowAllMath(false)}
-          onInsert={(text) => insertText(text)}
+          onInsertText={(text) => insertText(text)}
+          onInsertNode={(desc) => insertNode(desc)}
         />
       )}
 
@@ -1567,10 +1840,16 @@ export default function MathInput({
    placeholders are inserted verbatim and the user replaces them.
    ──────────────────────────────────────────────────────────────────── */
 
+// Each panel button either inserts a structured math node (proper
+// fraction/integral/matrix/etc.) or a plain text fragment (Greek
+// letters, comparison operators, etc.). When `node` is set the editor
+// renders the template with real math typography and yellow placeholder
+// slots; otherwise the text is typed verbatim into the active slot.
 interface MathBtnDef {
   label: string;
-  insert: string;
   tooltip: string;
+  node?: MathNodeDescriptor;
+  text?: string;
 }
 
 interface MathSectionDef {
@@ -1582,164 +1861,127 @@ const SECTIONS: MathSectionDef[] = [
   {
     title: "BASIC MATH",
     buttons: [
-      { label: "□/□", insert: "(□)/(□)", tooltip: "Fraction" },
-      { label: "□²", insert: "□^2", tooltip: "Square" },
-      { label: "□ⁿ", insert: "□^□", tooltip: "Power" },
-      { label: "√□", insert: "sqrt(□)", tooltip: "Square root" },
-      { label: "ⁿ√□", insert: "root(□,□)", tooltip: "Nth root" },
-      { label: "∛□", insert: "root(3,□)", tooltip: "Cube root" },
-      { label: "∞", insert: "∞", tooltip: "Infinity" },
-      { label: "-∞", insert: "-∞", tooltip: "Negative infinity" },
-      { label: "π", insert: "π", tooltip: "Pi" },
-      { label: "e", insert: "e", tooltip: "Euler's number" },
-      { label: "eˣ", insert: "e^(□)", tooltip: "Exponential" },
-      { label: "ln(□)", insert: "ln(□)", tooltip: "Natural logarithm" },
-      { label: "log_□(□)", insert: "log_□(□)", tooltip: "Logarithm with base" },
-      { label: "log₁₀(□)", insert: "log_10(□)", tooltip: "Common logarithm" },
-      { label: "|□|", insert: "abs(□)", tooltip: "Absolute value" },
-      { label: "□≤□", insert: "□ ≤ □", tooltip: "Less than or equal" },
-      { label: "□≥□", insert: "□ ≥ □", tooltip: "Greater than or equal" },
-      { label: "□≠□", insert: "□ ≠ □", tooltip: "Not equal" },
+      { label: "□/□", tooltip: "Fraction", node: { kind: "frac" } },
+      { label: "□²", tooltip: "Square", node: { kind: "exp" } },
+      { label: "□ⁿ", tooltip: "Power", node: { kind: "exp" } },
+      { label: "√□", tooltip: "Square root", node: { kind: "sqrt" } },
+      { label: "ⁿ√□", tooltip: "Nth root", node: { kind: "nthrt" } },
+      { label: "∛□", tooltip: "Cube root", node: { kind: "nthrt" } },
+      { label: "∞", tooltip: "Infinity", text: "∞" },
+      { label: "-∞", tooltip: "Negative infinity", text: "-∞" },
+      { label: "π", tooltip: "Pi", text: "π" },
+      { label: "e", tooltip: "Euler's number", text: "e" },
+      { label: "eˣ", tooltip: "Exponential", node: { kind: "exp" } },
+      { label: "ln(□)", tooltip: "Natural logarithm", node: { kind: "func", name: "ln" } },
+      { label: "log_□(□)", tooltip: "Logarithm with base", node: { kind: "func", name: "log" } },
+      { label: "log₁₀(□)", tooltip: "Common logarithm", node: { kind: "func", name: "log₁₀" } },
+      { label: "|□|", tooltip: "Absolute value", node: { kind: "abs" } },
+      { label: "□≤□", tooltip: "Less than or equal", text: " ≤ " },
+      { label: "□≥□", tooltip: "Greater than or equal", text: " ≥ " },
+      { label: "□≠□", tooltip: "Not equal", text: " ≠ " },
     ],
   },
   {
     title: "CALCULUS & SUMS",
     buttons: [
-      { label: "d/d□", insert: "d/d□ (□)", tooltip: "Derivative" },
-      { label: "d²/d□²", insert: "d^2/d□^2 (□)", tooltip: "Second derivative" },
-      { label: "∂/∂□", insert: "∂/∂□ (□)", tooltip: "Partial derivative" },
-      { label: "∂²/∂□²", insert: "∂^2/∂□^2 (□)", tooltip: "Second partial derivative" },
-      { label: "∂²/∂□∂□", insert: "∂^2/(∂□ ∂□) (□)", tooltip: "Mixed partial derivative" },
-      { label: "∫□", insert: "∫ □ d□", tooltip: "Indefinite integral" },
-      { label: "∫∫□□", insert: "∫∫ □ d□ d□", tooltip: "Double integral" },
-      { label: "∫∫∫□□□", insert: "∫∫∫ □ d□ d□ d□", tooltip: "Triple integral" },
-      { label: "∫_□^□", insert: "∫_□^□ □ d□", tooltip: "Definite integral" },
-      { label: "∮", insert: "∮ □ d□", tooltip: "Contour integral" },
-      { label: "∮_□", insert: "∮_□ □ d□", tooltip: "Line integral with domain" },
-      { label: "∑", insert: "∑_(□=□)^□ □", tooltip: "Summation" },
-      { label: "∏", insert: "∏_(□=□)^□ □", tooltip: "Product" },
-      { label: "lim", insert: "lim_(□→□) □", tooltip: "Limit" },
-      { label: "lim⁺", insert: "lim_(□→□⁺) □", tooltip: "Right-hand limit" },
-      { label: "lim⁻", insert: "lim_(□→□⁻) □", tooltip: "Left-hand limit" },
-      { label: "lim_∞", insert: "lim_(□→∞) □", tooltip: "Limit to infinity" },
-      { label: "θ(□)", insert: "θ(□)", tooltip: "Theta function" },
-      { label: "δ(□)", insert: "δ(□)", tooltip: "Dirac delta function" },
-      { label: "{cases", insert: "{ □ if □; □ if □ }", tooltip: "Piecewise function" },
-      { label: "{cases₃", insert: "{ □ if □; □ if □; □ if □ }", tooltip: "Piecewise (3 cases)" },
-      { label: "ℒ{□}", insert: "L{□}", tooltip: "Laplace transform" },
-      { label: "ℒ⁻¹{□}", insert: "L^(-1){□}", tooltip: "Inverse Laplace transform" },
-      { label: "ℱ{□}", insert: "F{□}", tooltip: "Fourier transform" },
-      { label: "ℱ⁻¹{□}", insert: "F^(-1){□}", tooltip: "Inverse Fourier transform" },
+      { label: "d/d□", tooltip: "Derivative", node: { kind: "frac" } },
+      { label: "d²/d□²", tooltip: "Second derivative", node: { kind: "frac" } },
+      { label: "∂/∂□", tooltip: "Partial derivative", node: { kind: "frac" } },
+      { label: "∂²/∂□²", tooltip: "Second partial derivative", node: { kind: "frac" } },
+      { label: "∂²/∂□∂□", tooltip: "Mixed partial derivative", node: { kind: "frac" } },
+      { label: "∫□", tooltip: "Indefinite integral", node: { kind: "integral", sym: "∫" } },
+      { label: "∫∫□□", tooltip: "Double integral", node: { kind: "integral", sym: "∫∫", nDvars: 2 } },
+      { label: "∫∫∫□□□", tooltip: "Triple integral", node: { kind: "integral", sym: "∫∫∫", nDvars: 3 } },
+      { label: "∫_□^□", tooltip: "Definite integral", node: { kind: "integral", sym: "∫" } },
+      { label: "∮", tooltip: "Contour integral", node: { kind: "integral", sym: "∮" } },
+      { label: "∮_□", tooltip: "Line integral with domain", node: { kind: "integral", sym: "∮" } },
+      { label: "∑", tooltip: "Summation", node: { kind: "bigop", sym: "Σ" } },
+      { label: "∏", tooltip: "Product", node: { kind: "bigop", sym: "∏" } },
+      { label: "lim", tooltip: "Limit", node: { kind: "lim" } },
+      { label: "lim⁺", tooltip: "Right-hand limit", node: { kind: "lim", side: "right" } },
+      { label: "lim⁻", tooltip: "Left-hand limit", node: { kind: "lim", side: "left" } },
+      { label: "lim_∞", tooltip: "Limit to infinity", node: { kind: "lim", toInfinity: true } },
+      { label: "θ(□)", tooltip: "Theta function", node: { kind: "func", name: "θ" } },
+      { label: "δ(□)", tooltip: "Dirac delta function", node: { kind: "func", name: "δ" } },
+      { label: "ℒ{□}", tooltip: "Laplace transform", node: { kind: "func", name: "ℒ" } },
+      { label: "ℒ⁻¹{□}", tooltip: "Inverse Laplace transform", node: { kind: "func", name: "ℒ⁻¹" } },
+      { label: "ℱ{□}", tooltip: "Fourier transform", node: { kind: "func", name: "ℱ" } },
+      { label: "ℱ⁻¹{□}", tooltip: "Inverse Fourier transform", node: { kind: "func", name: "ℱ⁻¹" } },
     ],
   },
   {
     title: "VECTORS & MATRICES",
     buttons: [
-      { label: "[□,□]", insert: "[□, □]", tooltip: "2-element row vector" },
-      { label: "[□,□,□]", insert: "[□, □, □]", tooltip: "3-element row vector" },
-      { label: "[□,□,□,□]", insert: "[□, □, □, □]", tooltip: "4-element row vector" },
-      { label: "col 2×1", insert: "[[□],[□]]", tooltip: "2×1 column vector" },
-      { label: "col 3×1", insert: "[[□],[□],[□]]", tooltip: "3×1 column vector" },
-      { label: "col 4×1", insert: "[[□],[□],[□],[□]]", tooltip: "4×1 column vector" },
-      { label: "2×2", insert: "[[□,□],[□,□]]", tooltip: "2×2 matrix" },
-      { label: "3×3", insert: "[[□,□,□],[□,□,□],[□,□,□]]", tooltip: "3×3 matrix" },
-      { label: "4×4", insert:
-        "[[□,□,□,□],[□,□,□,□],[□,□,□,□],[□,□,□,□]]", tooltip: "4×4 matrix" },
-      { label: "5×5", insert:
-        "[[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□],[□,□,□,□,□]]", tooltip: "5×5 matrix" },
-      { label: "6×6", insert:
-        "[[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□],[□,□,□,□,□,□]]", tooltip: "6×6 matrix" },
+      { label: "[□,□]", tooltip: "2-element row vector", node: { kind: "matrix", rows: 1, cols: 2 } },
+      { label: "[□,□,□]", tooltip: "3-element row vector", node: { kind: "matrix", rows: 1, cols: 3 } },
+      { label: "[□,□,□,□]", tooltip: "4-element row vector", node: { kind: "matrix", rows: 1, cols: 4 } },
+      { label: "col 2×1", tooltip: "2×1 column vector", node: { kind: "matrix", rows: 2, cols: 1 } },
+      { label: "col 3×1", tooltip: "3×1 column vector", node: { kind: "matrix", rows: 3, cols: 1 } },
+      { label: "col 4×1", tooltip: "4×1 column vector", node: { kind: "matrix", rows: 4, cols: 1 } },
+      { label: "2×2", tooltip: "2×2 matrix", node: { kind: "matrix", rows: 2, cols: 2 } },
+      { label: "3×3", tooltip: "3×3 matrix", node: { kind: "matrix", rows: 3, cols: 3 } },
+      { label: "4×4", tooltip: "4×4 matrix", node: { kind: "matrix", rows: 4, cols: 4 } },
+      { label: "5×5", tooltip: "5×5 matrix", node: { kind: "matrix", rows: 5, cols: 5 } },
+      { label: "6×6", tooltip: "6×6 matrix", node: { kind: "matrix", rows: 6, cols: 6 } },
     ],
   },
   {
     title: "TRIGONOMETRY",
     buttons: [
-      { label: "π", insert: "π", tooltip: "Pi" },
-      { label: "°", insert: "°", tooltip: "Degree" },
-      { label: "rad", insert: "rad", tooltip: "Radian" },
-      { label: "sin□", insert: "sin(□)", tooltip: "Sine" },
-      { label: "cos□", insert: "cos(□)", tooltip: "Cosine" },
-      { label: "tan□", insert: "tan(□)", tooltip: "Tangent" },
-      { label: "sec□", insert: "sec(□)", tooltip: "Secant" },
-      { label: "csc□", insert: "csc(□)", tooltip: "Cosecant" },
-      { label: "cot□", insert: "cot(□)", tooltip: "Cotangent" },
-      { label: "sin⁻¹□", insert: "arcsin(□)", tooltip: "Inverse sine" },
-      { label: "cos⁻¹□", insert: "arccos(□)", tooltip: "Inverse cosine" },
-      { label: "tan⁻¹□", insert: "arctan(□)", tooltip: "Inverse tangent" },
-      { label: "sinh□", insert: "sinh(□)", tooltip: "Hyperbolic sine" },
-      { label: "cosh□", insert: "cosh(□)", tooltip: "Hyperbolic cosine" },
-      { label: "tanh□", insert: "tanh(□)", tooltip: "Hyperbolic tangent" },
-      { label: "sech□", insert: "sech(□)", tooltip: "Hyperbolic secant" },
-      { label: "csch□", insert: "csch(□)", tooltip: "Hyperbolic cosecant" },
-      { label: "coth□", insert: "coth(□)", tooltip: "Hyperbolic cotangent" },
-      { label: "sinh⁻¹□", insert: "arcsinh(□)", tooltip: "Inverse hyperbolic sine" },
-      { label: "cosh⁻¹□", insert: "arccosh(□)", tooltip: "Inverse hyperbolic cosine" },
-      { label: "tanh⁻¹□", insert: "arctanh(□)", tooltip: "Inverse hyperbolic tangent" },
-      { label: "sech⁻¹□", insert: "arcsech(□)", tooltip: "Inverse hyperbolic secant" },
-      { label: "csch⁻¹□", insert: "arccsch(□)", tooltip: "Inverse hyperbolic cosecant" },
-      { label: "coth⁻¹□", insert: "arccoth(□)", tooltip: "Inverse hyperbolic cotangent" },
+      { label: "π", tooltip: "Pi", text: "π" },
+      { label: "°", tooltip: "Degree", text: "°" },
+      { label: "rad", tooltip: "Radian", text: " rad" },
+      { label: "sin□", tooltip: "Sine", node: { kind: "func", name: "sin" } },
+      { label: "cos□", tooltip: "Cosine", node: { kind: "func", name: "cos" } },
+      { label: "tan□", tooltip: "Tangent", node: { kind: "func", name: "tan" } },
+      { label: "sec□", tooltip: "Secant", node: { kind: "func", name: "sec" } },
+      { label: "csc□", tooltip: "Cosecant", node: { kind: "func", name: "csc" } },
+      { label: "cot□", tooltip: "Cotangent", node: { kind: "func", name: "cot" } },
+      { label: "sin⁻¹□", tooltip: "Inverse sine", node: { kind: "func", name: "sin⁻¹" } },
+      { label: "cos⁻¹□", tooltip: "Inverse cosine", node: { kind: "func", name: "cos⁻¹" } },
+      { label: "tan⁻¹□", tooltip: "Inverse tangent", node: { kind: "func", name: "tan⁻¹" } },
+      { label: "sinh□", tooltip: "Hyperbolic sine", node: { kind: "func", name: "sinh" } },
+      { label: "cosh□", tooltip: "Hyperbolic cosine", node: { kind: "func", name: "cosh" } },
+      { label: "tanh□", tooltip: "Hyperbolic tangent", node: { kind: "func", name: "tanh" } },
+      { label: "sech□", tooltip: "Hyperbolic secant", node: { kind: "func", name: "sech" } },
+      { label: "csch□", tooltip: "Hyperbolic cosecant", node: { kind: "func", name: "csch" } },
+      { label: "coth□", tooltip: "Hyperbolic cotangent", node: { kind: "func", name: "coth" } },
+      { label: "sinh⁻¹□", tooltip: "Inverse hyperbolic sine", node: { kind: "func", name: "sinh⁻¹" } },
+      { label: "cosh⁻¹□", tooltip: "Inverse hyperbolic cosine", node: { kind: "func", name: "cosh⁻¹" } },
+      { label: "tanh⁻¹□", tooltip: "Inverse hyperbolic tangent", node: { kind: "func", name: "tanh⁻¹" } },
+      { label: "sech⁻¹□", tooltip: "Inverse hyperbolic secant", node: { kind: "func", name: "sech⁻¹" } },
+      { label: "csch⁻¹□", tooltip: "Inverse hyperbolic cosecant", node: { kind: "func", name: "csch⁻¹" } },
+      { label: "coth⁻¹□", tooltip: "Inverse hyperbolic cotangent", node: { kind: "func", name: "coth⁻¹" } },
     ],
   },
   {
     title: "SYMBOLS",
     buttons: [
-      { label: "Π", insert: "Π", tooltip: "Capital pi" },
-      { label: "°", insert: "°", tooltip: "Degree" },
-      { label: "∞", insert: "∞", tooltip: "Infinity" },
-      { label: "∀", insert: "∀", tooltip: "For all" },
-      { label: "∃", insert: "∃", tooltip: "Exists" },
-      { label: "∪", insert: "∪", tooltip: "Union" },
-      { label: "∩", insert: "∩", tooltip: "Intersection" },
-      { label: "∇", insert: "∇", tooltip: "Nabla" },
-      { label: "Δ", insert: "Δ", tooltip: "Delta (capital)" },
-      { label: "α", insert: "α", tooltip: "Alpha" },
-      { label: "β", insert: "β", tooltip: "Beta" },
-      { label: "γ", insert: "γ", tooltip: "Gamma" },
-      { label: "δ", insert: "δ", tooltip: "Delta" },
-      { label: "ε", insert: "ε", tooltip: "Epsilon" },
-      { label: "ζ", insert: "ζ", tooltip: "Zeta" },
-      { label: "η", insert: "η", tooltip: "Eta" },
-      { label: "θ", insert: "θ", tooltip: "Theta" },
-      { label: "κ", insert: "κ", tooltip: "Kappa" },
-      { label: "λ", insert: "λ", tooltip: "Lambda" },
-      { label: "μ", insert: "μ", tooltip: "Mu" },
-      { label: "ν", insert: "ν", tooltip: "Nu" },
-      { label: "ξ", insert: "ξ", tooltip: "Xi" },
-      { label: "ρ", insert: "ρ", tooltip: "Rho" },
-      { label: "σ", insert: "σ", tooltip: "Sigma" },
-      { label: "τ", insert: "τ", tooltip: "Tau" },
-      { label: "φ", insert: "φ", tooltip: "Phi" },
-      { label: "χ", insert: "χ", tooltip: "Chi" },
-      { label: "ψ", insert: "ψ", tooltip: "Psi" },
-      { label: "ω", insert: "ω", tooltip: "Omega" },
-      { label: "Γ", insert: "Γ", tooltip: "Gamma (capital)" },
-      { label: "Θ", insert: "Θ", tooltip: "Theta (capital)" },
-      { label: "Λ", insert: "Λ", tooltip: "Lambda (capital)" },
-      { label: "Ξ", insert: "Ξ", tooltip: "Xi (capital)" },
-      { label: "Υ", insert: "Υ", tooltip: "Upsilon (capital)" },
-      { label: "Φ", insert: "Φ", tooltip: "Phi (capital)" },
-      { label: "Ψ", insert: "Ψ", tooltip: "Psi (capital)" },
-      { label: "Ω", insert: "Ω", tooltip: "Omega (capital)" },
-      { label: "ℵ", insert: "ℵ", tooltip: "Aleph" },
-      { label: "ℏ", insert: "ℏ", tooltip: "Reduced Planck constant" },
-      { label: "÷", insert: "÷", tooltip: "Division sign" },
-      { label: "→", insert: "→", tooltip: "Right arrow" },
-      { label: "⊕", insert: "⊕", tooltip: "Direct sum" },
-      { label: "⊙", insert: "⊙", tooltip: "Circled dot" },
-      { label: "≠", insert: "≠", tooltip: "Not equal" },
-      { label: "≥", insert: "≥", tooltip: "Greater than or equal" },
-      { label: "≤", insert: "≤", tooltip: "Less than or equal" },
-    ],
+      "Π,°,∞,∀,∃,∪,∩,∇,Δ,α,β,γ,δ,ε,ζ,η,θ,κ,λ,μ,ν,ξ,ρ,σ,τ,φ,χ,ψ,ω,Γ,Θ,Λ,Ξ,Υ,Φ,Ψ,Ω,ℵ,ℏ,÷,→,⊕,⊙,≠,≥,≤"
+        .split(",").map((c) => ({ label: c, tooltip: c, text: c })),
+    ].flat(),
   },
 ];
 
+// Blue palette anchored on the gradient already used by the input bar's
+// "fx · All Math Inputs" trigger pill and the rest of the dashboard's
+// primary actions (#4a7eb0 → #3a6d9a).
+const BLUE_BG = "#3a6d9a";          // panel surface
+const BTN_BG = "#5a8dc1";           // button rest
+const BTN_HOVER = "#6da0d0";        // button hover
+const BTN_ACTIVE = "#2c5aa0";       // button pressed
+const BORDER = "rgba(255,255,255,0.08)";
+
+interface InsertCallbacks {
+  onInsertText: (text: string) => void;
+  onInsertNode: (desc: MathNodeDescriptor) => void;
+}
+
 function AllMathInputsPanel({
   onClose,
-  onInsert,
-}: {
-  onClose: () => void;
-  onInsert: (text: string) => void;
-}) {
+  onInsertText,
+  onInsertNode,
+}: { onClose: () => void } & InsertCallbacks) {
   // Close on Escape.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -1752,7 +1994,7 @@ function AllMathInputsPanel({
       onClick={onClose}
       style={{
         position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(15, 11, 35, 0.55)",
+        background: "rgba(15, 23, 42, 0.55)",
         backdropFilter: "blur(2px)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 16,
@@ -1763,7 +2005,7 @@ function AllMathInputsPanel({
         style={{
           width: "min(820px, 100%)",
           maxHeight: "85vh",
-          background: "#6B46C1",
+          background: BLUE_BG,
           color: "#fff",
           borderRadius: 16,
           boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
@@ -1798,7 +2040,12 @@ function AllMathInputsPanel({
           overflowY: "auto", display: "flex", flexDirection: "column", gap: 20,
         }}>
           {SECTIONS.map((sec) => (
-            <Section key={sec.title} section={sec} onInsert={onInsert} />
+            <Section
+              key={sec.title}
+              section={sec}
+              onInsertText={onInsertText}
+              onInsertNode={onInsertNode}
+            />
           ))}
         </div>
       </div>
@@ -1808,8 +2055,9 @@ function AllMathInputsPanel({
 
 function Section({
   section,
-  onInsert,
-}: { section: MathSectionDef; onInsert: (text: string) => void }) {
+  onInsertText,
+  onInsertNode,
+}: { section: MathSectionDef } & InsertCallbacks) {
   const [open, setOpen] = useState(true);
   return (
     <div>
@@ -1833,7 +2081,12 @@ function Section({
           gap: 8,
         }}>
           {section.buttons.map((b, i) => (
-            <MathBtn key={`${section.title}-${i}`} def={b} onInsert={onInsert} />
+            <MathBtn
+              key={`${section.title}-${i}`}
+              def={b}
+              onInsertText={onInsertText}
+              onInsertNode={onInsertNode}
+            />
           ))}
         </div>
       )}
@@ -1843,9 +2096,14 @@ function Section({
 
 function MathBtn({
   def,
-  onInsert,
-}: { def: MathBtnDef; onInsert: (text: string) => void }) {
+  onInsertText,
+  onInsertNode,
+}: { def: MathBtnDef } & InsertCallbacks) {
   const [pressed, setPressed] = useState(false);
+  const handleClick = () => {
+    if (def.node) onInsertNode(def.node);
+    else if (def.text !== undefined) onInsertText(def.text);
+  };
   return (
     <button
       title={def.tooltip}
@@ -1853,14 +2111,14 @@ function MathBtn({
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onMouseLeave={() => setPressed(false)}
-      onClick={() => onInsert(def.insert)}
+      onClick={handleClick}
       style={{
         height: 44,
         padding: "0 6px",
         borderRadius: 8,
-        background: pressed ? "#5A37B0" : "#7C5FD3",
+        background: pressed ? BTN_ACTIVE : BTN_BG,
         color: "#fff",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: `1px solid ${BORDER}`,
         cursor: "pointer",
         fontSize: 13,
         fontFamily: "'Times New Roman', Georgia, serif",
@@ -1869,8 +2127,8 @@ function MathBtn({
         transform: pressed ? "scale(0.96)" : "scale(1)",
         overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? "#5A37B0" : "#9B7FE6"; }}
-      onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? "#5A37B0" : "#7C5FD3"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? BTN_ACTIVE : BTN_HOVER; }}
+      onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = pressed ? BTN_ACTIVE : BTN_BG; }}
     >
       {def.label}
     </button>
