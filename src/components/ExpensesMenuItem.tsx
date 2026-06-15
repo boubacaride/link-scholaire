@@ -106,7 +106,7 @@ const ExpensesMenuItem = ({ icon, label, pathname }: ExpensesMenuItemProps) => {
             left: pos.left,
             maxHeight: "85vh",
           }}
-          className="bg-white rounded-md shadow-xl border border-gray-200 py-1 min-w-[230px] z-50 overflow-y-auto"
+          className="bg-white rounded-md shadow-xl border border-gray-200 py-1 min-w-[230px] z-50 overflow-y-auto overflow-x-hidden"
           role="menu"
         >
           {/* ── Payroll node (special-cased, links to /list/payroll) ─── */}
@@ -155,9 +155,12 @@ const ExpensesMenuItem = ({ icon, label, pathname }: ExpensesMenuItemProps) => {
 /* ── Sub-components ─────────────────────────────────────────────────── */
 
 /** Row in the main category flyout. When `subItems` is non-null this row's
- *  cascading sub-flyout is open; the sub-flyout's vertical anchor (top vs.
- *  bottom of the row) is picked based on the row's position in the viewport
- *  so the line items list never gets clipped. */
+ *  cascading sub-flyout is rendered with `position: fixed` so it escapes
+ *  the main flyout's `overflow-y-auto` clip box — that was the issue in
+ *  the user's screenshot, where the line-items list never appeared and the
+ *  main flyout grew a horizontal scrollbar instead. Anchor (top vs. bottom
+ *  of the row) is picked from the row's viewport position so the list
+ *  never overflows downward or upward. */
 const FlyoutRow = ({
   label, isActive, highlighted, onMouseEnter, onClick,
   subItems, onSubItemClick,
@@ -171,15 +174,29 @@ const FlyoutRow = ({
   onSubItemClick: () => void;
 }) => {
   const rowRef = useRef<HTMLDivElement>(null);
-  const [subAnchor, setSubAnchor] = useState<"top" | "bottom">("top");
+  const [subStyle, setSubStyle] = useState<React.CSSProperties | null>(null);
 
   useEffect(() => {
-    if (!subItems || !rowRef.current) return;
+    if (!subItems || !rowRef.current) {
+      setSubStyle(null);
+      return;
+    }
     const rect = rowRef.current.getBoundingClientRect();
     // Worst-case sub-flyout height: ~28px per row + chrome, capped at 70vh.
     const est = Math.min(subItems.length * 28 + 16, window.innerHeight * 0.7);
     const spaceBelow = window.innerHeight - rect.top;
-    setSubAnchor(spaceBelow >= est ? "top" : "bottom");
+    const style: React.CSSProperties = {
+      position: "fixed",
+      left: rect.right + 4,
+      maxHeight: "70vh",
+      zIndex: 60,
+    };
+    if (spaceBelow >= est) {
+      style.top = rect.top;
+    } else {
+      style.bottom = window.innerHeight - rect.bottom;
+    }
+    setSubStyle(style);
   }, [subItems]);
 
   return (
@@ -196,13 +213,10 @@ const FlyoutRow = ({
         <span>{label}</span>
         <span className="text-[9px] text-gray-400 ml-2">▶</span>
       </button>
-      {subItems && (
+      {subItems && subStyle && (
         <div
-          style={{
-            maxHeight: "70vh",
-            ...(subAnchor === "top" ? { top: 0 } : { bottom: 0 }),
-          }}
-          className="absolute left-full ml-1 bg-white rounded-md shadow-xl border border-gray-200 py-1 min-w-[260px] z-50 overflow-y-auto"
+          style={subStyle}
+          className="bg-white rounded-md shadow-xl border border-gray-200 py-1 min-w-[260px] overflow-y-auto"
           role="menu"
         >
           {subItems.map((it) => (
