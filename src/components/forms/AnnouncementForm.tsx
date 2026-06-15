@@ -7,16 +7,14 @@ import { useState } from "react";
 import InputField from "../InputField";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 
 const schema = z.object({
   title: z.string().min(1, { message: "Title is required!" }),
   description: z.string().min(1, { message: "Description is required!" }),
-  date: z.string().optional(),
 });
 
 type Inputs = z.infer<typeof schema>;
-
-import { useI18n } from "@/contexts/LanguageContext";
 
 const AnnouncementForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
   const { t } = useI18n();
@@ -27,17 +25,27 @@ const AnnouncementForm = ({ type, data }: { type: "create" | "update"; data?: an
   const { user } = useAuth();
 
   const onSubmit = handleSubmit(async (formData) => {
-    if (!supabase || !user?.schoolId) return;
+    if (!supabase || !user?.schoolId || !user?.profileId) return;
     setLoading(true);
     setMsg("");
     try {
-      const payload = { title: formData.title, description: formData.description, date: formData.date || new Date().toISOString().split("T")[0], school_id: user.schoolId };
+      // announcements.author_id is NOT NULL → must be set on insert. The
+      // table has no "date" column; posting time is the auto-set created_at.
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        school_id: user.schoolId,
+        author_id: user.profileId,
+      };
       if (type === "create") {
         const { error } = await supabase.from("announcements").insert(payload);
         if (error) throw error;
         setMsg("Announcement created!");
       } else {
-        const { error } = await supabase.from("announcements").update(payload).eq("id", data?.id);
+        const { error } = await supabase
+          .from("announcements")
+          .update({ title: payload.title, description: payload.description })
+          .eq("id", data?.id);
         if (error) throw error;
         setMsg("Announcement updated!");
       }
@@ -55,7 +63,6 @@ const AnnouncementForm = ({ type, data }: { type: "create" | "update"; data?: an
       <div className="flex justify-between flex-wrap gap-4">
         <InputField label={t("form.fields.title")} name="title" defaultValue={data?.title} register={register} error={errors?.title} />
         <InputField label={t("form.fields.description")} name="description" defaultValue={data?.description} register={register} error={errors?.description} />
-        <InputField label={t("form.fields.date")} name="date" type="date" defaultValue={data?.date} register={register} error={errors?.date} />
       </div>
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
       <button type="submit" disabled={loading} className="bg-blue-400 text-white p-2 rounded-md disabled:opacity-50">
