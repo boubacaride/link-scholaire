@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -33,6 +33,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
  *  amount, vendor, paid date, status and notes. */
 const ExpenseCategoryPage = () => {
   const params = useParams<{ category: string }>();
+  const searchParams = useSearchParams();
   const slug = params?.category || "";
   const { user } = useAuth();
   const supabase = createClient();
@@ -70,6 +71,19 @@ const ExpenseCategoryPage = () => {
     if (!validCategory) { notFound(); return; }
     load();
   }, [user?.schoolId, category, validCategory]);
+
+  // Sidebar line items navigate here with ?item=<line item> so the admin
+  // sees the Add form already opened with the right title; drop the param
+  // off the URL once we've consumed it so a page refresh doesn't re-open it.
+  const prefillTitle = searchParams?.get("item") || "";
+  useEffect(() => {
+    if (prefillTitle) {
+      setCreating(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("item");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [prefillTitle]);
 
   const totals = useMemo(() => {
     const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
@@ -186,6 +200,7 @@ const ExpenseCategoryPage = () => {
           category={category}
           label={label}
           existing={editing}
+          defaultTitle={creating && !editing ? prefillTitle : ""}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSaved={() => { setCreating(false); setEditing(null); load(); }}
         />
@@ -218,18 +233,19 @@ const StatusPill = ({ status }: { status: ExpenseRow["status"] }) => {
 /* ── Add / edit form ─────────────────────────────────────────────────── */
 
 function ExpenseForm({
-  category, label, existing, onClose, onSaved,
+  category, label, existing, defaultTitle = "", onClose, onSaved,
 }: {
   category: ExpenseCategoryKey;
   label: string;
   existing: ExpenseRow | null;
+  defaultTitle?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [title, setTitle] = useState(existing?.title || "");
+  const [title, setTitle] = useState(existing?.title || defaultTitle || "");
   const [amount, setAmount] = useState(String(existing?.amount ?? "0"));
   const [vendor, setVendor] = useState(existing?.vendor || "");
   const [paidAt, setPaidAt] = useState(existing?.paid_at?.slice(0, 10) || todayIso());

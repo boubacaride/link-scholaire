@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
+import ExpensesMenuItem from "@/components/ExpensesMenuItem";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -163,21 +164,7 @@ const menuItems = [
         label: "Expenses",
         visible: ["school_admin"],
         privateOnly: true,
-        children: [
-          { label: "Payroll", href: "/list/payroll" },
-          { label: "Facilities", href: "/list/expenses/facilities" },
-          { label: "Utilities", href: "/list/expenses/utilities" },
-          { label: "Academic Materials", href: "/list/expenses/academic_materials" },
-          { label: "Technology", href: "/list/expenses/technology" },
-          { label: "Transportation", href: "/list/expenses/transportation" },
-          { label: "Food Services", href: "/list/expenses/food_services" },
-          { label: "Security", href: "/list/expenses/security" },
-          { label: "Administration", href: "/list/expenses/administration" },
-          { label: "Marketing", href: "/list/expenses/marketing" },
-          { label: "Events", href: "/list/expenses/events" },
-          { label: "Insurance", href: "/list/expenses/insurance" },
-          { label: "Capital Expenses", href: "/list/expenses/capital_expenses" },
-        ],
+        flyout: true,
       },
     ],
   },
@@ -291,6 +278,18 @@ const Menu = () => {
               {SECTION_KEY[section.title] ? t(SECTION_KEY[section.title]) : section.title}
             </span>
             {visibleItems.map((item: any) => {
+              // ─── Cascading flyout (Expenses) ─────────────────────
+              if (item.flyout) {
+                return (
+                  <ExpensesMenuItem
+                    key={item.label}
+                    icon={item.icon}
+                    label={label(item.label)}
+                    pathname={pathname}
+                  />
+                );
+              }
+
               // ─── Dropdown group ──────────────────────────────────
               if (item.children?.length) {
                 const open = openGroups.has(item.label);
