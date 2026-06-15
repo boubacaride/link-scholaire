@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
@@ -249,13 +249,23 @@ const Menu = () => {
   const isPrivateSchool = user?.schoolType === "private";
   const label = (l: string) => (NAV_KEY[l] ? t(NAV_KEY[l]) : l);
 
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    menuItems.forEach((s) => s.items.forEach((it: any) => {
-      if (it.children?.some((c: any) => isHrefActive(pathname, c.href))) initial.add(it.label);
-    }));
-    return initial;
-  });
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  // Auto-open any dropdown group whose child route is active. Runs on every
+  // pathname change so client-side navigation onto an Expenses child also
+  // opens the submenu — not just the initial render.
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      menuItems.forEach((s) => s.items.forEach((it: any) => {
+        if (it.children?.some((c: any) => isHrefActive(pathname, c.href))) {
+          next.add(it.label);
+        }
+      }));
+      return next;
+    });
+  }, [pathname]);
+
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -301,14 +311,15 @@ const Menu = () => {
                       <span className={`hidden lg:block transition-transform text-[10px] ${open ? "rotate-90" : ""}`}>▶</span>
                     </button>
                     {open && (
-                      <div className="hidden lg:flex flex-col gap-1 mt-1 ml-7 border-l border-gray-200 pl-3">
+                      <div className="flex flex-col gap-1 mt-1 ml-1 lg:ml-7 lg:border-l border-gray-200 lg:pl-3">
                         {item.children.map((child: any) => {
                           const active = isHrefActive(pathname, child.href);
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
-                              className={`text-xs py-1.5 px-2 rounded-md transition-colors ${
+                              title={label(child.label)}
+                              className={`text-xs py-1.5 px-2 rounded-md transition-colors text-center lg:text-left ${
                                 active
                                   ? "bg-[#eef3f9] text-[#1f3a5f] font-semibold"
                                   : "text-gray-500 hover:bg-gray-50"
