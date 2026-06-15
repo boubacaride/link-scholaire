@@ -37,8 +37,11 @@ const ExpenseCategoryPage = () => {
   const { user } = useAuth();
   const supabase = createClient();
 
-  if (!isExpenseCategory(slug)) notFound();
-  const category = slug as ExpenseCategoryKey;
+  // Hooks must run in the same order on every render, so DON'T short-circuit
+  // with notFound() before the hooks below — call it from an effect after
+  // they've all been declared.
+  const validCategory = isExpenseCategory(slug);
+  const category = (validCategory ? slug : "facilities") as ExpenseCategoryKey;
   const label = labelForCategory(category);
 
   const [rows, setRows] = useState<ExpenseRow[]>([]);
@@ -63,7 +66,12 @@ const ExpenseCategoryPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user?.schoolId, category]);
+  useEffect(() => {
+    if (!validCategory) { notFound(); return; }
+    load();
+  }, [user?.schoolId, category, validCategory]);
+
+  if (!validCategory) return null;
 
   const totals = useMemo(() => {
     const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
@@ -237,13 +245,15 @@ function ExpenseForm({
     setSaving(true);
     setError("");
     try {
+      // Only persist paid_at for paid rows; pending / overdue records should
+      // not carry a payment date.
       const payload = {
         school_id: user.schoolId,
         category,
         title: title.trim(),
         amount: amt,
         vendor: vendor.trim() || null,
-        paid_at: status === "paid" || paidAt ? paidAt || null : null,
+        paid_at: status === "paid" ? (paidAt || null) : null,
         status,
         notes: notes.trim() || null,
       };
