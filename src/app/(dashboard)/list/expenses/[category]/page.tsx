@@ -71,8 +71,6 @@ const ExpenseCategoryPage = () => {
     load();
   }, [user?.schoolId, category, validCategory]);
 
-  if (!validCategory) return null;
-
   const totals = useMemo(() => {
     const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
     const paid = rows.filter((r) => r.status === "paid").reduce((s, r) => s + r.amount, 0);
@@ -80,6 +78,10 @@ const ExpenseCategoryPage = () => {
     const overdue = rows.filter((r) => r.status === "overdue").reduce((s, r) => s + r.amount, 0);
     return { total, paid, pending, overdue, count: rows.length };
   }, [rows]);
+
+  // Bail out AFTER every hook has run so the hook count stays the same on
+  // every render — invalid slugs trigger notFound() from the effect above.
+  if (!validCategory) return null;
 
   const remove = async (id: string) => {
     if (!supabase) return;
