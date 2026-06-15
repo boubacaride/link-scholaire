@@ -18,6 +18,9 @@ export const dict = {
       // Events
       events: "Events",
       today: "Today",
+      allDay: "All day",
+      noEventsToday: "No events on this date",
+      noAnnouncements: "No announcements yet",
       // Performance
       performance: "Performance",
       ofMaxLts: "of 10 max LTS",
@@ -60,6 +63,9 @@ export const dict = {
       // Events
       events: "Événements",
       today: "Aujourd'hui",
+      allDay: "Toute la journée",
+      noEventsToday: "Aucun événement à cette date",
+      noAnnouncements: "Aucune annonce pour le moment",
       // Performance
       performance: "Performance",
       ofMaxLts: "sur 10 max LTS",
@@ -95,6 +101,9 @@ export const dict = {
       viewAll: "عرض الكل",
       events: "الفعاليات",
       today: "اليوم",
+      allDay: "طوال اليوم",
+      noEventsToday: "لا توجد فعاليات في هذا التاريخ",
+      noAnnouncements: "لا توجد إعلانات بعد",
       performance: "الأداء",
       myProfile: "ملفي الشخصي",
       firstName: "الاسم الأول",
