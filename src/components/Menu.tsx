@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
@@ -159,10 +160,24 @@ const menuItems = [
       },
       {
         icon: "/result.png",
-        label: "Payroll",
-        href: "/list/payroll",
+        label: "Expenses",
         visible: ["school_admin"],
         privateOnly: true,
+        children: [
+          { label: "Payroll", href: "/list/payroll" },
+          { label: "Facilities", href: "/list/expenses/facilities" },
+          { label: "Utilities", href: "/list/expenses/utilities" },
+          { label: "Academic Materials", href: "/list/expenses/academic_materials" },
+          { label: "Technology", href: "/list/expenses/technology" },
+          { label: "Transportation", href: "/list/expenses/transportation" },
+          { label: "Food Services", href: "/list/expenses/food_services" },
+          { label: "Security", href: "/list/expenses/security" },
+          { label: "Administration", href: "/list/expenses/administration" },
+          { label: "Marketing", href: "/list/expenses/marketing" },
+          { label: "Events", href: "/list/expenses/events" },
+          { label: "Insurance", href: "/list/expenses/insurance" },
+          { label: "Capital Expenses", href: "/list/expenses/capital_expenses" },
+        ],
       },
     ],
   },
@@ -219,6 +234,13 @@ const PLATFORM_ADMIN_ALLOWED = new Set<string>([
   "/sign-out",
 ]);
 
+const ROLE_HOMES = new Set(["/", "/parent", "/student", "/teacher", "/admin"]);
+
+const isHrefActive = (pathname: string, href: string) => {
+  if (href === "/") return ROLE_HOMES.has(pathname);
+  return pathname === href || pathname.startsWith(href + "/");
+};
+
 const Menu = () => {
   const { user, signOut } = useAuth();
   const { t } = useI18n();
@@ -227,13 +249,27 @@ const Menu = () => {
   const isPrivateSchool = user?.schoolType === "private";
   const label = (l: string) => (NAV_KEY[l] ? t(NAV_KEY[l]) : l);
 
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    menuItems.forEach((s) => s.items.forEach((it: any) => {
+      if (it.children?.some((c: any) => isHrefActive(pathname, c.href))) initial.add(it.label);
+    }));
+    return initial;
+  });
+  const toggleGroup = (key: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+
   return (
     <div className="mt-4 text-sm">
       {menuItems.map((section) => {
-        const visibleItems = section.items.filter((item) => {
+        const visibleItems = section.items.filter((item: any) => {
           if (!item.visible.includes(role)) return false;
-          if (role === "platform_admin" && !PLATFORM_ADMIN_ALLOWED.has(item.href)) return false;
-          if ((item as any).privateOnly && !isPrivateSchool) return false;
+          if (role === "platform_admin" && item.href && !PLATFORM_ADMIN_ALLOWED.has(item.href)) return false;
+          if (item.privateOnly && !isPrivateSchool) return false;
           return true;
         });
 
@@ -244,14 +280,52 @@ const Menu = () => {
             <span className="hidden lg:block text-gray-400 font-light my-4">
               {SECTION_KEY[section.title] ? t(SECTION_KEY[section.title]) : section.title}
             </span>
-            {visibleItems.map((item) => {
-              // The "Home" sidebar item points to "/" but the actual landing
-              // route depends on the role (/parent, /student, /teacher,
-              // /admin), so treat any of those as the active home page.
-              const ROLE_HOMES = new Set(["/", "/parent", "/student", "/teacher", "/admin"]);
-              const isActive = item.href === "/"
-                ? ROLE_HOMES.has(pathname)
-                : pathname === item.href || pathname.startsWith(item.href + "/");
+            {visibleItems.map((item: any) => {
+              // ─── Dropdown group ──────────────────────────────────
+              if (item.children?.length) {
+                const open = openGroups.has(item.label);
+                const groupActive = item.children.some((c: any) => isHrefActive(pathname, c.href));
+                return (
+                  <div key={item.label} className="flex flex-col">
+                    <button
+                      onClick={() => toggleGroup(item.label)}
+                      aria-expanded={open}
+                      className={`flex items-center justify-center lg:justify-start gap-4 py-2 md:px-2 rounded-md transition-colors text-left ${
+                        groupActive
+                          ? "bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white font-medium shadow-sm"
+                          : "text-gray-500 hover:bg-lamaSkyLight"
+                      }`}
+                    >
+                      <Image src={item.icon} alt="" width={20} height={20} />
+                      <span className="hidden lg:block flex-1">{label(item.label)}</span>
+                      <span className={`hidden lg:block transition-transform text-[10px] ${open ? "rotate-90" : ""}`}>▶</span>
+                    </button>
+                    {open && (
+                      <div className="hidden lg:flex flex-col gap-1 mt-1 ml-7 border-l border-gray-200 pl-3">
+                        {item.children.map((child: any) => {
+                          const active = isHrefActive(pathname, child.href);
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className={`text-xs py-1.5 px-2 rounded-md transition-colors ${
+                                active
+                                  ? "bg-[#eef3f9] text-[#1f3a5f] font-semibold"
+                                  : "text-gray-500 hover:bg-gray-50"
+                              }`}
+                            >
+                              {label(child.label)}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ─── Single link ─────────────────────────────────────
+              const isActive = isHrefActive(pathname, item.href);
 
               if (item.href === "/sign-out") {
                 return (
