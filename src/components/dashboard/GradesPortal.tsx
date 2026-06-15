@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { EmptyHint, PBCard, DetailsLink, gradeColor, type PanelAccent } from "./PortalUI";
 
 interface GradeRow {
@@ -59,6 +60,7 @@ export default function GradesPortal({
   accent?: PanelAccent;
 } = {}) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const supabase = createClient();
   const targetId = studentId || user?.profileId;
 
@@ -80,8 +82,8 @@ export default function GradesPortal({
         .eq("student_id", targetId)
         .order("created_at", { ascending: false });
       const gRows: GradeRow[] = (data || []).map((g: any) => ({
-        id: g.id, subject_id: g.subject_id, subject_name: g.subject?.name || "Course",
-        exam_type: g.exam_type || "Assignment", score: g.score, max_score: g.max_score,
+        id: g.id, subject_id: g.subject_id, subject_name: g.subject?.name || t("dashx.defaultCourse"),
+        exam_type: g.exam_type || t("dashx.assignment"), score: g.score, max_score: g.max_score,
         term: g.term || "—", remarks: g.remarks || null, created_at: g.created_at,
       }));
       setRows(gRows);
@@ -102,7 +104,7 @@ export default function GradesPortal({
           .in("class_id", classIds);
         const m = new Map<string, string>();
         (cs || []).forEach((row: any) => {
-          if (row.subject_id) m.set(row.subject_id, row.subject?.name || "Course");
+          if (row.subject_id) m.set(row.subject_id, row.subject?.name || t("dashx.defaultCourse"));
         });
         subjects = Array.from(m.entries()).map(([id, name]) => ({ id, name }));
       }
@@ -166,7 +168,7 @@ export default function GradesPortal({
 
   if (loading) {
     return (
-      <PBCard title="Grades">
+      <PBCard title={t("dashx.grades")}>
         <div className="py-10 flex justify-center">
           <div className="w-7 h-7 border-2 border-[#3a6d9a] border-t-transparent rounded-full animate-spin" />
         </div>
@@ -176,15 +178,15 @@ export default function GradesPortal({
 
   if (courses.length === 0) {
     return (
-      <PBCard title="Grades">
-        <EmptyHint text="No grades have been posted yet." />
+      <PBCard title={t("dashx.grades")}>
+        <EmptyHint text={t("dashx.noGrades")} />
       </PBCard>
     );
   }
 
   /* ── GRADE DETAILS DRILL-DOWN ───────────────────────────────────────── */
   if (detailSubject) {
-    const courseName = courses.find((c) => c.id === detailSubject)?.name || "Course";
+    const courseName = courses.find((c) => c.id === detailSubject)?.name || t("dashx.defaultCourse");
     const items = rows.filter((r) => r.subject_id === detailSubject && r.term === currentPeriod);
     const classMark = items.length ? items.reduce((s, r) => s + pct(r), 0) / items.length : null;
     const range = periodRange(currentPeriod);
@@ -199,15 +201,15 @@ export default function GradesPortal({
 
     return (
       <PBCard
-        title="Grade Details"
-        action={<DetailsLink onClick={() => setDetailSubject(null)} label="← back to Grades" />}
+        title={t("dashx.gradeDetails")}
+        action={<DetailsLink onClick={() => setDetailSubject(null)} label={t("dashx.backToGrades")} />}
       >
         <div className="flex flex-col lg:flex-row gap-5">
           <div className="flex-1 min-w-0">
             {/* Class selector + period header */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100">
               <label className="text-xs text-gray-500">
-                <span className="block mb-1 font-semibold uppercase tracking-wide text-[10px]">Class</span>
+                <span className="block mb-1 font-semibold uppercase tracking-wide text-[10px]">{t("dashx.class")}</span>
                 <select
                   value={detailSubject}
                   onChange={(e) => setDetailSubject(e.target.value)}
@@ -225,7 +227,7 @@ export default function GradesPortal({
             <div className="flex flex-wrap items-center justify-between gap-3 mt-4 mb-3">
               <h4 className="text-base font-bold text-gray-800 uppercase">{courseName}</h4>
               <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
-                <span className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-r border-gray-200">View By:</span>
+                <span className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-r border-gray-200">{t("dashx.viewBy")}</span>
                 {(["date", "type"] as const).map((v) => (
                   <button
                     key={v}
@@ -234,26 +236,26 @@ export default function GradesPortal({
                       viewBy === v ? "bg-[#1f3a5f] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
-                    {v}
+                    {v === "date" ? t("dashx.date") : t("dashx.type")}
                   </button>
                 ))}
               </div>
             </div>
             <p className="text-right text-sm font-bold text-gray-700 mb-3">
-              Class Mark: {classMark === null ? "—" : <span className={gradeColor(classMark)}>{fmt(classMark)}</span>}
+              {t("dashx.classMark")}: {classMark === null ? "—" : <span className={gradeColor(classMark)}>{fmt(classMark)}</span>}
             </p>
 
             {items.length === 0 ? (
-              <EmptyHint text="There are no grade details available at this time." />
+              <EmptyHint text={t("dashx.noGradeDetails")} />
             ) : (
               <div className="overflow-hidden rounded-md border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#eef3f7] text-gray-600 text-xs">
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Date</th>
-                      <th className="text-left font-semibold px-3 py-2">Assignment</th>
-                      <th className="text-left font-semibold px-3 py-2">Type</th>
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Mark</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.date")}</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.assignment")}</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.type")}</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.mark")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -280,7 +282,7 @@ export default function GradesPortal({
   const range = periodRange(currentPeriod);
 
   return (
-    <PBCard title="Grades">
+    <PBCard title={t("dashx.grades")}>
       <div className="flex flex-col lg:flex-row gap-5">
         <div className="flex-1 min-w-0">
           <h4 className="text-right text-base font-bold text-gray-700 mb-3 pr-1">
@@ -291,9 +293,9 @@ export default function GradesPortal({
               <thead>
                 <tr className="bg-[#eef3f7] text-gray-600 text-xs">
                   <th className="px-2 py-2 w-8"></th>
-                  <th className="text-left font-semibold px-3 py-2">Course</th>
-                  <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Grade</th>
-                  <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">As Of</th>
+                  <th className="text-left font-semibold px-3 py-2">{t("dashx.course")}</th>
+                  <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.grade")}</th>
+                  <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.asOf")}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -308,7 +310,7 @@ export default function GradesPortal({
                       <td className="px-2 py-2.5 text-center text-gray-400">
                         <button
                           onClick={() => openDetails(c.id)}
-                          aria-label={`Open details for ${c.name}`}
+                          aria-label={t("dashx.openDetailsFor", { name: c.name })}
                           className="hover:text-[#3a6d9a]"
                         >
                           ▸
@@ -335,7 +337,7 @@ export default function GradesPortal({
                           onClick={() => openDetails(c.id)}
                           className="text-[#2f6da3] hover:text-[#00467f] hover:underline text-xs font-medium"
                         >
-                          see all details ({n})
+                          {t("dashx.seeAllDetails", { n })}
                         </button>
                       </td>
                     </tr>

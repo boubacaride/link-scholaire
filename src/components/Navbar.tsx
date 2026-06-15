@@ -34,7 +34,7 @@ const Navbar = () => {
       <div className="flex items-center gap-4 shrink-0">
         <LanguageSwitcher />
         <Link href="/profile" className="text-white/80 hover:text-white text-xs hidden sm:inline">
-          {t("nav.help") !== "nav.help" ? t("nav.help") : "Help"}
+          {t("nav.help") !== "nav.help" ? t("nav.help") : t("dashx.help")}
         </Link>
         <div ref={wrapRef} className="relative">
           <button
@@ -51,14 +51,14 @@ const Navbar = () => {
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50"
               >
-                <span aria-hidden>👤</span> {t("nav.profile") !== "nav.profile" ? t("nav.profile") : "My Account"}
+                <span aria-hidden>👤</span> {t("nav.profile") !== "nav.profile" ? t("nav.profile") : t("dashx.myAccount")}
               </Link>
               <div className="border-t border-gray-100 my-1" />
               <button
                 onClick={() => { setOpen(false); signOut?.(); }}
                 className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50"
               >
-                <span aria-hidden>⎋</span> {t("nav.signOut") !== "nav.signOut" ? t("nav.signOut") : "Sign Out"}
+                <span aria-hidden>⎋</span> {t("nav.signOut") !== "nav.signOut" ? t("nav.signOut") : t("dashx.signOut")}
               </button>
             </div>
           )}

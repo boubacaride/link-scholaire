@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/contexts/LanguageContext";
 
 const ChemistryPage = () => {
   const router = useRouter();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(true);
 
   return (
@@ -13,7 +15,7 @@ const ChemistryPage = () => {
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/list/labs")} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition">
-            ← Labs
+            ← {t("labs.backToLabs")}
           </button>
           <div className="w-px h-5 bg-gray-200" />
           <div className="flex items-center gap-2">
@@ -24,8 +26,8 @@ const ChemistryPage = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-gray-800">Chimie — Tableau Périodique</h1>
-              <p className="text-[10px] text-gray-400">Powered by ZPeriod</p>
+              <h1 className="text-sm font-semibold text-gray-800">{t("labs.chemistryHeaderTitle")}</h1>
+              <p className="text-[10px] text-gray-400">{t("labs.chemistryPoweredBy")}</p>
             </div>
           </div>
         </div>
@@ -35,7 +37,7 @@ const ChemistryPage = () => {
           rel="noopener noreferrer"
           className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
         >
-          Ouvrir dans un nouvel onglet ↗
+          {t("labs.openInNewTab")} ↗
         </a>
       </div>
 
@@ -44,7 +46,7 @@ const ChemistryPage = () => {
         <div className="flex items-center justify-center py-20 flex-shrink-0">
           <div className="text-center">
             <div className="w-10 h-10 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Chargement du tableau périodique...</p>
+            <p className="text-sm text-gray-500">{t("labs.chemistryLoading")}</p>
           </div>
         </div>
       )}
@@ -56,7 +58,7 @@ const ChemistryPage = () => {
         style={{ display: isLoading ? "none" : "block" }}
         onLoad={() => setIsLoading(false)}
         allow="fullscreen"
-        title="Tableau Périodique Interactif"
+        title={t("labs.chemistryIframeTitle")}
       />
     </div>
   );

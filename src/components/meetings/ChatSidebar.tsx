@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
+import { useI18n } from "@/contexts/LanguageContext";
 import { useMeetingChat } from "@/hooks/useMeetingChat";
 import { createClient } from "@/lib/supabase/client";
 
@@ -18,6 +19,7 @@ interface ChatSidebarProps {
 }
 
 const ChatSidebar = ({ meetingId, senderProfileId }: ChatSidebarProps) => {
+  const { t } = useI18n();
   const { messages, sendMessage, sending } = useMeetingChat(meetingId);
   const [text, setText] = useState("");
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -63,7 +65,7 @@ const ChatSidebar = ({ meetingId, senderProfileId }: ChatSidebarProps) => {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
           <p className="mt-8 text-center text-xs text-gray-500">
-            Aucun message pour le moment
+            {t("labs.chatEmpty")}
           </p>
         )}
         <ul className="flex flex-col gap-3">
@@ -109,14 +111,14 @@ const ChatSidebar = ({ meetingId, senderProfileId }: ChatSidebarProps) => {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Écrire un message..."
+          placeholder={t("labs.chatPlaceholder")}
           className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
         <button
           type="submit"
           disabled={sending || !text.trim()}
           className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-          aria-label="Envoyer"
+          aria-label={t("labs.chatSend")}
         >
           <Send className="h-4 w-4" />
         </button>

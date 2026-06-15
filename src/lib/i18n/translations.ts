@@ -774,4 +774,14 @@ const ar: Dict = {
   },
 };
 
-export const translations: Record<Locale, Dict> = { en, fr, ar };
+// Base dictionaries above are merged with the per-area modules in ./extra
+// (expenses, finance, employees, dashboard, ui, labs). The extras add new
+// top-level namespaces consumed via t("namespace.key"); resolve() reads
+// plain objects, so the added keys don't need to satisfy the Dict type.
+import { withExtras } from "./extra";
+
+export const translations: Record<Locale, Dict> = {
+  en: withExtras("en", en) as Dict,
+  fr: withExtras("fr", fr) as Dict,
+  ar: withExtras("ar", ar) as Dict,
+};

@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 
 interface FeeRow {
   paid_amount: number | null;
@@ -31,7 +32,10 @@ interface ExpenseRow {
   created_at: string | null;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_KEYS = [
+  "fin.monthJan", "fin.monthFeb", "fin.monthMar", "fin.monthApr", "fin.monthMay", "fin.monthJun",
+  "fin.monthJul", "fin.monthAug", "fin.monthSep", "fin.monthOct", "fin.monthNov", "fin.monthDec",
+];
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
@@ -49,6 +53,7 @@ const bucketDate = (paidAt: string | null, createdAt: string | null) => paidAt ?
  *  surfaces stay in sync; the chart bars show the calendar-year
  *  distribution. */
 const FinanceChart = () => {
+  const { t } = useI18n();
   const { user } = useAuth();
   const supabase = createClient();
   const [fees, setFees] = useState<FeeRow[]>([]);
@@ -93,6 +98,8 @@ const FinanceChart = () => {
     load();
   }, [user?.schoolId, year]);
 
+  const months = useMemo(() => MONTH_KEYS.map((k) => t(k)), [t]);
+
   const chartData = useMemo(() => {
     const income = new Array(12).fill(0);
     const expense = new Array(12).fill(0);
@@ -117,8 +124,8 @@ const FinanceChart = () => {
       if (t.getFullYear() !== year) return;
       expense[t.getMonth()] += r.amount ?? 0;
     });
-    return MONTHS.map((name, i) => ({ name, income: income[i], expense: expense[i] }));
-  }, [fees, salaries, opExpenses, year]);
+    return months.map((name, i) => ({ name, income: income[i], expense: expense[i] }));
+  }, [fees, salaries, opExpenses, year, months]);
 
   const totals = useMemo(() => {
     const income = fees.reduce((s, r) => s + (r.paid_amount ?? 0), 0);
@@ -131,27 +138,27 @@ const FinanceChart = () => {
   return (
     <div className="bg-white rounded-xl w-full h-full p-4 flex flex-col">
       <div className="flex justify-between items-center">
-        <h1 className="text-lg font-semibold">Finance</h1>
+        <h1 className="text-lg font-semibold">{t("fin.finance")}</h1>
         <Image src="/moreDark.png" alt="" width={20} height={20} />
       </div>
 
       {/* All-time totals — stay in sync with the Student Fees "Collected" KPI */}
       <div className="grid grid-cols-3 gap-3 mt-2 mb-3">
-        <Stat label="Income" value={fmtMoney(totals.income)} tone="text-green-600" sub="All-time collected" />
-        <Stat label="Expense" value={fmtMoney(totals.expense)} tone="text-red-600" sub="All-time paid out" />
+        <Stat label={t("fin.income")} value={fmtMoney(totals.income)} tone="text-green-600" sub={t("fin.allTimeCollected")} />
+        <Stat label={t("fin.expense")} value={fmtMoney(totals.expense)} tone="text-red-600" sub={t("fin.allTimePaidOut")} />
         <Stat
-          label="Net"
+          label={t("fin.net")}
           value={fmtMoney(totals.net)}
           tone={totals.net >= 0 ? "text-blue-600" : "text-red-600"}
-          sub="Income − expense"
+          sub={t("fin.incomeMinusExpense")}
         />
       </div>
 
-      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{year} · monthly distribution</p>
+      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{t("fin.yearMonthlyDistribution", { year })}</p>
       <div className="flex-1 min-h-0 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 pointer-events-none">
-            Loading…
+            {t("fin.loadingEllipsis")}
           </div>
         )}
         <ResponsiveContainer width="100%" height="100%">
@@ -167,8 +174,8 @@ const FinanceChart = () => {
             />
             <Tooltip formatter={(v: number) => fmtMoney(v)} />
             <Legend align="center" verticalAlign="top" wrapperStyle={{ paddingTop: "10px", paddingBottom: "20px" }} />
-            <Line type="monotone" dataKey="income" stroke="#3a6d9a" strokeWidth={3} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="income" name={t("fin.income")} stroke="#3a6d9a" strokeWidth={3} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="expense" name={t("fin.expense")} stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

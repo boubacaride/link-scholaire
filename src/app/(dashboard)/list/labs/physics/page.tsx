@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/contexts/LanguageContext";
 import { askWolframAgent, type WolframAgentResult } from "@/lib/math/wolframAgent";
 
 interface ChatMsg {
@@ -34,8 +35,9 @@ const formulas = [
 
 const PhysicsPage = () => {
   const router = useRouter();
+  const { t } = useI18n();
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { id: "welcome", role: "bot", text: "Welcome to the Physics Lab! Ask me any physics question — I'm powered by Wolfram Alpha for accurate answers." },
+    { id: "welcome", role: "bot", text: t("labs.physicsWelcome") },
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +53,7 @@ const PhysicsPage = () => {
       const result = await askWolframAgent(question, undefined, "physics");
 
       if (result.error) {
-        setMessages((p) => p.map((m) => m.id === botId ? { ...m, text: `Sorry, I couldn't answer that: ${result.error}`, loading: false } : m));
+        setMessages((p) => p.map((m) => m.id === botId ? { ...m, text: t("labs.physicsError", { error: result.error ?? "" }), loading: false } : m));
         return;
       }
 
@@ -62,7 +64,7 @@ const PhysicsPage = () => {
         loading: false,
       } : m));
     } catch {
-      setMessages((p) => p.map((m) => m.id === botId ? { ...m, text: "Something went wrong. Please try again.", loading: false } : m));
+      setMessages((p) => p.map((m) => m.id === botId ? { ...m, text: t("labs.physicsGenericError"), loading: false } : m));
     }
   };
 
@@ -71,7 +73,7 @@ const PhysicsPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/list/labs")} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition">← Labs</button>
+          <button onClick={() => router.push("/list/labs")} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition">← {t("labs.backToLabs")}</button>
           <div className="w-px h-5 bg-gray-200" />
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-md">
@@ -83,8 +85,8 @@ const PhysicsPage = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-800">Physics Lab</h1>
-              <p className="text-[10px] text-gray-400">Powered by Wolfram Alpha AgentOne</p>
+              <h1 className="text-base font-bold text-gray-800">{t("labs.physicsLabTitle")}</h1>
+              <p className="text-[10px] text-gray-400">{t("labs.physicsPoweredBy")}</p>
             </div>
           </div>
         </div>
@@ -95,7 +97,7 @@ const PhysicsPage = () => {
         {/* Left sidebar: topics + formulas */}
         <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0 hidden lg:block">
           <div className="p-4">
-            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">Topics</h2>
+            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">{t("labs.topics")}</h2>
             <div className="space-y-2">
               {topics.map((t) => (
                 <div key={t.title} className="group">
@@ -119,7 +121,7 @@ const PhysicsPage = () => {
               ))}
             </div>
 
-            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mt-6 mb-3">Key Formulas</h2>
+            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mt-6 mb-3">{t("labs.keyFormulas")}</h2>
             <div className="space-y-1.5">
               {formulas.map((f) => (
                 <button key={f.name} onClick={() => handleAsk(f.formula)}
@@ -146,7 +148,7 @@ const PhysicsPage = () => {
                   }`}>
                     {msg.loading ? (
                       <div className="flex items-center gap-2 text-sm text-gray-400">
-                        <span className="animate-spin">⏳</span> Asking Wolfram Alpha...
+                        <span className="animate-spin">⏳</span> {t("labs.askingWolfram")}
                       </div>
                     ) : (
                       <>
@@ -203,11 +205,11 @@ const PhysicsPage = () => {
             >
               <input
                 type="text"
-                placeholder="Ask a physics question... (e.g., 'force of gravity on 5kg object')"
+                placeholder={t("labs.physicsInputPlaceholder")}
                 className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 transition"
               />
               <button type="submit" className="px-5 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition flex-shrink-0">
-                Ask
+                {t("labs.ask")}
               </button>
             </form>
           </div>

@@ -5,6 +5,7 @@ import { Calendar, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { useMeeting } from "@/hooks/useMeeting";
 import type {
   CreateMeetingForm,
@@ -12,39 +13,12 @@ import type {
   ScreenSharePolicy,
 } from "@/types/meeting";
 
-const t = {
-  title: "Planifier une session",
-  cancel: "Annuler",
-  submit: "Planifier",
-  submitting: "Création…",
-  meetingTitle: "Titre",
-  meetingTitlePlaceholder: "Ex. Cours de mathématiques — Chapitre 5",
-  description: "Description (optionnelle)",
-  meetingType: "Type",
-  classLabel: "Classe",
-  classHint: "Tous les élèves de la classe seront invités automatiquement.",
-  subjectLabel: "Matière",
-  none: "—",
-  dateLabel: "Date et heure",
-  durationLabel: "Durée",
-  waitingRoom: "Salle d'attente",
-  waitingRoomHint: "Les participants attendent votre validation pour rejoindre.",
-  recording: "Enregistrer la session",
-  screenShare: "Partage d'écran",
-  screenShareHostOnly: "Hôte uniquement",
-  screenShareAll: "Tout le monde",
-  screenShareNone: "Désactivé",
-  inviteSection: "Invités",
-  invitePlaceholder: "Rechercher par nom…",
-  noResults: "Aucun résultat",
-};
-
-const TYPE_OPTIONS: { value: MeetingType; label: string }[] = [
-  { value: "virtual_classroom", label: "Classe virtuelle" },
-  { value: "parent_teacher", label: "Conférence parents-enseignants" },
-  { value: "staff", label: "Réunion du personnel" },
-  { value: "exam_review", label: "Révision d'examen" },
-  { value: "general", label: "Général" },
+const TYPE_OPTIONS: { value: MeetingType; labelKey: string }[] = [
+  { value: "virtual_classroom", labelKey: "labs.smTypeVirtualClassroom" },
+  { value: "parent_teacher", labelKey: "labs.smTypeParentTeacher" },
+  { value: "staff", labelKey: "labs.smTypeStaff" },
+  { value: "exam_review", labelKey: "labs.smTypeExamReview" },
+  { value: "general", labelKey: "labs.smTypeGeneral" },
 ];
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120];
@@ -75,6 +49,7 @@ interface ScheduleMeetingModalProps {
 
 const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModalProps) => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { createMeeting, loading } = useMeeting();
 
   const [title, setTitle] = useState("");
@@ -167,16 +142,16 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error("Le titre est requis.");
+      toast.error(t("labs.smTitleRequired"));
       return;
     }
     const scheduledDate = new Date(scheduledAt);
     if (!scheduledAt || scheduledDate.getTime() < Date.now() - 60_000) {
-      toast.error("La date doit être dans le futur.");
+      toast.error(t("labs.smDateFuture"));
       return;
     }
     if (meetingType === "virtual_classroom" && !classId) {
-      toast.error("Sélectionnez une classe pour la classe virtuelle.");
+      toast.error(t("labs.smClassRequired"));
       return;
     }
 
@@ -196,15 +171,15 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
 
     const created = await createMeeting(form);
     if (!created) {
-      toast.error("Échec de la création.");
+      toast.error(t("labs.smCreateFailed"));
       return;
     }
 
     const localLink = `${window.location.origin}/meet/${created.room_name}/lobby`;
-    toast.success("Session planifiée", {
+    toast.success(t("labs.smScheduled"), {
       description: localLink,
       action: {
-        label: "Copier le lien",
+        label: t("labs.smCopyLink"),
         onClick: () => navigator.clipboard.writeText(localLink),
       },
     });
@@ -229,7 +204,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
           type="button"
           onClick={onClose}
           className="absolute right-4 top-4 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          aria-label="Fermer"
+          aria-label={t("labs.smClose")}
         >
           <X className="h-5 w-5" />
         </button>
@@ -238,22 +213,22 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
             <Calendar className="h-5 w-5 text-emerald-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">{t.title}</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{t("labs.smTitle")}</h2>
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <Field label={t.meetingTitle}>
+          <Field label={t("labs.smMeetingTitle")}>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={t.meetingTitlePlaceholder}
+              placeholder={t("labs.smMeetingTitlePlaceholder")}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             />
           </Field>
 
-          <Field label={t.description}>
+          <Field label={t("labs.smDescription")}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -263,7 +238,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t.meetingType}>
+            <Field label={t("labs.smMeetingType")}>
               <select
                 value={meetingType}
                 onChange={(e) => setMeetingType(e.target.value as MeetingType)}
@@ -271,21 +246,21 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               >
                 {TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </option>
                 ))}
               </select>
             </Field>
 
             {meetingType === "virtual_classroom" && (
-              <Field label={t.classLabel}>
+              <Field label={t("labs.smClassLabel")}>
                 <select
                   value={classId}
                   onChange={(e) => setClassId(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   required
                 >
-                  <option value="">{t.none}</option>
+                  <option value="">{t("labs.smNone")}</option>
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.grade} — {c.name}
@@ -295,13 +270,13 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               </Field>
             )}
 
-            <Field label={t.subjectLabel}>
+            <Field label={t("labs.smSubjectLabel")}>
               <select
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
-                <option value="">{t.none}</option>
+                <option value="">{t("labs.smNone")}</option>
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -310,7 +285,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               </select>
             </Field>
 
-            <Field label={t.dateLabel}>
+            <Field label={t("labs.smDateLabel")}>
               <input
                 type="datetime-local"
                 value={scheduledAt}
@@ -320,7 +295,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               />
             </Field>
 
-            <Field label={t.durationLabel}>
+            <Field label={t("labs.smDurationLabel")}>
               <select
                 value={duration}
                 onChange={(e) => setDuration(parseInt(e.target.value, 10))}
@@ -334,43 +309,43 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               </select>
             </Field>
 
-            <Field label={t.screenShare}>
+            <Field label={t("labs.smScreenShare")}>
               <select
                 value={screenShare}
                 onChange={(e) => setScreenShare(e.target.value as ScreenSharePolicy)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
-                <option value="host_only">{t.screenShareHostOnly}</option>
-                <option value="all">{t.screenShareAll}</option>
-                <option value="none">{t.screenShareNone}</option>
+                <option value="host_only">{t("labs.smScreenShareHostOnly")}</option>
+                <option value="all">{t("labs.smScreenShareAll")}</option>
+                <option value="none">{t("labs.smScreenShareNone")}</option>
               </select>
             </Field>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-            <ToggleField label={t.waitingRoom} checked={waitingRoom} onChange={setWaitingRoom} />
-            <ToggleField label={t.recording} checked={recording} onChange={setRecording} />
+            <ToggleField label={t("labs.smWaitingRoom")} checked={waitingRoom} onChange={setWaitingRoom} />
+            <ToggleField label={t("labs.smRecording")} checked={recording} onChange={setRecording} />
           </div>
 
           {meetingType === "virtual_classroom" ? (
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              {t.classHint}
+              {t("labs.smClassHint")}
             </p>
           ) : (
             <div className="rounded-lg border border-gray-200 p-3">
               <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Users className="h-4 w-4 text-gray-400" /> {t.inviteSection}
+                <Users className="h-4 w-4 text-gray-400" /> {t("labs.smInviteSection")}
               </div>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={t.invitePlaceholder}
+                placeholder={t("labs.smInvitePlaceholder")}
                 className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
                 {filteredProfiles.length === 0 && (
-                  <p className="px-2 py-1 text-xs text-gray-400">{t.noResults}</p>
+                  <p className="px-2 py-1 text-xs text-gray-400">{t("labs.smNoResults")}</p>
                 )}
                 {filteredProfiles.map((p) => {
                   const checked = inviteeIds.includes(p.id);
@@ -395,7 +370,9 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               </div>
               {inviteeIds.length > 0 && (
                 <p className="mt-2 text-xs text-gray-500">
-                  {inviteeIds.length} invité{inviteeIds.length > 1 ? "s" : ""}
+                  {inviteeIds.length > 1
+                    ? t("labs.smInvitees_other", { n: inviteeIds.length })
+                    : t("labs.smInvitees_one", { n: inviteeIds.length })}
                 </p>
               )}
             </div>
@@ -407,7 +384,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               onClick={onClose}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              {t.cancel}
+              {t("labs.smCancel")}
             </button>
             <button
               type="submit"
@@ -415,7 +392,7 @@ const ScheduleMeetingModal = ({ open, onClose, onCreated }: ScheduleMeetingModal
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
             >
               <Calendar className="h-4 w-4" />
-              {loading ? t.submitting : t.submit}
+              {loading ? t("labs.smSubmitting") : t("labs.smSubmit")}
             </button>
           </div>
         </form>

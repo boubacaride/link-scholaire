@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useI18n } from "@/contexts/LanguageContext";
 import { type SolutionData } from "@/lib/equationSolver";
 import { solveMath, type MathResult } from "@/lib/math/solvePipeline";
 import { askClaudeStreaming } from "@/lib/math/claudeService";
@@ -399,10 +400,11 @@ function SubjectIcon({ type, size = 22 }: { type?: string; size?: number }) {
 
 // ─── Main Component ──────────────────────────────────────────
 const LabsPage = () => {
+  const { t } = useI18n();
   const [subject, setSubject] = useState<SubjectOrGraphing>("basicmath");
   const [navOpen, setNavOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "welcome", role: "bot", content: "How can I help you? Type a math problem, ask a question, or take a photo of an equation." },
+    { id: "welcome", role: "bot", content: t("labs.mathWelcome") },
   ]);
   const [solution, setSolution] = useState<SolutionData | null>(null);
   const [showAnimation, setShowAnimation] = useState(false);
@@ -684,7 +686,7 @@ const LabsPage = () => {
         <div className="px-4 py-3 border-t border-white/10 bg-white/[0.03] flex gap-2">
           <input
             type="text"
-            placeholder="Enter function to graph (e.g. x^2, sin(x))..."
+            placeholder={t("labs.mathGraphPlaceholder")}
             className="flex-1 bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-slate-200 text-sm placeholder-slate-500 outline-none focus:border-blue-500/50"
             onKeyDown={(e) => {
               if (e.key === "Enter" && e.currentTarget.value.trim()) {
@@ -693,7 +695,7 @@ const LabsPage = () => {
               }
             }}
           />
-          <button onClick={() => setGraphExpressions([])} className="px-4 py-2.5 bg-red-500/20 text-red-400 rounded-xl text-sm hover:bg-red-500/30 transition">Clear</button>
+          <button onClick={() => setGraphExpressions([])} className="px-4 py-2.5 bg-red-500/20 text-red-400 rounded-xl text-sm hover:bg-red-500/30 transition">{t("labs.clear")}</button>
         </div>
       </div>
     );
@@ -738,7 +740,7 @@ const LabsPage = () => {
                     {msg.isLoading && (
                       <div className="bg-white/[0.07] rounded-2xl rounded-tl-md px-4 py-3 border border-white/[0.06]">
                         <div className="flex items-center gap-2 text-slate-400 text-sm">
-                          <span className="animate-spin">⏳</span> Solving...
+                          <span className="animate-spin">⏳</span> {t("labs.mathSolving")}
                         </div>
                       </div>
                     )}
@@ -937,14 +939,14 @@ const LabsPage = () => {
           >
             <input
               type="text"
-              placeholder="Ask a follow-up question..."
+              placeholder={t("labs.mathFollowUpPlaceholder")}
               className="flex-1 bg-white/[0.06] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/40 transition"
             />
             <button
               type="submit"
               className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-500 hover:to-indigo-500 transition flex-shrink-0"
             >
-              Ask
+              {t("labs.ask")}
             </button>
           </form>
         </div>
@@ -961,7 +963,7 @@ const LabsPage = () => {
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-[88%] max-w-[360px] bg-[#1e293b] rounded-2xl overflow-hidden border border-white/10" style={{ boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600">
-              <span className="font-semibold text-[15px] text-white">How should I answer?</span>
+              <span className="font-semibold text-[15px] text-white">{t("labs.mathHowToAnswer")}</span>
               <button onClick={() => { setShowAnswerModal(false); setPendingShape(null); }} className="text-white/70 hover:text-white text-xl leading-none">✕</button>
             </div>
             <ul className="max-h-[280px] overflow-y-auto">
@@ -988,7 +990,7 @@ const LabsPage = () => {
               )}
               <button type="button" onClick={closeSolvingOverlay}
                 className="text-sm text-red-400 font-semibold hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-lg transition cursor-pointer">
-                ✕ Close
+                ✕ {t("labs.close")}
               </button>
             </div>
           </div>
@@ -1045,8 +1047,8 @@ const LabsPage = () => {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-6xl mb-4 animate-bounce">🧮</div>
-                    <p className="text-slate-400 text-sm">Processing your equation...</p>
-                    <p className="text-slate-600 text-xs mt-1">Watch the steps appear on the left</p>
+                    <p className="text-slate-400 text-sm">{t("labs.mathProcessing")}</p>
+                    <p className="text-slate-600 text-xs mt-1">{t("labs.mathWatchSteps")}</p>
                   </div>
                 </div>
               )}
@@ -1061,11 +1063,11 @@ const LabsPage = () => {
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#141e33] flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">S</div>
-              <span className="text-sm font-semibold text-slate-200">Step-by-Step Solution</span>
+              <span className="text-sm font-semibold text-slate-200">{t("labs.mathStepByStep")}</span>
             </div>
             <button type="button" onClick={(e) => { e.stopPropagation(); setShowAnimation(false); setIsPlaying(false); setSolution(null); }}
               className="flex items-center gap-1.5 text-sm text-red-400 font-semibold hover:text-red-300 transition bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-lg cursor-pointer z-[1000]">
-              ✕ Close
+              ✕ {t("labs.close")}
             </button>
           </div>
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">

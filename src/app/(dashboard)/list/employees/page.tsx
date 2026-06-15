@@ -5,6 +5,7 @@ import FormModal from "@/components/FormModal";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 
 interface Employee {
@@ -22,6 +23,7 @@ interface Employee {
 
 const EmployeesPage = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const supabase = createClient();
   const [rows, setRows] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ const EmployeesPage = () => {
 
   const terminate = async (id: string) => {
     if (!supabase) return;
-    if (!confirm("Terminate this employee? They will be deactivated.")) return;
+    if (!confirm(t("emp.confirmTerminate"))) return;
     setBusyId(id);
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -88,12 +90,12 @@ const EmployeesPage = () => {
   };
 
   const columns = [
-    { header: "Name", accessor: "name" },
-    { header: "Category", accessor: "category", className: "hidden md:table-cell" },
-    { header: "Job title", accessor: "title" },
-    { header: "Hire date", accessor: "hire_date", className: "hidden lg:table-cell" },
-    { header: "Status", accessor: "status" },
-    ...(canEdit ? [{ header: "Actions", accessor: "actions" }] : []),
+    { header: t("emp.colName"), accessor: "name" },
+    { header: t("emp.colCategory"), accessor: "category", className: "hidden md:table-cell" },
+    { header: t("emp.colJobTitle"), accessor: "title" },
+    { header: t("emp.colHireDate"), accessor: "hire_date", className: "hidden lg:table-cell" },
+    { header: t("emp.colStatus"), accessor: "status" },
+    ...(canEdit ? [{ header: t("emp.colActions"), accessor: "actions" }] : []),
   ];
 
   const renderRow = (item: Employee) => (
@@ -109,10 +111,10 @@ const EmployeesPage = () => {
       </td>
       <td>
         {item.is_active ? (
-          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">{t("emp.statusActive")}</span>
         ) : (
           <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-            Terminated{item.termination_date ? ` · ${new Date(item.termination_date).toLocaleDateString()}` : ""}
+            {t("emp.statusTerminated")}{item.termination_date ? ` · ${new Date(item.termination_date).toLocaleDateString()}` : ""}
           </span>
         )}
       </td>
@@ -126,7 +128,7 @@ const EmployeesPage = () => {
                 disabled={busyId === item.id}
                 className="text-[11px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
               >
-                Terminate
+                {t("emp.terminate")}
               </button>
             ) : (
               <button
@@ -134,7 +136,7 @@ const EmployeesPage = () => {
                 disabled={busyId === item.id}
                 className="text-[11px] font-medium text-green-600 hover:text-green-700 disabled:opacity-50"
               >
-                Reinstate
+                {t("emp.reinstate")}
               </button>
             )}
           </div>
@@ -143,23 +145,27 @@ const EmployeesPage = () => {
     </tr>
   );
 
-  if (loading) return <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">Loading employees…</div>;
+  if (loading) return <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">{t("emp.loading")}</div>;
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="hidden md:block text-lg font-semibold">Employees</h1>
+        <h1 className="hidden md:block text-lg font-semibold">{t("emp.title")}</h1>
         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
           <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
             {(["active", "terminated", "all"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 font-medium capitalize transition-colors ${
+                className={`px-3 py-1.5 font-medium transition-colors ${
                   filter === f ? "bg-[#1f3a5f] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                {f}
+                {f === "active"
+                  ? t("emp.filterActive")
+                  : f === "terminated"
+                  ? t("emp.filterTerminated")
+                  : t("emp.filterAll")}
               </button>
             ))}
           </div>

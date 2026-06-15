@@ -2,24 +2,16 @@
 
 import { Calendar, Clock, Copy, Link2, Users, Video, X } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/contexts/LanguageContext";
 import type { MeetingType } from "@/types/meeting";
 import type { MeetingListItem } from "@/hooks/useMeeting";
 
-const t = {
-  joinNow: "Rejoindre",
-  copyLink: "Copier le lien",
-  cancel: "Annuler",
-  recording: "Enregistrement",
-  inProgress: "En direct",
-  participants: "participants",
-};
-
-const TYPE_LABEL: Record<MeetingType, string> = {
-  virtual_classroom: "Classe virtuelle",
-  parent_teacher: "Parents-Enseignants",
-  staff: "Personnel",
-  exam_review: "Révision examen",
-  general: "Général",
+const TYPE_LABEL_KEY: Record<MeetingType, string> = {
+  virtual_classroom: "labs.typeVirtualClassroom",
+  parent_teacher: "labs.typeParentTeacher",
+  staff: "labs.typeStaff",
+  exam_review: "labs.typeExamReview",
+  general: "labs.typeGeneral",
 };
 
 const TYPE_BADGE: Record<MeetingType, string> = {
@@ -60,6 +52,7 @@ interface MeetingCardProps {
 }
 
 const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingCardProps) => {
+  const { t } = useI18n();
   const host = meeting.host;
   const startsAt = meeting.started_at ?? meeting.scheduled_at;
   const minutesUntil = Math.round((new Date(meeting.scheduled_at).getTime() - Date.now()) / 60000);
@@ -71,7 +64,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
         ? `${window.location.origin}/meet/${meeting.room_name}/lobby`
         : meeting.meeting_link;
     navigator.clipboard.writeText(url);
-    toast.success("Lien copié");
+    toast.success(t("labs.mcLinkCopied"));
   };
 
   return (
@@ -82,7 +75,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
             <span
               className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${TYPE_BADGE[meeting.meeting_type]}`}
             >
-              {TYPE_LABEL[meeting.meeting_type]}
+              {t(TYPE_LABEL_KEY[meeting.meeting_type])}
             </span>
             {variant === "live" && (
               <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
@@ -90,12 +83,12 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500"></span>
                 </span>
-                {t.inProgress}
+                {t("labs.mcInProgress")}
               </span>
             )}
             {meeting.recording_enabled && variant !== "past" && (
               <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                <Video className="h-3 w-3" /> {t.recording}
+                <Video className="h-3 w-3" /> {t("labs.mcRecording")}
               </span>
             )}
           </div>
@@ -109,7 +102,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
             type="button"
             onClick={onCancel}
             className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            aria-label={t.cancel}
+            aria-label={t("labs.mcCancel")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -129,7 +122,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Users className="h-4 w-4 text-gray-400" />
-          {meeting.participant_count} {t.participants}
+          {meeting.participant_count} {t("labs.mcParticipants")}
         </span>
       </div>
 
@@ -150,7 +143,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
               onClick={copyLink}
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
-              <Copy className="h-3.5 w-3.5" /> {t.copyLink}
+              <Copy className="h-3.5 w-3.5" /> {t("labs.mcCopyLink")}
             </button>
             {variant !== "past" && (
               <button
@@ -163,7 +156,7 @@ const MeetingCard = ({ meeting, variant, canCancel, onJoin, onCancel }: MeetingC
                     : "cursor-not-allowed bg-gray-100 text-gray-400"
                 }`}
               >
-                <Link2 className="h-3.5 w-3.5" /> {t.joinNow}
+                <Link2 className="h-3.5 w-3.5" /> {t("labs.mcJoinNow")}
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/contexts/LanguageContext";
 import { AttendanceRing, EmptyHint, PBCard, DetailsLink, gradeColor, gradeBg } from "./PortalUI";
 
 interface ChildPortalProps {
@@ -55,6 +56,7 @@ const periodRank = (t: string) => {
  */
 const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [grades, setGrades] = useState<GradeRow[]>([]);
   const [attendance, setAttendance] = useState<Att[]>([]);
@@ -79,8 +81,8 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
         .eq("student_id", studentId)
         .order("created_at", { ascending: false });
       const gRows: GradeRow[] = (gradeData || []).map((g: any) => ({
-        id: g.id, subject_id: g.subject_id, subject_name: g.subject?.name || "Course",
-        exam_type: g.exam_type || "Assignment", score: g.score, max_score: g.max_score,
+        id: g.id, subject_id: g.subject_id, subject_name: g.subject?.name || t("dashx.defaultCourse"),
+        exam_type: g.exam_type || t("dashx.assignment"), score: g.score, max_score: g.max_score,
         term: g.term || "—", remarks: g.remarks || null, created_at: g.created_at,
       }));
       setGrades(gRows);
@@ -198,11 +200,11 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
     const types: { label: string; count: number; tone: string }[] = [];
     const count = (s: string) => attendance.filter((a) => a.status === s).length;
     const absent = count("absent"), late = count("late"), excused = count("excused");
-    if (absent) types.push({ label: "Unexcused Absence", count: absent, tone: "text-red-600" });
-    if (late) types.push({ label: "Tardy", count: late, tone: "text-amber-600" });
-    if (excused) types.push({ label: "Excused Absence", count: excused, tone: "text-sky-600" });
+    if (absent) types.push({ label: t("dashx.unexcusedAbsence"), count: absent, tone: "text-red-600" });
+    if (late) types.push({ label: t("dashx.tardy"), count: late, tone: "text-amber-600" });
+    if (excused) types.push({ label: t("dashx.excusedAbsence"), count: excused, tone: "text-sky-600" });
     return types;
-  }, [attendance]);
+  }, [attendance, t]);
 
   const attRate = useMemo(() => {
     if (!attendance.length) return null;
@@ -221,14 +223,14 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
     return (
       <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-400">
         <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm">Loading {studentName}&apos;s records…</p>
+        <p className="text-sm">{t("dashx.loadingRecords", { name: studentName })}</p>
       </div>
     );
   }
 
   /* ── GRADE DETAILS VIEW ───────────────────────────────────────────── */
   if (view === "details" && detailCourse) {
-    const courseName = courses.find((c) => c.id === detailCourse)?.name || "Course";
+    const courseName = courses.find((c) => c.id === detailCourse)?.name || t("dashx.defaultCourse");
     const items = grades.filter((r) => r.subject_id === detailCourse && inPeriod(r, period));
     const classMark = items.length ? items.reduce((s, r) => s + pct(r), 0) / items.length : null;
     const range = periodRange(period);
@@ -241,14 +243,14 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
       }));
     };
 
-    const periodTabs = [{ id: ALL, label: "All" }, ...terms.map((t) => ({ id: t, label: t }))];
+    const periodTabs = [{ id: ALL, label: t("dashx.all") }, ...terms.map((tm) => ({ id: tm, label: tm }))];
 
     return (
       <PBCard
-        title="Grade Details"
+        title={t("dashx.gradeDetails")}
         action={
           <button onClick={() => { setView("home"); setPeriod(ALL); }} className="text-white/90 hover:text-white text-xs font-medium">
-            ← Back to Home
+            {t("dashx.backToHome")}
           </button>
         }
       >
@@ -258,7 +260,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
             {/* Class selector + period header */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100">
               <label className="text-xs text-gray-500">
-                <span className="block mb-1 font-semibold uppercase tracking-wide text-[10px]">Class</span>
+                <span className="block mb-1 font-semibold uppercase tracking-wide text-[10px]">{t("dashx.class")}</span>
                 <select
                   value={detailCourse}
                   onChange={(e) => setDetailCourse(e.target.value)}
@@ -269,7 +271,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
               </label>
               <div className="text-right">
                 <p className="text-sm font-bold text-gray-700">
-                  {period === ALL ? "All reporting periods" : period}
+                  {period === ALL ? t("dashx.allReportingPeriods") : period}
                 </p>
                 {range && <p className="text-xs text-gray-400">{range}</p>}
               </div>
@@ -287,26 +289,26 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
                       viewBy === v ? "bg-[#1f3a5f] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
-                    {v}
+                    {v === "date" ? t("dashx.date") : t("dashx.type")}
                   </button>
                 ))}
               </div>
             </div>
             <p className="text-right text-sm font-bold text-gray-700 mb-3">
-              Class Mark: {classMark === null ? "—" : <span className={gradeColor(classMark)}>{fmt(classMark)}</span>}
+              {t("dashx.classMark")}: {classMark === null ? "—" : <span className={gradeColor(classMark)}>{fmt(classMark)}</span>}
             </p>
 
             {items.length === 0 ? (
-              <EmptyHint text="There are no grade details available at this time." />
+              <EmptyHint text={t("dashx.noGradeDetails")} />
             ) : (
               <div className="overflow-hidden rounded-xl border border-gray-100">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#eef3f7] text-gray-600 text-xs">
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Date</th>
-                      <th className="text-left font-semibold px-3 py-2">Assignment</th>
-                      <th className="text-left font-semibold px-3 py-2">Type</th>
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Mark</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.date")}</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.assignment")}</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.type")}</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.mark")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -326,7 +328,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
           {/* Reporting-period tabs (Q1–Q4) */}
           {terms.length > 0 && (
             <aside className="lg:w-24 shrink-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Periods</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">{t("dashx.periods")}</p>
               <div className="flex lg:flex-col flex-wrap gap-1.5">
                 {periodTabs.map((p) => (
                   <button
@@ -349,7 +351,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
 
   /* ── HOME VIEW (four cards) ───────────────────────────────────────── */
   const recentGraded = grades.slice(0, 6);
-  const periodHeading = currentPeriod === ALL ? "all reporting periods" : currentPeriod;
+  const periodHeading = currentPeriod === ALL ? t("dashx.allReportingPeriods") : currentPeriod;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
@@ -357,21 +359,21 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
       <div className="flex flex-col gap-5">
         {/* Grades */}
         <PBCard
-          title="Grades"
-          badge={`Grades for ${periodHeading}`}
+          title={t("dashx.grades")}
+          badge={t("dashx.gradesForPeriod", { period: periodHeading })}
           action={courses.length > 0 ? <DetailsLink onClick={() => openDetails(courses[0].id)} /> : undefined}
         >
           {courses.length === 0 ? (
-            <EmptyHint text="No grades have been posted yet." />
+            <EmptyHint text={t("dashx.noGrades")} />
           ) : (
             <>
               <div className="overflow-hidden rounded-md border border-gray-200">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#eef3f7] text-gray-600 text-xs">
-                      <th className="text-left font-semibold px-3 py-2">Course</th>
-                      <th className="text-left font-semibold px-3 py-2">Grade</th>
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">As Of</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.course")}</th>
+                      <th className="text-left font-semibold px-3 py-2">{t("dashx.grade")}</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t("dashx.asOf")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -404,7 +406,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
                 onClick={() => openDetails(courses[0].id)}
                 className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#2f6da3] font-medium hover:text-[#00467f]"
               >
-                <SearchIcon /> View all grades
+                <SearchIcon /> {t("dashx.viewAllGrades")}
               </button>
             </>
           )}
@@ -412,12 +414,12 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
 
         {/* Grade Details (recent activity) */}
         <PBCard
-          title="Grade Details"
-          badge="Recent graded work"
+          title={t("dashx.gradeDetails")}
+          badge={t("dashx.recentGradedWork")}
           action={courses.length > 0 ? <DetailsLink onClick={() => openDetails(courses[0].id)} /> : undefined}
         >
           {recentGraded.length === 0 ? (
-            <EmptyHint text="There are no grade details available at this time." />
+            <EmptyHint text={t("dashx.noGradeDetails")} />
           ) : (
             <>
               <div className="divide-y divide-gray-100">
@@ -444,7 +446,7 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
                   onClick={() => openDetails(courses[0].id)}
                   className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#2f6da3] font-medium hover:text-[#00467f]"
                 >
-                  <SearchIcon /> View all grade details
+                  <SearchIcon /> {t("dashx.viewAllGradeDetails")}
                 </button>
               )}
             </>
@@ -455,9 +457,9 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
       {/* RIGHT — Homework, then Daily Attendance */}
       <div className="flex flex-col gap-5">
         {/* Homework */}
-        <PBCard title="Homework" badge="Homework due today or next 2 days">
+        <PBCard title={t("dashx.homework")} badge={t("dashx.homeworkDue")}>
           {homework.length === 0 ? (
-            <EmptyHint text="No homework." />
+            <EmptyHint text={t("dashx.noHomework")} />
           ) : (
             <div className="space-y-1.5">
               {homework.map((h) => (
@@ -478,21 +480,21 @@ const ChildPortal = ({ studentId, studentName }: ChildPortalProps) => {
         </PBCard>
 
         {/* Daily Attendance */}
-        <PBCard title="Daily Attendance" badge="Absence type summary for the year">
+        <PBCard title={t("dashx.dailyAttendance")} badge={t("dashx.absenceSummary")}>
           {attendance.length === 0 ? (
-            <EmptyHint text="No attendance records." />
+            <EmptyHint text={t("dashx.noAttendance")} />
           ) : (
             <div className="flex items-center gap-5">
               <AttendanceRing rate={attRate ?? 0} />
               <div className="flex-1 min-w-0">
                 {attendanceSummary.length === 0 ? (
-                  <p className="text-sm text-green-600 font-medium">Perfect attendance 🎉</p>
+                  <p className="text-sm text-green-600 font-medium">{t("dashx.perfectAttendance")}</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-gray-500 text-xs border-b border-gray-100">
-                        <th className="text-left font-semibold pb-1.5">Absence Type</th>
-                        <th className="text-right font-semibold pb-1.5">Count</th>
+                        <th className="text-left font-semibold pb-1.5">{t("dashx.absenceType")}</th>
+                        <th className="text-right font-semibold pb-1.5">{t("dashx.count")}</th>
                       </tr>
                     </thead>
                     <tbody>
