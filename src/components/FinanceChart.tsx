@@ -25,6 +25,11 @@ interface PayrollRow {
   paid_at: string | null;
   created_at: string | null;
 }
+interface ExpenseRow {
+  amount: number | null;
+  paid_at: string | null;
+  created_at: string | null;
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtMoney = (n: number) =>
@@ -48,6 +53,7 @@ const FinanceChart = () => {
   const supabase = createClient();
   const [fees, setFees] = useState<FeeRow[]>([]);
   const [salaries, setSalaries] = useState<PayrollRow[]>([]);
+  const [opExpenses, setOpExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const year = new Date().getFullYear();
@@ -61,7 +67,7 @@ const FinanceChart = () => {
       // regardless of paid_at — this is what makes the totals match the
       // Student Fees page. The bar chart still buckets per month using
       // bucketDate() below.
-      const [feeRes, payRes] = await Promise.all([
+      const [feeRes, payRes, expRes] = await Promise.all([
         supabase
           .from("student_fees")
           .select("paid_amount, paid_at, created_at")
@@ -72,10 +78,16 @@ const FinanceChart = () => {
           .select("net_salary, paid_at, created_at")
           .eq("school_id", user.schoolId)
           .eq("status", "paid"),
+        supabase
+          .from("expenses")
+          .select("amount, paid_at, created_at")
+          .eq("school_id", user.schoolId)
+          .eq("status", "paid"),
       ]);
 
       setFees((feeRes.data as FeeRow[]) || []);
       setSalaries((payRes.data as PayrollRow[]) || []);
+      setOpExpenses((expRes.data as ExpenseRow[]) || []);
       setLoading(false);
     };
     load();
@@ -98,14 +110,23 @@ const FinanceChart = () => {
       if (t.getFullYear() !== year) return;
       expense[t.getMonth()] += r.net_salary ?? 0;
     });
+    opExpenses.forEach((r) => {
+      const d = bucketDate(r.paid_at, r.created_at);
+      if (!d) return;
+      const t = new Date(d);
+      if (t.getFullYear() !== year) return;
+      expense[t.getMonth()] += r.amount ?? 0;
+    });
     return MONTHS.map((name, i) => ({ name, income: income[i], expense: expense[i] }));
-  }, [fees, salaries, year]);
+  }, [fees, salaries, opExpenses, year]);
 
   const totals = useMemo(() => {
     const income = fees.reduce((s, r) => s + (r.paid_amount ?? 0), 0);
-    const expense = salaries.reduce((s, r) => s + (r.net_salary ?? 0), 0);
+    const expense =
+      salaries.reduce((s, r) => s + (r.net_salary ?? 0), 0) +
+      opExpenses.reduce((s, r) => s + (r.amount ?? 0), 0);
     return { income, expense, net: income - expense };
-  }, [fees, salaries]);
+  }, [fees, salaries, opExpenses]);
 
   return (
     <div className="bg-white rounded-xl w-full h-full p-4 flex flex-col">
