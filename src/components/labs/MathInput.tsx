@@ -43,11 +43,11 @@ export interface MathInputHandle {
  *  All-Math-Inputs panel can request. Decouples the panel from the
  *  internal ExprNode union (which lives only inside MathInput.tsx). */
 export type MathNodeDescriptor =
-  | { kind: "frac" }
-  | { kind: "exp" }
-  | { kind: "sub" }
+  | { kind: "frac"; num?: string; den?: string }
+  | { kind: "exp"; base?: string; power?: string }
+  | { kind: "sub"; base?: string; subscript?: string }
   | { kind: "sqrt" }
-  | { kind: "nthrt" }
+  | { kind: "nthrt"; n?: string }
   | { kind: "abs" }
   | { kind: "func"; name: string }
   | { kind: "bigop"; sym: string }                          // Σ, ∏, ∮
@@ -1208,14 +1208,65 @@ export default function MathInput({
   // Build a fresh ExprNode from a MathNodeDescriptor and splice it after
   // the current cursor node, then jump the cursor into the first slot
   // (matches how `insertTemplate` behaves for the legacy keyboard).
+  // Honors optional pre-fills (e.g. □² → power:"2", ∛□ → n:"3", lim⁺ →
+  // approach pre-seeded with "⁺"). When the cursor is parked inside a
+  // non-text slot (e.g. a fraction's numerator), top-level node
+  // insertion would silently add a sibling instead of filling that slot
+  // — so we fall back to appending a textual representation of the
+  // template to the current slot, the same shape `insertText` would
+  // produce. Imperfect for deeply nested templates but matches user
+  // intent ("the symbol I picked lands where my cursor is").
+  const fallbackText = (desc: MathNodeDescriptor): string => {
+    switch (desc.kind) {
+      case "frac":   return `${desc.num ?? "□"}/${desc.den ?? "□"}`;
+      case "exp":    return `${desc.base ?? "□"}^${desc.power ?? "□"}`;
+      case "sub":    return `${desc.base ?? "□"}_${desc.subscript ?? "□"}`;
+      case "sqrt":   return `sqrt(□)`;
+      case "nthrt":  return `${desc.n ?? "□"}√(□)`;
+      case "abs":    return `|□|`;
+      case "func":   return `${desc.name}(□)`;
+      case "bigop":  return `${desc.sym}_(□)^(□) □`;
+      case "integral": {
+        const n = desc.nDvars ?? 1;
+        return `${desc.sym} □ ${Array.from({ length: n }, () => "d□").join(" ")}`;
+      }
+      case "lim": {
+        const a = desc.toInfinity ? "∞"
+          : desc.side === "left" ? "□⁻"
+          : desc.side === "right" ? "□⁺"
+          : "□";
+        return `lim_(□→${a}) □`;
+      }
+      case "matrix": {
+        const row = Array.from({ length: desc.cols }, () => "□").join(",");
+        return `[${Array.from({ length: desc.rows }, () => `[${row}]`).join(",")}]`;
+      }
+    }
+  };
+
   const insertNode = (desc: MathNodeDescriptor) => {
+    // Cursor inside a non-text slot → fall back to text-style insertion
+    // into that slot, matching the existing keyboard's behavior.
+    if (nodes[cursor.nodeIdx]?.type !== "text") {
+      insertText(fallbackText(desc));
+      return;
+    }
+
     let newNode: ExprNode;
     switch (desc.kind) {
-      case "frac": newNode = { type: "frac", num: "", den: "" }; break;
-      case "exp": newNode = { type: "exp", base: "", power: "" }; break;
-      case "sub": newNode = { type: "sub", base: "", subscript: "" }; break;
+      case "frac":
+        newNode = { type: "frac", num: desc.num ?? "", den: desc.den ?? "" };
+        break;
+      case "exp":
+        newNode = { type: "exp", base: desc.base ?? "", power: desc.power ?? "" };
+        break;
+      case "sub":
+        newNode = { type: "sub", base: desc.base ?? "", subscript: desc.subscript ?? "" };
+        break;
       case "sqrt": newNode = { type: "sqrt", content: "" }; break;
-      case "nthrt": newNode = { type: "nthrt", n: "", content: "" }; break;
+      case "nthrt":
+        newNode = { type: "nthrt", n: desc.n ?? "", content: "" };
+        break;
       case "abs": newNode = { type: "abs", content: "" }; break;
       case "func": newNode = { type: "func", name: desc.name, arg: "" }; break;
       case "bigop":
@@ -1232,7 +1283,13 @@ export default function MathInput({
         break;
       }
       case "lim": {
-        const approach = desc.toInfinity ? "∞" : desc.side === "left" ? "" : desc.side === "right" ? "" : "";
+        // Side variants pre-seed approach with a superscript marker so
+        // the user types the limit value before it (lim⁺: "→ □⁺"). The
+        // toInfinity variant fills the whole approach value.
+        const approach = desc.toInfinity ? "∞"
+          : desc.side === "left" ? "⁻"
+          : desc.side === "right" ? "⁺"
+          : "";
         newNode = { type: "lim", variable: "", approach, body: "" };
         break;
       }
@@ -1248,7 +1305,15 @@ export default function MathInput({
     const newNodes = [...nodes];
     newNodes.splice(cursor.nodeIdx + 1, 0, newNode);
     setNodes(newNodes);
-    setCursor({ nodeIdx: cursor.nodeIdx + 1, slotIdx: 0 });
+    // Jump into the first empty slot (skip pre-filled ones so the user
+    // lands where they need to type, e.g. □² → power slot already has
+    // "2", cursor goes to the base slot).
+    let firstEmpty = 0;
+    const total = getSlotCount(newNode);
+    for (let i = 0; i < total; i++) {
+      if (!getSlotValue(newNode, i)) { firstEmpty = i; break; }
+    }
+    setCursor({ nodeIdx: cursor.nodeIdx + 1, slotIdx: firstEmpty });
     syncToParent(newNodes);
   };
   insertNodeRef.current = insertNode;
@@ -1862,11 +1927,11 @@ const SECTIONS: MathSectionDef[] = [
     title: "BASIC MATH",
     buttons: [
       { label: "□/□", tooltip: "Fraction", node: { kind: "frac" } },
-      { label: "□²", tooltip: "Square", node: { kind: "exp" } },
+      { label: "□²", tooltip: "Square", node: { kind: "exp", power: "2" } },
       { label: "□ⁿ", tooltip: "Power", node: { kind: "exp" } },
       { label: "√□", tooltip: "Square root", node: { kind: "sqrt" } },
       { label: "ⁿ√□", tooltip: "Nth root", node: { kind: "nthrt" } },
-      { label: "∛□", tooltip: "Cube root", node: { kind: "nthrt" } },
+      { label: "∛□", tooltip: "Cube root", node: { kind: "nthrt", n: "3" } },
       { label: "∞", tooltip: "Infinity", text: "∞" },
       { label: "-∞", tooltip: "Negative infinity", text: "-∞" },
       { label: "π", tooltip: "Pi", text: "π" },
@@ -1884,11 +1949,11 @@ const SECTIONS: MathSectionDef[] = [
   {
     title: "CALCULUS & SUMS",
     buttons: [
-      { label: "d/d□", tooltip: "Derivative", node: { kind: "frac" } },
-      { label: "d²/d□²", tooltip: "Second derivative", node: { kind: "frac" } },
-      { label: "∂/∂□", tooltip: "Partial derivative", node: { kind: "frac" } },
-      { label: "∂²/∂□²", tooltip: "Second partial derivative", node: { kind: "frac" } },
-      { label: "∂²/∂□∂□", tooltip: "Mixed partial derivative", node: { kind: "frac" } },
+      { label: "d/d□", tooltip: "Derivative", node: { kind: "frac", num: "d", den: "d" } },
+      { label: "d²/d□²", tooltip: "Second derivative", node: { kind: "frac", num: "d²", den: "d²" } },
+      { label: "∂/∂□", tooltip: "Partial derivative", node: { kind: "frac", num: "∂", den: "∂" } },
+      { label: "∂²/∂□²", tooltip: "Second partial derivative", node: { kind: "frac", num: "∂²", den: "∂²" } },
+      { label: "∂²/∂□∂□", tooltip: "Mixed partial derivative", node: { kind: "frac", num: "∂²", den: "∂∂" } },
       { label: "∫□", tooltip: "Indefinite integral", node: { kind: "integral", sym: "∫" } },
       { label: "∫∫□□", tooltip: "Double integral", node: { kind: "integral", sym: "∫∫", nDvars: 2 } },
       { label: "∫∫∫□□□", tooltip: "Triple integral", node: { kind: "integral", sym: "∫∫∫", nDvars: 3 } },
@@ -2025,7 +2090,13 @@ function AllMathInputsPanel({
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          // Any click inside the modal that isn't on the dropdown
+          // trigger or list closes an open menu — matches the
+          // dismiss-on-outside-click behavior of native <select>.
+          if (menuOpen) setMenuOpen(false);
+        }}
         style={{
           width: "min(820px, 100%)",
           maxHeight: "85vh",
@@ -2059,9 +2130,12 @@ function AllMathInputsPanel({
         </div>
 
         {/* Section picker — dropdown trigger + menu */}
-        <div style={{ position: "relative", padding: "14px 20px 0" }}>
+        <div
+          style={{ position: "relative", padding: "14px 20px 0" }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
-            onClick={() => setMenuOpen((o) => !o)}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
             aria-haspopup="listbox"
             aria-expanded={menuOpen}
             style={{
