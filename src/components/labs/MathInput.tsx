@@ -1496,7 +1496,7 @@ export default function MathInput({
 
   // ─── Render ─────────────────────────────────────────────────
   return (
-    <div className={className}>
+    <div className={className} style={{ position: "relative" }}>
       {/* ── Editor Bar (Mathway-exact: light, clean, minimal) ── */}
       <div style={{ background: "#f5f6fa", borderBottom: "1px solid #dde1eb", padding: "0 16px", display: "flex", alignItems: "center", gap: 12, minHeight: activeShape ? 120 : 52 }}>
         {activeShape ? (
@@ -1879,9 +1879,12 @@ export default function MathInput({
         </div>
       )}
 
-      {/* All Math Inputs panel — blue modal with 5 sections */}
+      {/* All Math Inputs panel — docks directly below the editor bar
+          (top border flush with the input box's bottom border) and does
+          NOT block typing in the input. */}
       {showAllMath && (
         <AllMathInputsPanel
+          editorBarHeight={activeShape ? 120 : 52}
           onClose={() => setShowAllMath(false)}
           onInsertText={(text) => insertText(text)}
           onInsertNode={(desc) => insertNode(desc)}
@@ -2043,10 +2046,11 @@ interface InsertCallbacks {
 }
 
 function AllMathInputsPanel({
+  editorBarHeight,
   onClose,
   onInsertText,
   onInsertNode,
-}: { onClose: () => void } & InsertCallbacks) {
+}: { editorBarHeight: number; onClose: () => void } & InsertCallbacks) {
   // Default to the first section (Basic Math). The dropdown lets the
   // user swap to any other section; the previous version showed all
   // sections stacked vertically — too tall and too noisy for a quick
@@ -2079,32 +2083,36 @@ function AllMathInputsPanel({
   const active = SECTIONS[activeIdx];
 
   return (
+    // Docked popover: anchored at the bottom of the editor bar (top
+    // border flush with the input box's bottom border), absolutely
+    // positioned over the keyboard below. No full-screen backdrop and
+    // no blur — the user can keep typing in the input box while this
+    // panel is open. Width-constrained and centered horizontally so it
+    // hovers neatly under the input rather than spanning the whole bar.
     <div
-      onClick={onClose}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (menuOpen) setMenuOpen(false);
+      }}
       style={{
-        position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(15, 23, 42, 0.55)",
-        backdropFilter: "blur(2px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 16,
+        position: "absolute",
+        top: editorBarHeight,
+        left: "50%", transform: "translateX(-50%)",
+        zIndex: 50,
+        width: "min(720px, calc(100% - 16px))",
+        maxHeight: "min(70vh, 480px)",
+        background: BLUE_BG,
+        color: "#fff",
+        borderRadius: 12,
+        boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+        display: "flex", flexDirection: "column",
+        animation: "amiPanelIn 0.18s ease-out",
       }}
     >
       <div
-        onClick={(e) => {
-          e.stopPropagation();
-          // Any click inside the modal that isn't on the dropdown
-          // trigger or list closes an open menu — matches the
-          // dismiss-on-outside-click behavior of native <select>.
-          if (menuOpen) setMenuOpen(false);
-        }}
         style={{
-          width: "min(820px, 100%)",
-          maxHeight: "85vh",
-          background: BLUE_BG,
-          color: "#fff",
-          borderRadius: 16,
-          boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
           display: "flex", flexDirection: "column",
+          width: "100%", height: "100%",
         }}
       >
         {/* Header */}
@@ -2214,8 +2222,12 @@ function AllMathInputsPanel({
           </div>
         </div>
 
-        {/* Local keyframes for the dropdown and section transitions. */}
+        {/* Local keyframes for the panel + dropdown + section transitions. */}
         <style jsx global>{`
+          @keyframes amiPanelIn {
+            from { opacity: 0; transform: translate(-50%, -6px); }
+            to   { opacity: 1; transform: translate(-50%, 0); }
+          }
           @keyframes amiDropdownIn {
             from { opacity: 0; transform: translateY(-4px); }
             to   { opacity: 1; transform: translateY(0); }
