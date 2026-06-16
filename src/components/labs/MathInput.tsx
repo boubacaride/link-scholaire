@@ -1982,12 +1982,36 @@ function AllMathInputsPanel({
   onInsertText,
   onInsertNode,
 }: { onClose: () => void } & InsertCallbacks) {
-  // Close on Escape.
+  // Default to the first section (Basic Math). The dropdown lets the
+  // user swap to any other section; the previous version showed all
+  // sections stacked vertically — too tall and too noisy for a quick
+  // template pick.
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Re-mount key so the active grid replays its fade-in transition when
+  // the section changes. Bumping a counter is simpler than wiring up
+  // framer-motion just for one keyframe.
+  const [animKey, setAnimKey] = useState(0);
+
+  const pickSection = (idx: number) => {
+    setActiveIdx(idx);
+    setMenuOpen(false);
+    setAnimKey((k) => k + 1);
+  };
+
+  // Close on Escape — both the dropdown and the panel itself, in that
+  // order so a stray click on the trigger doesn't blow the modal away.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (menuOpen) setMenuOpen(false);
+      else onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [menuOpen, onClose]);
+
+  const active = SECTIONS[activeIdx];
 
   return (
     <div
@@ -2034,62 +2058,100 @@ function AllMathInputsPanel({
           >×</button>
         </div>
 
-        {/* Sections */}
-        <div style={{
-          padding: "12px 20px 20px",
-          overflowY: "auto", display: "flex", flexDirection: "column", gap: 20,
-        }}>
-          {SECTIONS.map((sec) => (
-            <Section
-              key={sec.title}
-              section={sec}
-              onInsertText={onInsertText}
-              onInsertNode={onInsertNode}
-            />
-          ))}
+        {/* Section picker — dropdown trigger + menu */}
+        <div style={{ position: "relative", padding: "14px 20px 0" }}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={menuOpen}
+            style={{
+              width: "100%", display: "flex", alignItems: "center",
+              justifyContent: "space-between", padding: "10px 14px",
+              borderRadius: 10, border: `1px solid ${BORDER}`,
+              background: BTN_BG, color: "#fff", cursor: "pointer",
+              fontSize: 13, fontWeight: 700, letterSpacing: 1.1,
+              textTransform: "uppercase",
+              transition: "background 0.12s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = BTN_HOVER; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = BTN_BG; }}
+          >
+            <span>{active.title}</span>
+            <span style={{ fontSize: 11, opacity: 0.85, transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.18s ease" }}>▾</span>
+          </button>
+          {menuOpen && (
+            <ul
+              role="listbox"
+              style={{
+                position: "absolute", left: 20, right: 20, top: "100%",
+                marginTop: 6, zIndex: 1, listStyle: "none",
+                padding: 6, borderRadius: 10,
+                background: "#2c5aa0",
+                border: `1px solid ${BORDER}`,
+                boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+                animation: "amiDropdownIn 0.16s ease-out",
+              }}
+            >
+              {SECTIONS.map((s, i) => (
+                <li key={s.title}>
+                  <button
+                    role="option"
+                    aria-selected={i === activeIdx}
+                    onClick={() => pickSection(i)}
+                    style={{
+                      width: "100%", textAlign: "left",
+                      padding: "9px 12px", borderRadius: 6,
+                      background: i === activeIdx ? "rgba(255,255,255,0.14)" : "transparent",
+                      color: "#fff", border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 700, letterSpacing: 1.1,
+                      textTransform: "uppercase",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.18)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = i === activeIdx ? "rgba(255,255,255,0.14)" : "transparent"; }}
+                  >
+                    {s.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      </div>
-    </div>
-  );
-}
 
-function Section({
-  section,
-  onInsertText,
-  onInsertNode,
-}: { section: MathSectionDef } & InsertCallbacks) {
-  const [open, setOpen] = useState(true);
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%", textAlign: "left",
-          background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
-          fontSize: 12, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase",
-          padding: "4px 0 8px", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 6,
-        }}
-      >
-        <span style={{ fontSize: 10, opacity: 0.75 }}>{open ? "▾" : "▸"}</span>
-        {section.title}
-      </button>
-      {open && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(54px, 1fr))",
-          gap: 8,
-        }}>
-          {section.buttons.map((b, i) => (
-            <MathBtn
-              key={`${section.title}-${i}`}
-              def={b}
-              onInsertText={onInsertText}
-              onInsertNode={onInsertNode}
-            />
-          ))}
+        {/* Active section's keyboard */}
+        <div style={{ padding: "16px 20px 20px", overflowY: "auto" }}>
+          <div
+            key={animKey}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(54px, 1fr))",
+              gap: 8,
+              animation: "amiSectionIn 0.22s ease-out",
+            }}
+          >
+            {active.buttons.map((b, i) => (
+              <MathBtn
+                key={`${active.title}-${i}`}
+                def={b}
+                onInsertText={onInsertText}
+                onInsertNode={onInsertNode}
+              />
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Local keyframes for the dropdown and section transitions. */}
+        <style jsx global>{`
+          @keyframes amiDropdownIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes amiSectionIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
