@@ -1001,6 +1001,9 @@ export default function MathInput({
   const [matrixRows, setMatrixRows] = useState(3);
   const [matrixCols, setMatrixCols] = useState(3);
   const [showAllMath, setShowAllMath] = useState(false);
+  // Ref to the editor bar so AllMathInputsPanel can anchor its bottom
+  // border against the input box's top border (it sits ABOVE the input).
+  const editorBarRef = useRef<HTMLDivElement | null>(null);
   const [matrixData, setMatrixData] = useState<string[][] | null>(null);
   const [matrixActiveCell, setMatrixActiveCell] = useState<[number, number]>([0, 0]);
 
@@ -1498,7 +1501,7 @@ export default function MathInput({
   return (
     <div className={className} style={{ position: "relative" }}>
       {/* ── Editor Bar (Mathway-exact: light, clean, minimal) ── */}
-      <div style={{ background: "#f5f6fa", borderBottom: "1px solid #dde1eb", padding: "0 16px", display: "flex", alignItems: "center", gap: 12, minHeight: activeShape ? 120 : 52 }}>
+      <div ref={editorBarRef} style={{ background: "#f5f6fa", borderBottom: "1px solid #dde1eb", padding: "0 16px", display: "flex", alignItems: "center", gap: 12, minHeight: activeShape ? 120 : 52 }}>
         {activeShape ? (
           <div className="flex-1 flex items-center overflow-x-auto overflow-y-hidden" style={{ scrollbarWidth: "none" }}>
             {renderShapeDiagram()}
@@ -1879,12 +1882,13 @@ export default function MathInput({
         </div>
       )}
 
-      {/* All Math Inputs panel — docks directly below the editor bar
-          (top border flush with the input box's bottom border) and does
-          NOT block typing in the input. */}
+      {/* All Math Inputs panel — sits ABOVE the editor bar in the
+          viewport's top-left corner: panel.bottom flush with input
+          box.top, panel.left flush with viewport's left edge. Does NOT
+          block typing in the input. */}
       {showAllMath && (
         <AllMathInputsPanel
-          editorBarHeight={activeShape ? 120 : 52}
+          anchorRef={editorBarRef}
           onClose={() => setShowAllMath(false)}
           onInsertText={(text) => insertText(text)}
           onInsertNode={(desc) => insertNode(desc)}
@@ -2046,11 +2050,11 @@ interface InsertCallbacks {
 }
 
 function AllMathInputsPanel({
-  editorBarHeight,
+  anchorRef,
   onClose,
   onInsertText,
   onInsertNode,
-}: { editorBarHeight: number; onClose: () => void } & InsertCallbacks) {
+}: { anchorRef: React.RefObject<HTMLDivElement | null>; onClose: () => void } & InsertCallbacks) {
   // Default to the first section (Basic Math). The dropdown lets the
   // user swap to any other section; the previous version showed all
   // sections stacked vertically — too tall and too noisy for a quick
@@ -2061,6 +2065,27 @@ function AllMathInputsPanel({
   // the section changes. Bumping a counter is simpler than wiring up
   // framer-motion just for one keyframe.
   const [animKey, setAnimKey] = useState(0);
+
+  // Distance (in px) from the viewport's bottom up to the top edge of
+  // the editor bar. Used as `bottom` on a fixed-position popover so the
+  // panel's bottom border sits flush against the input box's top
+  // border, regardless of where the input box is scrolled to.
+  const [bottomOffset, setBottomOffset] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setBottomOffset(window.innerHeight - rect.top);
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [anchorRef]);
 
   const pickSection = (idx: number) => {
     setActiveIdx(idx);
@@ -2082,24 +2107,27 @@ function AllMathInputsPanel({
 
   const active = SECTIONS[activeIdx];
 
+  // Wait until we've measured the anchor at least once so the panel
+  // doesn't flash at the wrong position on first paint.
+  if (bottomOffset === null) return null;
+
   return (
-    // Docked popover: anchored at the bottom of the editor bar (top
-    // border flush with the input box's bottom border), absolutely
-    // positioned over the keyboard below. No full-screen backdrop and
-    // no blur — the user can keep typing in the input box while this
-    // panel is open. Width-constrained and centered horizontally so it
-    // hovers neatly under the input rather than spanning the whole bar.
+    // Floating popover anchored to the viewport's top-left: its bottom
+    // border sits flush with the editor bar's TOP border (so the panel
+    // is ABOVE the input box), and its left border is flush with the
+    // left edge of the display window. No backdrop and no blur — the
+    // user can keep typing in the input box while this panel is open.
     <div
       onClick={(e) => {
         e.stopPropagation();
         if (menuOpen) setMenuOpen(false);
       }}
       style={{
-        position: "absolute",
-        top: editorBarHeight,
-        left: "50%", transform: "translateX(-50%)",
+        position: "fixed",
+        left: 0,
+        bottom: bottomOffset,
         zIndex: 50,
-        width: "min(720px, calc(100% - 16px))",
+        width: "min(720px, calc(100vw - 16px))",
         maxHeight: "min(70vh, 480px)",
         background: BLUE_BG,
         color: "#fff",
@@ -2225,8 +2253,8 @@ function AllMathInputsPanel({
         {/* Local keyframes for the panel + dropdown + section transitions. */}
         <style jsx global>{`
           @keyframes amiPanelIn {
-            from { opacity: 0; transform: translate(-50%, -6px); }
-            to   { opacity: 1; transform: translate(-50%, 0); }
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
           }
           @keyframes amiDropdownIn {
             from { opacity: 0; transform: translateY(-4px); }
