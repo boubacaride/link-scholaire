@@ -6,7 +6,8 @@ import { type SolutionData } from "@/lib/equationSolver";
 import { solveMath, type MathResult } from "@/lib/math/solvePipeline";
 import { askClaudeStreaming } from "@/lib/math/claudeService";
 import { askWolframAgent } from "@/lib/math/wolframAgent";
-// Wolfram Alpha is primary, GPT-4o for explanations, AgentOne for follow-ups
+// Wolfram Alpha for everything: AgentOne for structured pods,
+// CAG/LLM API for natural-language tutor explanations. No OpenAI.
 import VisualizationEngine from "@/features/math-animation";
 import PlaybackControls from "@/components/labs/PlaybackControls";
 import MathInput, { type MathSubject, type ShapeSubmitData, type ShapeTemplate, type MathInputHandle } from "@/components/labs/MathInput";
@@ -543,8 +544,8 @@ const LabsPage = () => {
 
     // If AI mode or natural language, use GPT directly — include context from last problem
     if (aiMode || /^(explain|why|how|what|find|solve|calculate|prove|show me|can you|could you|tell me|please)\b/i.test(eq.trim())) {
-      addSolvingStep("Sending to AI...", "active");
-      setSolvingSource("GPT-4o");
+      addSolvingStep("Asking Wolfram Alpha...", "active");
+      setSolvingSource("Wolfram Alpha");
 
       const botId = `b-${Date.now()}`;
       setMessages((p) => [...p, { id: botId, role: "bot", content: "", claudeStream: true, isLoading: true }]);
@@ -631,8 +632,9 @@ const LabsPage = () => {
         return;
       }
 
-      // All solvers failed — fall back to GPT streaming explanation
-      addSolvingStep("Routing to GPT-4o for explanation...", "active");
+      // All structured solvers failed — fall back to the Wolfram-backed
+      // tutor route (no OpenAI, despite the legacy `askClaudeStreaming` name).
+      addSolvingStep("Routing to Wolfram Alpha for explanation...", "active");
 
       const botId = `b-${Date.now()}`;
       setMessages((p) => [...p, { id: botId, role: "bot", content: "", claudeStream: true, isLoading: true }]);
