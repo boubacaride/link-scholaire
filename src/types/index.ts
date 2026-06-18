@@ -1,6 +1,6 @@
 // ─── Enums ──────────────────────────────────────────────────────────
 
-export type UserRole = 'platform_admin' | 'school_admin' | 'teacher' | 'student' | 'parent';
+export type UserRole = 'platform_admin' | 'school_admin' | 'teacher' | 'student' | 'parent' | 'employee';
 export type SchoolType = 'public' | 'private';
 export type SubscriptionStatus = 'active' | 'trial' | 'expired' | 'cancelled';
 export type ContentType = 'lesson' | 'assignment' | 'classwork';

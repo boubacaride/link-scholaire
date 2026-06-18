@@ -39,6 +39,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   teacher: "Teacher",
   student: "Student",
   parent: "Parent",
+  employee: "Staff",
 };
 
 const ROLE_COLOR: Record<UserRole, string> = {
@@ -47,6 +48,7 @@ const ROLE_COLOR: Record<UserRole, string> = {
   teacher: "bg-blue-100 text-blue-700",
   student: "bg-green-100 text-green-700",
   parent: "bg-orange-100 text-orange-700",
+  employee: "bg-indigo-100 text-indigo-700",
 };
 
 function defaultAllowedRoles(role: UserRole | undefined): UserRole[] {
@@ -66,6 +68,7 @@ function defaultAllowedRoles(role: UserRole | undefined): UserRole[] {
 const ROLE_TKEY: Record<UserRole, string> = {
   platform_admin: "msg.rAdmin", school_admin: "msg.rAdmin",
   teacher: "msg.rTeacher", student: "msg.rStudent", parent: "msg.rParent",
+  employee: "msg.rAdmin",
 };
 
 const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps) => {
