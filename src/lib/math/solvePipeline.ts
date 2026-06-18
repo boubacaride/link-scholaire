@@ -1,13 +1,15 @@
-// Math solve pipeline: WOLFRAM AGENTONE FIRST
+// Math solve pipeline: WOLFRAM ALPHA EXCLUSIVE
 // Educational tool — every answer MUST be correct.
 //
-// Pipeline order:
+// Pipeline order (NO OpenAI calls anywhere):
 // 1. Graph/plot requests → Plotly graph
-// 2. Natural language → GPT-4o for explanations
+// 2. Natural-language or follow-up question → Wolfram LLM tutor route
+//    (`/api/math/claude`, which is now Wolfram-backed end-to-end)
 // 3. Simple arithmetic (2+3, 5!) → local solver (instant)
 // 4. EVERYTHING ELSE → Wolfram AgentOne (primary solver for ALL math)
-// 5. If AgentOne fails → Wolfram Full Results API (fallback)
-// 6. If all Wolfram fails → GPT-4o (last resort)
+// 5. If AgentOne fails → Wolfram Full Results API + Wolfram LLM API
+// 6. If all Wolfram paths fail → the Wolfram-backed tutor route
+//    (handled via the `__USE_CLAUDE__` sentinel kept for UI compat)
 
 import { solveEquation, type SolutionData } from "@/lib/equationSolver";
 import { equationToLatex } from "./equationToLatex";
@@ -94,13 +96,13 @@ export async function solveMath(input: string): Promise<MathResult> {
         graphExpression: funcExpr,
       };
     }
-    return { type: "error", answer: "__USE_CLAUDE__", source: "GPT-4o" };
+    return { type: "error", answer: "__USE_CLAUDE__", source: "Wolfram Alpha" };
   }
 
-  // ── 2. Natural language explanations → GPT-4o ──
+  // ── 2. Natural language explanations → Wolfram tutor route ──
   if (isNaturalLanguage(trimmed) && !/[=+\-*/^()]/.test(trimmed)) {
     // Only route to GPT if it's pure natural language with no math operators
-    return { type: "error", answer: "__USE_CLAUDE__", source: "GPT-4o" };
+    return { type: "error", answer: "__USE_CLAUDE__", source: "Wolfram Alpha" };
   }
 
   // ── 3. Simple arithmetic → local solver (instant, safe) ──
@@ -179,11 +181,11 @@ export async function solveMath(input: string): Promise<MathResult> {
     }
   } catch { /* fall through */ }
 
-  // ── 6. Last resort: route to GPT-4o ──
+  // ── 6. Last resort: route to the Wolfram-backed tutor endpoint ──
   return {
     type: "error",
     answer: "__USE_CLAUDE__",
     latex: equationToLatex(trimmed),
-    source: "GPT-4o",
+    source: "Wolfram Alpha",
   };
 }

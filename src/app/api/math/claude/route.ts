@@ -1,139 +1,203 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SYSTEM_PROMPT = `You are an expert mathematics tutor. ACCURACY IS YOUR #1 PRIORITY.
+// Math tutor endpoint — Wolfram Alpha backed (no OpenAI dependency).
+//
+// Originally this route hit OpenAI GPT-4o. The platform owner asked to use
+// Wolfram Alpha for ALL math / physics / chemistry solving so there's no
+// OpenAI key required. We now call the Wolfram LLM API (CAG key) first,
+// fall back to the AgentOne Full Results API, and stream the formatted
+// answer back as plain text so the existing `askClaudeStreaming` client
+// keeps working unchanged (same content-type, same chunked body).
+//
+// The route extracts the actual math problem from tutor-style prompts
+// like "Solve this math problem step by step ... Problem: <eq>" so the
+// upstream Wolfram query is clean.
 
-FORMATTING RULES — FOLLOW EXACTLY:
-1. Use $...$ for ALL inline math. Use $$...$$ for ALL display math.
-2. NEVER use \\( \\) or \\[ \\] delimiters.
-3. NEVER duplicate an expression. If you write $x^2 = 4$, do NOT also write "x² = 4" or "x^2 = 4" as plain text next to it. The LaTeX version is the ONLY version.
-4. Write display math as a SINGLE LINE: $$\\frac{dx}{dt} = 3x - 4y$$
-5. For matrices on one line: $$A = \\begin{bmatrix} 3 & -4 \\\\ 2 & -3 \\end{bmatrix}$$
-6. Use ### for step headers.
-7. Use **bold** for emphasis.
+const CAG_KEY = process.env.WOLFRAM_CAG_KEY;
+const AGENT_KEY = process.env.WOLFRAM_AGENTONE_KEY;
+const FULL_KEY = process.env.WOLFRAM_APP_ID;
 
-EXAMPLE OF CORRECT OUTPUT:
-"Substituting $\\lambda = 1$ into $A - \\lambda I$, we get:
+/** Pull the actual math out of a tutor-style wrapper. */
+function extractProblem(raw: string): string {
+  const trimmed = raw.trim();
+  // Match the prompt prefixes we know the math page sends.
+  const markers = [
+    /problem\s*:\s*([\s\S]+)$/i,
+    /question\s*:\s*([\s\S]+)$/i,
+    /solve\s*:\s*([\s\S]+)$/i,
+    /explain step by step how to solve\s*:\s*([\s\S]+)$/i,
+  ];
+  for (const re of markers) {
+    const m = trimmed.match(re);
+    if (m) return m[1].trim();
+  }
+  return trimmed;
+}
 
-$$A - I = \\begin{bmatrix} 2 & -4 \\\\ 2 & -4 \\end{bmatrix}$$
+/** Replace unicode math glyphs with ASCII Wolfram understands. */
+function cleanForWolfram(input: string): string {
+  return input
+    .replace(/×/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/−/g, "-")
+    .replace(/·/g, "*")
+    .replace(/²/g, "^2")
+    .replace(/³/g, "^3")
+    .replace(/π/g, "pi");
+}
 
-From the first row, $2v_1 - 4v_2 = 0$, so $v_1 = 2v_2$."
+/** Heuristic: does this line look like a math expression worth wrapping
+ *  in $$...$$ for KaTeX rendering? */
+function isMathLine(line: string): boolean {
+  const s = line.trim();
+  if (!s) return false;
+  if (/^[A-Z][A-Za-z ]+:$/.test(s)) return false; // section header
+  if (/^image:|^Wolfram\|Alpha/i.test(s)) return false;
+  // contains an operator or equation marker
+  return /[=+\-*/^()<>≤≥]/.test(s) || /\b(?:x|y|z|sqrt|pi|sin|cos|tan|log|ln|d\/d[xyt])\b/.test(s);
+}
 
-EXAMPLE OF WRONG OUTPUT (NEVER do this):
-"Substituting $\\lambda = 1$ λ=1 into $A - \\lambda I$ A−λI, we get..."
-(This is wrong because each expression appears twice.)
+/** Convert the raw Wolfram LLM API text into Markdown + LaTeX so it
+ *  renders nicely in the existing KaTeX-aware chat bubble. */
+function formatWolframLLMText(raw: string, original: string): string {
+  const out: string[] = [];
+  let wolframUrl = "";
 
-SOLVING RULES:
-- Show every step. Number them clearly.
-- ALWAYS verify by substituting back.
-- Add a ### Verification section at the end.
-- Be educational and encouraging.`;
+  out.push(`### Solution`);
+  out.push(``);
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  for (const lineRaw of raw.split("\n")) {
+    const line = lineRaw.trimEnd();
+    if (!line.trim()) { out.push(""); continue; }
 
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY is not configured. Please add it to your environment variables." },
-      { status: 500 },
-    );
+    const imgMatch = line.match(/^image:\s*(https?:\/\/\S+)/i);
+    if (imgMatch) {
+      out.push(`![figure](${imgMatch[1]})`);
+      continue;
+    }
+    const urlMatch = line.match(/^Wolfram\|Alpha website result.+:\s*(https?:\/\/\S+)/i);
+    if (urlMatch) { wolframUrl = urlMatch[1]; continue; }
+
+    // Section header like "Result:" or "Solutions:"
+    const headerMatch = line.match(/^([A-Z][A-Za-z ]+):$/);
+    if (headerMatch) { out.push(`**${headerMatch[1]}:**`); continue; }
+
+    if (isMathLine(line)) {
+      out.push(`$$${line.trim()}$$`);
+    } else {
+      out.push(line);
+    }
   }
 
+  out.push("");
+  out.push(`---`);
+  out.push(`*Verified by Wolfram Alpha${wolframUrl ? ` — [open full result](${wolframUrl})` : ""}.*`);
+  return out.join("\n");
+}
+
+/** Call the Wolfram LLM API (CAG key). Returns the formatted Markdown
+ *  string, or null if the request didn't yield a usable answer. */
+async function tryWolframLLM(problem: string): Promise<string | null> {
+  if (!CAG_KEY) return null;
+  const encoded = encodeURIComponent(cleanForWolfram(problem));
+  const url = `https://www.wolframalpha.com/api/v1/llm-api?input=${encoded}&appid=${CAG_KEY}&maxchars=4000`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim()) return null;
+    return formatWolframLLMText(text, problem);
+  } catch {
+    return null;
+  }
+}
+
+/** Fallback to the AgentOne Full Results API: build a Markdown explanation
+ *  from the pod plaintexts (Input, Result, Solution, Step-by-step, etc.). */
+async function tryWolframFullResults(problem: string): Promise<string | null> {
+  const key = AGENT_KEY || FULL_KEY;
+  if (!key) return null;
+  const encoded = encodeURIComponent(cleanForWolfram(problem));
+  const url = `https://api.wolframalpha.com/v2/query?appid=${key}&input=${encoded}&output=json&format=image,plaintext&width=500`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pods = data?.queryresult?.pods;
+    if (!Array.isArray(pods) || pods.length === 0) return null;
+
+    const out: string[] = [`### Solution`, ``];
+    for (const pod of pods) {
+      const title = pod.title || "";
+      const subpods = pod.subpods || [];
+      const texts: string[] = subpods.map((sp: any) => (sp.plaintext || "").trim()).filter(Boolean);
+      const imgs: string[] = subpods.map((sp: any) => sp.img?.src).filter(Boolean);
+      if (!texts.length && !imgs.length) continue;
+      out.push(`**${title}:**`);
+      for (const t of texts) {
+        out.push(isMathLine(t) ? `$$${t}$$` : t);
+      }
+      for (const src of imgs) out.push(`![${title}](${src})`);
+      out.push("");
+    }
+    out.push(`---`);
+    out.push(`*Verified by Wolfram Alpha.*`);
+    return out.join("\n");
+  } catch {
+    return null;
+  }
+}
+
+/** Stream a plain-text body in line-sized chunks so the chat bubble's
+ *  typewriter UX still feels alive. */
+function streamText(body: string): Response {
+  const encoder = new TextEncoder();
+  const lines = body.split("\n");
+  const stream = new ReadableStream({
+    async start(controller) {
+      for (const line of lines) {
+        controller.enqueue(encoder.encode(line + "\n"));
+        // Tiny yield so the browser paints between chunks.
+        await new Promise((r) => setTimeout(r, 8));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" },
+  });
+}
+
+export async function POST(req: NextRequest) {
   let body: { question?: string; subject?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON in request body." }, { status: 400 });
   }
-
-  const { question, subject } = body;
+  const { question } = body;
   if (!question || typeof question !== "string" || question.trim().length === 0) {
     return NextResponse.json({ error: "A non-empty 'question' field is required." }, { status: 400 });
   }
-
-  const userMessage = subject ? `Subject: ${subject}\n\nQuestion: ${question}` : question;
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        stream: true,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 4096,
-        temperature: 0.1, // Low temperature for math accuracy
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      let errorMsg = `OpenAI API error (${response.status})`;
-      try {
-        const parsed = JSON.parse(errorText);
-        if (parsed.error?.message) errorMsg = parsed.error.message;
-      } catch { /* use default */ }
-      return NextResponse.json({ error: errorMsg }, { status: response.status });
-    }
-
-    // Transform OpenAI SSE stream into plain text stream
-    const reader = response.body?.getReader();
-    if (!reader) {
-      return NextResponse.json({ error: "No response stream" }, { status: 500 });
-    }
-
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        let buffer = "";
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
-              const data = trimmed.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  controller.enqueue(encoder.encode(content));
-                }
-              } catch { /* skip malformed chunks */ }
-            }
-          }
-          controller.close();
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Stream interrupted";
-          controller.enqueue(encoder.encode(`\n\n[Error: ${message}]`));
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(readableStream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-cache",
-      },
-    });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (!CAG_KEY && !AGENT_KEY && !FULL_KEY) {
+    return NextResponse.json(
+      { error: "No Wolfram Alpha key is configured (set WOLFRAM_CAG_KEY or WOLFRAM_AGENTONE_KEY)." },
+      { status: 500 },
+    );
   }
+
+  const problem = extractProblem(question);
+
+  // 1) Wolfram LLM API (CAG) — rich tutor-style text.
+  let formatted = await tryWolframLLM(problem);
+  // 2) Fallback to AgentOne Full Results pods.
+  if (!formatted) formatted = await tryWolframFullResults(problem);
+
+  if (!formatted) {
+    return NextResponse.json(
+      { error: "Wolfram Alpha could not produce an answer for this query." },
+      { status: 422 },
+    );
+  }
+  return streamText(formatted);
 }

@@ -4,7 +4,14 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+    // The platform deliberately runs without OpenAI — Wolfram Alpha covers
+    // every other math/physics/chemistry path. Photo OCR is the one feature
+    // Wolfram has no equivalent for, so it surfaces a friendly message
+    // instead of a 500 and the chat keeps working.
+    return NextResponse.json(
+      { error: "Photo math is unavailable on this deployment. Type the expression instead." },
+      { status: 503 },
+    );
   }
 
   let body: { image?: string };

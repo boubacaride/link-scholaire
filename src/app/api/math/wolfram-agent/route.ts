@@ -98,64 +98,33 @@ export async function POST(req: NextRequest) {
       return `${p.title}: ${subTexts}`;
     }).filter((s: string) => s.length > 3).join("\n");
 
-    // Generate step-by-step solution using GPT-4o with Wolfram's verified answer
+    // Wolfram-only step-by-step: prefer the pod Wolfram itself labels as
+    // "Step-by-step solution" / "Possible intermediate steps"; if none,
+    // synthesize one from all pod plaintexts. No OpenAI involvement —
+    // the platform deliberately runs without an OpenAI key.
+    const stepPod = queryResult.pods.find((p: any) => {
+      const t = (p.title || "").toLowerCase();
+      const id = (p.id || "").toLowerCase();
+      return t.includes("step-by-step") || t.includes("intermediate steps") || id.includes("step");
+    });
     let stepByStep: string | null = null;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (openaiKey && answer) {
-      try {
-        const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            temperature: 0.1,
-            max_tokens: 3000,
-            messages: [
-              {
-                role: "system",
-                content: `You are a mathematics tutor. Show the step-by-step solution for a math problem. The correct answer from Wolfram Alpha is provided — your job is to show HOW to get there.
-
-FORMAT (follow EXACTLY):
-STEP 1: [description of what you're doing]
-$$[equation after this step]$$
-
-STEP 2: [description]
-$$[equation after this step]$$
-
-...continue until the answer...
-
-STEP N: Final answer
-$$[final answer equation]$$
-
-RULES:
-- Use EXACTLY the format above: "STEP N:" followed by description, then "$$equation$$" on the next line.
-- Each step must have BOTH a description AND an equation.
-- Show ALL intermediate steps — do not skip any.
-- Use $$...$$ for ALL equations (display math only, one per line).
-- Do NOT use $...$ inline math in step descriptions.
-- Do NOT use \\[...\\] or \\(...\\) delimiters.
-- Do NOT duplicate expressions.
-- Do NOT contradict the verified answer.
-- Keep descriptions SHORT (one sentence).`
-              },
-              {
-                role: "user",
-                content: `Problem: ${query}
-
-Wolfram Alpha's verified answer:
-${allPodsText}
-
-Show the complete step-by-step solution leading to: ${answer}`
-              }
-            ],
-          }),
+    if (stepPod) {
+      const lines: string[] = [];
+      for (const sp of stepPod.subpods || []) {
+        if (sp.plaintext) lines.push(sp.plaintext);
+      }
+      if (lines.length) stepByStep = lines.join("\n\n");
+    }
+    if (!stepByStep && answer) {
+      // Fall back to a structured walk through the pods so the UI still
+      // gets something useful to render as steps.
+      const ordered = pods
+        .filter((p: any) => p.subpods.some((sp: any) => sp.plaintext))
+        .map((p: any, i: number) => {
+          const txt = p.subpods.map((sp: any) => sp.plaintext).filter(Boolean).join("\n");
+          return `STEP ${i + 1}: ${p.title}\n$$${txt}$$`;
         });
-
-        if (gptRes.ok) {
-          const gptData = await gptRes.json();
-          stepByStep = gptData.choices?.[0]?.message?.content || null;
-        }
-      } catch { /* step-by-step generation failed, continue without it */ }
+      if (ordered.length) stepByStep = ordered.join("\n\n");
     }
 
     return NextResponse.json({
