@@ -51,15 +51,26 @@ const ChemistryPage = () => {
         </div>
       )}
 
-      {/* Embedded iframe */}
-      <iframe
-        src="https://zperiod.app/?lang=fr"
-        className="flex-1 w-full border-none"
-        style={{ display: isLoading ? "none" : "block" }}
-        onLoad={() => setIsLoading(false)}
-        allow="fullscreen"
-        title={t("labs.chemistryIframeTitle")}
-      />
+      {/* Embedded iframe + branding overlay */}
+      <div className="relative flex-1" style={{ display: isLoading ? "none" : "block" }}>
+        <iframe
+          src="https://zperiod.app/?lang=fr"
+          className="w-full h-full border-none block"
+          onLoad={() => setIsLoading(false)}
+          allow="fullscreen"
+          title={t("labs.chemistryIframeTitle")}
+        />
+        {/* We can't edit the third-party iframe's DOM (same-origin policy),
+            so we mask the upstream "Z / Zperiod" wordmark with our own
+            "LS / LSperiod" badge in the same top-left position. Adjust the
+            offsets here if the upstream layout shifts. */}
+        <div className="absolute top-2 left-2 flex items-center gap-2 bg-white shadow-sm rounded-md px-2.5 py-1.5 pointer-events-none select-none">
+          <span className="w-7 h-7 rounded-md bg-gradient-to-br from-purple-600 to-violet-700 text-white text-xs font-bold flex items-center justify-center">
+            LS
+          </span>
+          <span className="text-sm font-semibold text-gray-800">LSperiod</span>
+        </div>
+      </div>
     </div>
   );
 };
