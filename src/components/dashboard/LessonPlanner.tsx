@@ -74,6 +74,10 @@ const LessonPlanner = () => {
   const [filter, setFilter] = useState<ContentType | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reminderFor, setReminderFor] = useState<ContentItem | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  /** Set to true when the DB still lacks the new columns/bucket from
+   *  migration 025 — UI degrades gracefully and shows a banner. */
+  const [needsMigration, setNeedsMigration] = useState(false);
 
   // form state
   const [type, setType] = useState<ContentType>("lesson");
@@ -103,11 +107,25 @@ const LessonPlanner = () => {
       setAssignments(mapped);
       if (mapped.length > 0) setSelected(`${mapped[0].class_id}|${mapped[0].subject_id}`);
 
-      const { data: content } = await supabase
+      // Try the full SELECT first. If the database hasn't run migration
+      // 025 yet, `slides_url` won't exist — retry with the legacy column
+      // list and surface a banner so the user knows what's up.
+      let { data: content, error: selErr } = await supabase
         .from("content")
         .select("id, title, description, type, due_date, is_published, file_urls, slides_url, content_body, class_id, subject_id, created_at")
         .eq("teacher_id", user.profileId)
         .order("created_at", { ascending: false });
+      if (selErr && /slides_url/i.test(selErr.message || "")) {
+        setNeedsMigration(true);
+        const fallback = await supabase
+          .from("content")
+          .select("id, title, description, type, due_date, is_published, file_urls, content_body, class_id, subject_id, created_at")
+          .eq("teacher_id", user.profileId)
+          .order("created_at", { ascending: false });
+        content = (fallback.data || []).map((r: any) => ({ ...r, slides_url: null })) as any;
+      } else if (selErr) {
+        setErrorMsg(selErr.message);
+      }
       setItems((content as ContentItem[]) || []);
       setLoading(false);
     };
@@ -124,26 +142,31 @@ const LessonPlanner = () => {
     if (!title.trim() || !selected || !supabase || !user?.profileId || !user?.schoolId) return;
     const [class_id, subject_id] = selected.split("|");
     setSaving(true);
-    const { data, error } = await supabase
-      .from("content")
-      .insert({
-        school_id: user.schoolId,
-        class_id,
-        subject_id,
-        teacher_id: user.profileId,
-        title: title.trim(),
-        description: description.trim() || null,
-        type,
-        content_body: body.trim() || null,
-        file_urls: files.map(encodeFile),
-        slides_url: type === "lesson" ? slidesUrl : null,
-        due_date: type !== "lesson" && dueDate ? new Date(dueDate).toISOString() : null,
-        is_published: publish,
-      })
-      .select("id, title, description, type, due_date, is_published, file_urls, slides_url, content_body, class_id, subject_id, created_at")
-      .single();
-    if (!error && data) {
-      setItems((prev) => [data as ContentItem, ...prev]);
+    setErrorMsg(null);
+    const base: Record<string, unknown> = {
+      school_id: user.schoolId,
+      class_id,
+      subject_id,
+      teacher_id: user.profileId,
+      title: title.trim(),
+      description: description.trim() || null,
+      type,
+      content_body: body.trim() || null,
+      file_urls: files.map(encodeFile),
+      due_date: type !== "lesson" && dueDate ? new Date(dueDate).toISOString() : null,
+      is_published: publish,
+    };
+    const payload = needsMigration ? base : { ...base, slides_url: type === "lesson" ? slidesUrl : null };
+    const cols = needsMigration
+      ? "id, title, description, type, due_date, is_published, file_urls, content_body, class_id, subject_id, created_at"
+      : "id, title, description, type, due_date, is_published, file_urls, slides_url, content_body, class_id, subject_id, created_at";
+
+    const { data, error } = await supabase.from("content").insert(payload).select(cols).single();
+    if (error) {
+      setErrorMsg(error.message);
+    } else if (data) {
+      const inserted = needsMigration ? { ...(data as object), slides_url: null } : data;
+      setItems((prev) => [inserted as ContentItem, ...prev]);
       resetForm();
       setShowForm(false);
     }
@@ -216,6 +239,21 @@ const LessonPlanner = () => {
           </button>
         </div>
       </div>
+
+      {needsMigration && (
+        <div className="border border-amber-300 bg-amber-50 text-amber-900 rounded-xl p-3 text-xs">
+          <span className="font-semibold">Database upgrade needed.</span>{" "}
+          Run migration <code className="bg-amber-100 px-1 py-0.5 rounded">025_teacher_resources_and_reminders.sql</code> in
+          your Supabase project to enable PowerPoint slides, file attachments and reminders.
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="border border-red-300 bg-red-50 text-red-700 rounded-xl p-3 text-xs flex items-start justify-between gap-3">
+          <span><span className="font-semibold">Error:</span> {errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="text-red-500 hover:text-red-700">✕</button>
+        </div>
+      )}
 
       {assignments.length === 0 && (
         <p className="text-sm text-gray-400 text-center py-2">
