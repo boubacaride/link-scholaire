@@ -5,6 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/contexts/LanguageContext";
 import { ContentType } from "@/types";
+import RichTextEditor from "@/components/RichTextEditor";
+import FileAttachments, { AttachedFile } from "@/components/FileAttachments";
+import SlidesAttachment from "@/components/SlidesAttachment";
+import ReminderComposer from "@/components/dashboard/ReminderComposer";
 
 interface Assignment {
   class_id: string;
@@ -21,19 +25,42 @@ interface ContentItem {
   due_date: string | null;
   is_published: boolean;
   file_urls: string[];
+  slides_url: string | null;
+  content_body: string | null;
   class_id: string;
   subject_id: string;
   created_at: string;
 }
 
 const TYPE_META: Record<ContentType, { label: string; color: string; icon: string }> = {
-  lesson: { label: "Lesson", color: "bg-blue-100 text-blue-700", icon: "📘" },
+  lesson:     { label: "Lesson",     color: "bg-blue-100 text-blue-700",   icon: "📘" },
   assignment: { label: "Assignment", color: "bg-orange-100 text-orange-700", icon: "📝" },
-  classwork: { label: "Classwork", color: "bg-purple-100 text-purple-700", icon: "🧩" },
+  classwork:  { label: "Classwork",  color: "bg-purple-100 text-purple-700", icon: "🧩" },
 };
 
-/** Teacher lesson planning + resource library. Create lessons, assignments and
- *  shareable resources, then publish them to a class. */
+const SUB_TABS: { id: ContentType | "all"; label: string; icon: string }[] = [
+  { id: "all",        label: "All",        icon: "📂" },
+  { id: "lesson",     label: "Lesson",     icon: "📘" },
+  { id: "assignment", label: "Assignment", icon: "📝" },
+  { id: "classwork",  label: "Classwork",  icon: "🧩" },
+];
+
+/** file_urls is stored as TEXT[] in Postgres — we encode each entry as
+ *  `<name>|<size>|<url>` so we can rebuild the original file list when
+ *  the planner reloads. Legacy rows that contain only a URL still work. */
+const encodeFile = (f: AttachedFile) => `${f.name}|${f.size}|${f.url}`;
+const decodeFile = (s: string): AttachedFile => {
+  const parts = s.split("|");
+  if (parts.length >= 3) {
+    const url = parts.slice(2).join("|");
+    return { name: parts[0], size: Number(parts[1]) || 0, url };
+  }
+  return { name: s.split("/").pop() || "Resource", size: 0, url: s };
+};
+
+/** Teacher lesson planning + resource library. Create lessons, assignments
+ *  and shareable resources with rich-text bodies, multi-file attachments,
+ *  and an optional slide deck, then publish them to a class. */
 const LessonPlanner = () => {
   const { user } = useAuth();
   const supabase = createClient();
@@ -45,14 +72,18 @@ const LessonPlanner = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<ContentType | "all">("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [reminderFor, setReminderFor] = useState<ContentItem | null>(null);
 
   // form state
-  const [title, setTitle] = useState("");
   const [type, setType] = useState<ContentType>("lesson");
+  const [title, setTitle] = useState("");
   const [selected, setSelected] = useState("");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
-  const [resourceUrl, setResourceUrl] = useState("");
+  const [files, setFiles] = useState<AttachedFile[]>([]);
+  const [slidesUrl, setSlidesUrl] = useState<string | null>(null);
+  const [slidesName, setSlidesName] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [publish, setPublish] = useState(true);
 
@@ -74,7 +105,7 @@ const LessonPlanner = () => {
 
       const { data: content } = await supabase
         .from("content")
-        .select("id, title, description, type, due_date, is_published, file_urls, class_id, subject_id, created_at")
+        .select("id, title, description, type, due_date, is_published, file_urls, slides_url, content_body, class_id, subject_id, created_at")
         .eq("teacher_id", user.profileId)
         .order("created_at", { ascending: false });
       setItems((content as ContentItem[]) || []);
@@ -84,7 +115,8 @@ const LessonPlanner = () => {
   }, [user?.profileId]);
 
   const resetForm = () => {
-    setTitle(""); setDescription(""); setBody(""); setResourceUrl(""); setDueDate("");
+    setTitle(""); setDescription(""); setBody(""); setDueDate("");
+    setFiles([]); setSlidesUrl(null); setSlidesName(null);
     setType("lesson"); setPublish(true);
   };
 
@@ -103,11 +135,12 @@ const LessonPlanner = () => {
         description: description.trim() || null,
         type,
         content_body: body.trim() || null,
-        file_urls: resourceUrl.trim() ? [resourceUrl.trim()] : [],
+        file_urls: files.map(encodeFile),
+        slides_url: type === "lesson" ? slidesUrl : null,
         due_date: type !== "lesson" && dueDate ? new Date(dueDate).toISOString() : null,
         is_published: publish,
       })
-      .select("id, title, description, type, due_date, is_published, file_urls, class_id, subject_id, created_at")
+      .select("id, title, description, type, due_date, is_published, file_urls, slides_url, content_body, class_id, subject_id, created_at")
       .single();
     if (!error && data) {
       setItems((prev) => [data as ContentItem, ...prev]);
@@ -115,6 +148,22 @@ const LessonPlanner = () => {
       setShowForm(false);
     }
     setSaving(false);
+  };
+
+  const togglePublish = async (it: ContentItem) => {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from("content")
+      .update({ is_published: !it.is_published })
+      .eq("id", it.id);
+    if (!error) setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, is_published: !p.is_published } : p)));
+  };
+
+  const remove = async (it: ContentItem) => {
+    if (!supabase) return;
+    if (!window.confirm(`Delete "${it.title}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("content").delete().eq("id", it.id);
+    if (!error) setItems((prev) => prev.filter((p) => p.id !== it.id));
   };
 
   const classLabel = (it: ContentItem) => {
@@ -131,27 +180,41 @@ const LessonPlanner = () => {
 
   return (
     <div className="space-y-4">
+      {/* Sub-tab strip — mirrors the requested Lesson / Assignment / Classwork tabs */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex gap-1.5">
-          {(["all", "lesson", "assignment", "classwork"] as const).map((f) => (
+        <div className="flex gap-1.5 bg-gray-50 p-1 rounded-xl border border-gray-100">
+          {SUB_TABS.map((tb) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-xs font-medium px-3 py-1.5 rounded-lg capitalize transition-colors ${
-                filter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              key={tb.id}
+              onClick={() => setFilter(tb.id)}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                filter === tb.id ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {f === "all" ? "All" : TYPE_META[f].label}
+              <span>{tb.icon}</span>{tb.label}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => { setShowForm((v) => !v); if (showForm) resetForm(); }}
-          disabled={assignments.length === 0}
-          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-40"
-        >
-          {showForm ? "Cancel" : "+ New Resource"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setReminderFor({} as ContentItem)}
+            disabled={assignments.length === 0}
+            className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors disabled:opacity-40"
+          >
+            🔔 Send Reminder
+          </button>
+          <button
+            onClick={() => {
+              setShowForm((v) => !v);
+              if (showForm) resetForm();
+              else if (filter !== "all") setType(filter);
+            }}
+            disabled={assignments.length === 0}
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-40"
+          >
+            {showForm ? "Cancel" : "+ New Resource"}
+          </button>
+        </div>
       </div>
 
       {assignments.length === 0 && (
@@ -161,28 +224,35 @@ const LessonPlanner = () => {
       )}
 
       {showForm && (
-        <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div className="border rounded-2xl p-5 space-y-4 bg-gradient-to-br from-slate-50 to-blue-50/40">
+          {/* Type selector */}
+          <div className="flex gap-2 flex-wrap">
+            {(["lesson", "assignment", "classwork"] as ContentType[]).map((tType) => {
+              const meta = TYPE_META[tType];
+              const active = type === tType;
+              return (
+                <button
+                  key={tType}
+                  onClick={() => setType(tType)}
+                  className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                    active ? `${meta.color} border-current shadow-sm` : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  <span>{meta.icon}</span>{meta.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid md:grid-cols-2 gap-3">
-            <div>
+            <div className="md:col-span-2">
               <label className="text-[10px] text-gray-400 uppercase tracking-wide">Title</label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Introduction to Fractions"
+                placeholder={type === "lesson" ? "Introduction to Fractions" : type === "assignment" ? "Algebra Worksheet #3" : "In-class problem set"}
                 className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-400 uppercase tracking-wide">Type</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as ContentType)}
-                className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="lesson">{t("wdg.lesson")}</option>
-                <option value="assignment">{t("wdg.assignment")}</option>
-                <option value="classwork">{t("wdg.classwork")}</option>
-              </select>
             </div>
             <div>
               <label className="text-[10px] text-gray-400 uppercase tracking-wide">Class &amp; Subject</label>
@@ -210,35 +280,51 @@ const LessonPlanner = () => {
               </div>
             )}
           </div>
+
           <div>
-            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Description</label>
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Short summary</label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short summary"
+              placeholder="One-line summary shown in the resource list"
               className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </div>
+
+          {/* Rich text body */}
           <div>
-            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Plan / Notes</label>
-            <textarea
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">
+              {type === "lesson" ? "Lesson content" : type === "assignment" ? "Assignment instructions" : "Classwork instructions"}
+            </label>
+            <RichTextEditor
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={3}
-              placeholder="Lesson outline, objectives, instructions..."
-              className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+              onChange={setBody}
+              placeholder={
+                type === "lesson"
+                  ? "Write the lesson plan — objectives, outline, examples..."
+                  : "Describe the work, expectations, grading criteria..."
+              }
             />
           </div>
-          <div>
-            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Resource Link (optional)</label>
-            <input
-              value={resourceUrl}
-              onChange={(e) => setResourceUrl(e.target.value)}
-              placeholder="https://..."
-              className="mt-1 w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-200"
+
+          {/* Slide deck slot (lesson only) */}
+          {type === "lesson" && (
+            <SlidesAttachment
+              value={slidesUrl}
+              fileName={slidesName}
+              onChange={(u, n) => { setSlidesUrl(u); setSlidesName(n); }}
             />
-          </div>
-          <div className="flex items-center justify-between">
+          )}
+
+          {/* Generic file attachments */}
+          <FileAttachments
+            value={files}
+            onChange={setFiles}
+            folder={type}
+            label={`${TYPE_META[type].label} attachments — any file type`}
+          />
+
+          <div className="flex items-center justify-between pt-1">
             <label className="flex items-center gap-2 text-sm text-gray-600">
               <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
               Publish to students
@@ -264,34 +350,130 @@ const LessonPlanner = () => {
         <div className="space-y-2">
           {filtered.map((it) => {
             const meta = TYPE_META[it.type];
+            const isOpen = expandedId === it.id;
+            const fileList = (it.file_urls || []).map(decodeFile);
             return (
-              <div key={it.id} className="flex items-start gap-3 border rounded-xl p-3 hover:shadow-sm transition-shadow">
-                <div className="text-xl">{meta.icon}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-800">{it.title}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${meta.color}`}>{meta.label}</span>
-                    {!it.is_published && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">{t("wdg.draft")}</span>
+              <div key={it.id} className="border rounded-xl hover:shadow-sm transition-shadow bg-white">
+                <div className="flex items-start gap-3 p-3">
+                  <div className="text-xl">{meta.icon}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-gray-800">{it.title}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${meta.color}`}>{meta.label}</span>
+                      {!it.is_published && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">{t("wdg.draft")}</span>
+                      )}
+                      {it.slides_url && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700">📊 Slides</span>
+                      )}
+                      {fileList.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
+                          📎 {fileList.length}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{classLabel(it)}</p>
+                    {it.description && <p className="text-xs text-gray-500 mt-1">{it.description}</p>}
+                    {it.due_date && (
+                      <span className="text-[11px] text-orange-600 mt-1 inline-block">
+                        Due {new Date(it.due_date).toLocaleDateString()}
+                      </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{classLabel(it)}</p>
-                  {it.description && <p className="text-xs text-gray-500 mt-1">{it.description}</p>}
-                  <div className="flex items-center gap-3 mt-1">
-                    {it.due_date && (
-                      <span className="text-[11px] text-orange-600">Due {new Date(it.due_date).toLocaleDateString()}</span>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(it.type === "assignment" || it.type === "classwork") && (
+                      <button
+                        onClick={() => setReminderFor(it)}
+                        className="text-[11px] text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md font-medium"
+                        title="Send reminder"
+                      >
+                        🔔 Remind
+                      </button>
                     )}
-                    {it.file_urls?.length > 0 && (
-                      <a href={it.file_urls[0]} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline">
-                        🔗 Resource
-                      </a>
-                    )}
+                    <button
+                      onClick={() => setExpandedId(isOpen ? null : it.id)}
+                      className="text-[11px] text-gray-500 hover:bg-gray-100 px-2 py-1 rounded-md font-medium"
+                    >
+                      {isOpen ? "Hide" : "View"}
+                    </button>
                   </div>
                 </div>
+
+                {isOpen && (
+                  <div className="border-t px-4 py-3 space-y-3 bg-gray-50/50">
+                    {it.content_body && (
+                      <div
+                        className="rte-content text-sm text-gray-700"
+                        dangerouslySetInnerHTML={{ __html: it.content_body }}
+                      />
+                    )}
+
+                    {it.slides_url && (
+                      <div className="bg-white rounded-lg border overflow-hidden">
+                        <div className="px-3 py-2 bg-orange-50 border-b text-xs font-medium text-orange-800">📊 Slide deck</div>
+                        <iframe
+                          title={`${it.title} slides`}
+                          src={it.slides_url.toLowerCase().endsWith(".pdf")
+                            ? it.slides_url
+                            : `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(it.slides_url)}`}
+                          className="w-full"
+                          style={{ height: 360 }}
+                          allow="fullscreen"
+                        />
+                      </div>
+                    )}
+
+                    {fileList.length > 0 && (
+                      <div className="bg-white rounded-lg border p-2.5">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Attachments</p>
+                        <ul className="space-y-1">
+                          {fileList.map((f, i) => (
+                            <li key={i}>
+                              <a
+                                href={f.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline flex items-center gap-1.5"
+                              >
+                                📎 {f.name}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => togglePublish(it)}
+                        className="text-[11px] bg-white border border-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-100"
+                      >
+                        {it.is_published ? "Unpublish" : "Publish"}
+                      </button>
+                      <button
+                        onClick={() => remove(it)}
+                        className="text-[11px] bg-white border border-red-200 text-red-600 px-3 py-1 rounded-md hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {reminderFor !== null && (
+        <ReminderComposer
+          defaultClassId={reminderFor.class_id}
+          defaultSubject={reminderFor.title}
+          defaultType={reminderFor.type === "assignment" ? "homework" : reminderFor.type === "classwork" ? "homework" : "general"}
+          defaultDueAt={reminderFor.due_date ? reminderFor.due_date.slice(0, 16) : undefined}
+          onClose={() => setReminderFor(null)}
+        />
       )}
     </div>
   );

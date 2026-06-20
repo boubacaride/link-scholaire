@@ -10,6 +10,7 @@ import SubmissionsGrader from "@/components/dashboard/SubmissionsGrader";
 import ClassRoster from "@/components/dashboard/ClassRoster";
 import LessonPlanner from "@/components/dashboard/LessonPlanner";
 import TeacherAnalytics from "@/components/dashboard/TeacherAnalytics";
+import ReminderComposer from "@/components/dashboard/ReminderComposer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +55,8 @@ const TeacherPage = () => {
   const [recentGrades, setRecentGrades] = useState<StudentGrade[]>([]);
   const [studentCount, setStudentCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderToast, setReminderToast] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTeacherData = async () => {
@@ -240,7 +243,7 @@ const TeacherPage = () => {
                 <button onClick={() => setTab("planner")} className="p-3 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">{t("dash.teacher.newLesson")}</button>
                 <button onClick={() => setTab("planner")} className="p-3 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors">{t("dash.teacher.newAssignment")}</button>
                 <button onClick={() => setTab("submissions")} className="p-3 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">{t("dash.teacher.gradeWork")}</button>
-                <button onClick={() => setTab("roster")} className="p-3 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition-colors">{t("dash.teacher.roster")}</button>
+                <button onClick={() => setReminderOpen(true)} className="p-3 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">🔔 Send Reminder</button>
               </div>
             </div>
             <Performance />
@@ -285,6 +288,22 @@ const TeacherPage = () => {
       )}
 
       {tab === "messages" && <Messaging />}
+
+      {reminderOpen && (
+        <ReminderComposer
+          onClose={() => setReminderOpen(false)}
+          onSent={(n) => setReminderToast(`Reminder sent to ${n} recipient${n === 1 ? "" : "s"}.`)}
+        />
+      )}
+
+      {reminderToast && (
+        <div
+          className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg cursor-pointer"
+          onClick={() => setReminderToast(null)}
+        >
+          ✓ {reminderToast}
+        </div>
+      )}
     </div>
   );
 };
