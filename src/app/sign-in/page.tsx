@@ -54,14 +54,14 @@ export default function SignInPage() {
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <div className="mb-8 bg-white/95 rounded-2xl px-5 py-4 inline-flex">
+          <div className="mb-8">
             <Image
               src="/logo.png"
               alt="Link Scholaire"
-              width={220}
-              height={40}
+              width={260}
+              height={59}
               priority
-              className="h-10 w-auto"
+              className="h-14 w-auto"
             />
           </div>
           <h2 className="text-4xl font-bold mb-4 leading-tight">
@@ -90,15 +90,19 @@ export default function SignInPage() {
       {/* Right — Sign In Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
+          {/* Mobile header — the wordmark uses white text, so it needs a dark
+              backdrop to stay legible against the light gray sign-in panel. */}
           <div className="lg:hidden flex justify-center mb-8">
-            <Image
-              src="/logo.png"
-              alt="Link Scholaire"
-              width={200}
-              height={36}
-              priority
-              className="h-9 w-auto"
-            />
+            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl px-5 py-3">
+              <Image
+                src="/logo.png"
+                alt="Link Scholaire"
+                width={220}
+                height={50}
+                priority
+                className="h-12 w-auto"
+              />
+            </div>
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("signIn.welcomeBack")}</h2>
