@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { roleHome } from "@/lib/roleHome";
 import { useI18n } from "@/contexts/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import LinkScholaireLogo from "@/components/LinkScholaireLogo";
 import Image from "next/image";
 
 export default function SignInPage() {
@@ -47,9 +48,21 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex relative">
-      {/* Language switcher — available right on the welcome/login screen */}
-      <div className="absolute top-4 end-4 z-20">
+      {/* Language switcher — moved to the start side so it doesn't fight the
+          brand mark in the top-right corner. */}
+      <div className="absolute top-4 start-4 z-20">
         <LanguageSwitcher />
+      </div>
+      {/* Brand mark — top-right corner. Sits in a dark navy pill that matches
+          the wordmark's original artwork background so it stays legible whether
+          the corner falls over the gradient panel or the light sign-in panel. */}
+      <div className="absolute top-4 end-4 z-20">
+        <div
+          className="rounded-2xl px-4 py-2.5 shadow-lg"
+          style={{ background: "rgb(18, 21, 62)" }}
+        >
+          <LinkScholaireLogo size={36} />
+        </div>
       </div>
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 items-center justify-center p-12">
