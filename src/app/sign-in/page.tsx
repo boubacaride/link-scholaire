@@ -54,14 +54,18 @@ export default function SignInPage() {
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <div className="mb-8">
+          {/* The pink square in the wordmark sits ~7.8% from the logo's left
+              edge — translateX(-7.8%) shifts it so the pink square's center
+              lines up with the "M" of the tagline below. */}
+          <div className="mb-8 overflow-visible">
             <Image
               src="/logo.png"
               alt="Link Scholaire"
-              width={310}
-              height={56}
+              width={580}
+              height={100}
               priority
-              className="h-14 w-auto"
+              className="h-24 w-auto"
+              style={{ transform: "translateX(-7.8%)" }}
             />
           </div>
           <h2 className="text-4xl font-bold mb-4 leading-tight">
@@ -93,14 +97,14 @@ export default function SignInPage() {
           {/* Mobile header — the wordmark uses white text, so it needs a dark
               backdrop to stay legible against the light gray sign-in panel. */}
           <div className="lg:hidden flex justify-center mb-8">
-            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl px-5 py-3">
+            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl px-6 py-4">
               <Image
                 src="/logo.png"
                 alt="Link Scholaire"
-                width={264}
-                height={48}
+                width={350}
+                height={60}
                 priority
-                className="h-12 w-auto"
+                className="h-16 w-auto"
               />
             </div>
           </div>
