@@ -58,8 +58,8 @@ export default function SignInPage() {
             <Image
               src="/logo.png"
               alt="Link Scholaire"
-              width={260}
-              height={59}
+              width={310}
+              height={56}
               priority
               className="h-14 w-auto"
             />
@@ -97,8 +97,8 @@ export default function SignInPage() {
               <Image
                 src="/logo.png"
                 alt="Link Scholaire"
-                width={220}
-                height={50}
+                width={264}
+                height={48}
                 priority
                 className="h-12 w-auto"
               />
