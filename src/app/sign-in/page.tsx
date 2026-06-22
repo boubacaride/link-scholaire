@@ -65,9 +65,49 @@ export default function SignInPage() {
       </div>
       {/* Left — Branding (solid navy block, matches the wordmark artwork). */}
       <div
-        className="hidden lg:flex lg:w-1/2"
+        className="hidden lg:flex lg:w-1/2 items-center justify-center px-12 py-16"
         style={{ background: "rgb(18, 21, 62)" }}
-      />
+      >
+        <div className="max-w-md text-white">
+          {/* Thin brand-color accent bar — picks up the chain icon palette
+              (magenta → amber → cyan) and grounds the type below. */}
+          <div
+            className="h-1 w-16 rounded-full mb-6"
+            style={{ background: "linear-gradient(90deg, #E63D8D 0%, #F5C544 50%, #5BC0EB 100%)" }}
+          />
+          {(() => {
+            const tagline = t("signIn.brandTagline");
+            const highlight = t("signIn.brandHighlight");
+            const idx = tagline.toLowerCase().lastIndexOf(highlight.toLowerCase());
+            const lead = idx >= 0 ? tagline.slice(0, idx).trim() : tagline;
+            const tail = idx >= 0 ? tagline.slice(idx).trim() : "";
+            return (
+              <h2 className="text-5xl font-bold leading-[1.1] tracking-tight mb-6">
+                <span className="block">{lead}</span>
+                {tail && (
+                  <span
+                    className="block mt-2"
+                    style={{
+                      backgroundImage: "linear-gradient(90deg, #E63D8D 0%, #F5C544 55%, #5BC0EB 100%)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                    }}
+                  >
+                    {tail}
+                  </span>
+                )}
+              </h2>
+            );
+          })()}
+          <p
+            className="text-lg leading-relaxed max-w-sm"
+            style={{ color: "rgba(255, 255, 255, 0.72)" }}
+          >
+            {t("signIn.brandBody")}
+          </p>
+        </div>
+      </div>
 
       {/* Right — Sign In Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
