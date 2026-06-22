@@ -54,11 +54,15 @@ export default function SignInPage() {
       {/* Left — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <Image src="/logo.png" alt="SchoolFlow" width={32} height={32} />
-            </div>
-            <h1 className="text-3xl font-bold">SchoolFlow</h1>
+          <div className="mb-8 bg-white/95 rounded-2xl px-5 py-4 inline-flex">
+            <Image
+              src="/logo.png"
+              alt="Link Scholaire"
+              width={220}
+              height={40}
+              priority
+              className="h-10 w-auto"
+            />
           </div>
           <h2 className="text-4xl font-bold mb-4 leading-tight">
             {t("signIn.brandTagline")}
@@ -86,9 +90,15 @@ export default function SignInPage() {
       {/* Right — Sign In Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
-            <Image src="/logo.png" alt="SchoolFlow" width={32} height={32} />
-            <h1 className="text-2xl font-bold text-gray-900">SchoolFlow</h1>
+          <div className="lg:hidden flex justify-center mb-8">
+            <Image
+              src="/logo.png"
+              alt="Link Scholaire"
+              width={200}
+              height={36}
+              priority
+              className="h-9 w-auto"
+            />
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("signIn.welcomeBack")}</h2>
@@ -157,7 +167,7 @@ export default function SignInPage() {
           </div>
 
           <p className="text-xs text-gray-400 text-center mt-8">
-            &copy; {new Date().getFullYear()} SchoolFlow. {t("signIn.rights")}
+            &copy; {new Date().getFullYear()} Link Scholaire. {t("signIn.rights")}
           </p>
         </div>
       </div>
