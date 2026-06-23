@@ -20,7 +20,8 @@ import { NextRequest, NextResponse } from "next/server";
 const CAG_KEY = process.env.WOLFRAM_CAG_KEY;
 const AGENT_KEY = process.env.WOLFRAM_AGENTONE_KEY;
 const FULL_KEY = process.env.WOLFRAM_APP_ID;
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
+// OPENAI_API_KEY is read inside tryOpenAIWordProblem() so we can trim it and
+// report exactly why a request failed (missing / wrong prefix / HTTP error).
 
 /** Pull the actual math out of a tutor-style wrapper. */
 function extractProblem(raw: string): string {
@@ -171,11 +172,20 @@ function isWordProblem(input: string): boolean {
   return words.length >= 8;
 }
 
-/** GPT-4o fallback for word problems Wolfram can't parse. Returns Markdown
- *  with $$...$$ math blocks so the existing KaTeX-aware chat bubble renders
- *  it the same as Wolfram's output. */
-async function tryOpenAIWordProblem(problem: string): Promise<string | null> {
-  if (!OPENAI_KEY) return null;
+/** GPT-4o fallback for word problems Wolfram can't parse. Returns the
+ *  Markdown body on success; on failure returns a short tag explaining
+ *  WHY (no key / openai HTTP error / empty body) so the caller can put
+ *  it in the user-facing error. */
+async function tryOpenAIWordProblem(
+  problem: string,
+): Promise<{ body: string } | { error: string }> {
+  const rawKey = process.env.OPENAI_API_KEY;
+  // Trim — Vercel UI sometimes captures trailing whitespace on paste.
+  const key = rawKey ? rawKey.trim() : "";
+  if (!key) return { error: "OPENAI_API_KEY env var is missing or empty in this deployment" };
+  if (!/^sk-/.test(key)) {
+    return { error: `OPENAI_API_KEY does not start with "sk-" (got length ${key.length}) — wrong value pasted?` };
+  }
 
   const system = `You are a math tutor solving a WORD PROBLEM. The problem may be in English, French, or another language — answer in the same language.
 
@@ -204,12 +214,13 @@ Rules:
 - Keep prose concise — students want the steps, not an essay.
 - Output ONLY the Markdown body. No code fences, no preamble.`;
 
+  let res: Response;
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
@@ -221,14 +232,29 @@ Rules:
       }),
       signal: AbortSignal.timeout(45000),
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text: string | undefined = data?.choices?.[0]?.message?.content;
-    if (!text || !text.trim()) return null;
-    return `${text.trim()}\n\n---\n*Word-problem solved by GPT-4o (Wolfram Alpha could not parse this query).*`;
-  } catch {
-    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { error: `OpenAI request failed before a response: ${msg}` };
   }
+
+  if (!res.ok) {
+    // Surface OpenAI's error text so 401 / 429 / 402 are obvious.
+    const body = await res.text().catch(() => "");
+    const snippet = body.slice(0, 400);
+    return { error: `OpenAI returned HTTP ${res.status}: ${snippet || res.statusText}` };
+  }
+
+  let data: unknown;
+  try { data = await res.json(); }
+  catch { return { error: "OpenAI returned a non-JSON body" }; }
+  const text: string | undefined = (data as { choices?: { message?: { content?: string } }[] })
+    ?.choices?.[0]?.message?.content;
+  if (!text || !text.trim()) {
+    return { error: "OpenAI returned an empty completion" };
+  }
+  return {
+    body: `${text.trim()}\n\n---\n*Word-problem solved by GPT-4o (Wolfram Alpha could not parse this query).*`,
+  };
 }
 
 /** Stream a plain-text body in line-sized chunks so the chat bubble's
@@ -279,16 +305,19 @@ export async function POST(req: NextRequest) {
   // 3) Word-problem fallback — GPT-4o. Only fires for natural-language
   //    problems, never for bare equations (per the platform's
   //    Wolfram-only-for-equations rule).
+  let gptError: string | null = null;
   if (!formatted && wordProblem) {
-    formatted = await tryOpenAIWordProblem(problem);
+    const gpt = await tryOpenAIWordProblem(problem);
+    if ("body" in gpt) formatted = gpt.body;
+    else gptError = gpt.error;
   }
 
   if (!formatted) {
     const message = wordProblem
-      ? OPENAI_KEY
-        ? "Couldn't solve this word problem. Try rephrasing it more simply."
-        : "Wolfram Alpha couldn't parse this word problem, and OPENAI_API_KEY isn't configured for the fallback."
+      ? `Could not solve this word problem. ${gptError ?? "Wolfram parsed nothing and the GPT-4o fallback was not invoked."}`
       : "Wolfram Alpha could not produce an answer for this query.";
+    // Log full details on the server so Vercel function logs surface them.
+    console.error("[/api/math/claude] failed:", { wordProblem, gptError });
     return NextResponse.json({ error: message }, { status: 422 });
   }
   return streamText(formatted);
