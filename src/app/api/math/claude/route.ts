@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Math tutor endpoint — Wolfram Alpha backed (no OpenAI dependency).
+// Math tutor endpoint — Wolfram-first with a GPT-4o word-problem fallback.
 //
-// Originally this route hit OpenAI GPT-4o. The platform owner asked to use
-// Wolfram Alpha for ALL math / physics / chemistry solving so there's no
-// OpenAI key required. We now call the Wolfram LLM API (CAG key) first,
-// fall back to the AgentOne Full Results API, and stream the formatted
-// answer back as plain text so the existing `askClaudeStreaming` client
-// keeps working unchanged (same content-type, same chunked body).
+// Wolfram Alpha is the source of truth for ALL equation-shaped math. The
+// problem: Wolfram parses symbolic input beautifully but is hit-or-miss on
+// English / French word problems ("Alice has 5 apples and gives 2 to Bob…")
+// — long natural-language prompts often return no usable pods.
 //
-// The route extracts the actual math problem from tutor-style prompts
-// like "Solve this math problem step by step ... Problem: <eq>" so the
-// upstream Wolfram query is clean.
+// Resolution order on POST:
+//   1. Wolfram LLM API (CAG key) — rich tutor-style text.
+//   2. Wolfram AgentOne Full Results — pod-by-pod synthesis.
+//   3. If both fail AND the input looks like a WORD problem (many
+//      natural-language words, not a bare equation) → GPT-4o.
+//
+// Pure equations never reach GPT — if Wolfram can't solve them we surface
+// a Wolfram error instead, per the platform owner's rule that equations
+// always go through Wolfram.
 
 const CAG_KEY = process.env.WOLFRAM_CAG_KEY;
 const AGENT_KEY = process.env.WOLFRAM_AGENTONE_KEY;
 const FULL_KEY = process.env.WOLFRAM_APP_ID;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 /** Pull the actual math out of a tutor-style wrapper. */
 function extractProblem(raw: string): string {
@@ -148,6 +153,84 @@ async function tryWolframFullResults(problem: string): Promise<string | null> {
   }
 }
 
+/** Heuristic: does this input look like a WORD problem (long natural-
+ *  language story) rather than a bare equation Wolfram could parse?
+ *
+ *  We strip math operators, numbers and lone symbol variables, then count
+ *  what's left. A pure equation like "x^2 + 5x - 6 = 0" leaves zero word
+ *  tokens; a sentence like "Alice has 5 apples and gives 2 to Bob — how
+ *  many does she have left?" leaves a dozen. 8+ word tokens triggers the
+ *  GPT fallback. */
+function isWordProblem(input: string): boolean {
+  const stripped = input
+    .replace(/\$\$?[^$]*\$\$?/g, " ")          // strip LaTeX math
+    .replace(/[0-9+\-*/^=()<>≤≥%!,;:]+/g, " "); // strip operators / numbers
+  const words = stripped
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && /^[A-Za-zÀ-ÿ']+$/.test(w));
+  return words.length >= 8;
+}
+
+/** GPT-4o fallback for word problems Wolfram can't parse. Returns Markdown
+ *  with $$...$$ math blocks so the existing KaTeX-aware chat bubble renders
+ *  it the same as Wolfram's output. */
+async function tryOpenAIWordProblem(problem: string): Promise<string | null> {
+  if (!OPENAI_KEY) return null;
+
+  const system = `You are a math tutor solving a WORD PROBLEM. The problem may be in English, French, or another language — answer in the same language.
+
+Return Markdown with this exact structure (do NOT include a top-level title):
+
+### Solution
+
+**Understanding the problem:**
+(briefly restate what's being asked, in plain language)
+
+**Set up:**
+(define variables and write the equations needed; wrap every math expression in $$...$$ for KaTeX)
+
+**Step-by-step:**
+1. ...
+2. ...
+3. ...
+
+**Answer:** $$<final answer>$$
+
+**Check:** (one short sentence verifying the answer makes physical sense)
+
+Rules:
+- Wrap EVERY math expression in $$...$$. Never inline raw operators.
+- Be precise and verify by substitution / unit check.
+- Keep prose concise — students want the steps, not an essay.
+- Output ONLY the Markdown body. No code fences, no preamble.`;
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: problem },
+        ],
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!text || !text.trim()) return null;
+    return `${text.trim()}\n\n---\n*Word-problem solved by GPT-4o (Wolfram Alpha could not parse this query).*`;
+  } catch {
+    return null;
+  }
+}
+
 /** Stream a plain-text body in line-sized chunks so the chat bubble's
  *  typewriter UX still feels alive. */
 function streamText(body: string): Response {
@@ -187,17 +270,26 @@ export async function POST(req: NextRequest) {
   }
 
   const problem = extractProblem(question);
+  const wordProblem = isWordProblem(problem);
 
   // 1) Wolfram LLM API (CAG) — rich tutor-style text.
   let formatted = await tryWolframLLM(problem);
   // 2) Fallback to AgentOne Full Results pods.
   if (!formatted) formatted = await tryWolframFullResults(problem);
+  // 3) Word-problem fallback — GPT-4o. Only fires for natural-language
+  //    problems, never for bare equations (per the platform's
+  //    Wolfram-only-for-equations rule).
+  if (!formatted && wordProblem) {
+    formatted = await tryOpenAIWordProblem(problem);
+  }
 
   if (!formatted) {
-    return NextResponse.json(
-      { error: "Wolfram Alpha could not produce an answer for this query." },
-      { status: 422 },
-    );
+    const message = wordProblem
+      ? OPENAI_KEY
+        ? "Couldn't solve this word problem. Try rephrasing it more simply."
+        : "Wolfram Alpha couldn't parse this word problem, and OPENAI_API_KEY isn't configured for the fallback."
+      : "Wolfram Alpha could not produce an answer for this query.";
+    return NextResponse.json({ error: message }, { status: 422 });
   }
   return streamText(formatted);
 }
