@@ -182,7 +182,18 @@ async function tryOpenAIWordProblem(
   const rawKey = process.env.OPENAI_API_KEY;
   // Trim — Vercel UI sometimes captures trailing whitespace on paste.
   const key = rawKey ? rawKey.trim() : "";
-  if (!key) return { error: "OPENAI_API_KEY env var is missing or empty in this deployment" };
+  if (!key) {
+    // If the variable is missing, show what OPENAI-shaped env var names ARE
+    // visible to this deployment. That instantly catches typos like
+    // OPENAI_KEY, OPENAIKEY, " OPENAI_API_KEY" (leading space), etc.
+    const visible = Object.keys(process.env)
+      .filter((k) => /openai|gpt/i.test(k))
+      .map((k) => `"${k}"`);
+    const hint = visible.length
+      ? ` Visible OpenAI-related env vars in this deployment: ${visible.join(", ")} — did you name it differently?`
+      : " No OPENAI_* env var is visible to the function at all. Re-check Vercel → Settings → Environment Variables, confirm Production is ticked, then trigger a fresh deploy from the Deployments tab (not just \"Redeploy\" with cached build).";
+    return { error: `OPENAI_API_KEY env var is missing or empty in this deployment.${hint}` };
+  }
   if (!/^sk-/.test(key)) {
     return { error: `OPENAI_API_KEY does not start with "sk-" (got length ${key.length}) — wrong value pasted?` };
   }
