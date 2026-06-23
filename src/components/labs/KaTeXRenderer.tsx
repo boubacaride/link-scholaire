@@ -190,8 +190,27 @@ function processInlineMath(line: string, errorColor: string): string {
     return renderLatex(latex.trim(), false, errorColor);
   });
 
+  // Markdown link [label](url) → real anchor — keeps the bubble clean
+  // when a model slips one through despite being told not to.
+  processed = processed.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline">$1</a>',
+  );
+
+  // Single-star italic: *text* → <em>text</em>. Lookbehind/-ahead avoid
+  // matching bold (**…**) or stray asterisks inside math.
+  processed = processed.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+
   // Replace #### subheaders within lines
   processed = processed.replace(/^####\s+(.+)$/, '<span class="font-semibold text-slate-300">$1</span>');
+
+  // Final safety net: after **bold**, *italic* and $math$ replacements,
+  // any remaining `*` is an unmatched stray — strip it so the user never
+  // sees raw markdown glyphs in the rendered output. Same for unmatched
+  // single underscores. (`*` inside math is safe because KaTeX has already
+  // turned `$...$` content into HTML by this point.)
+  processed = processed.replace(/\*/g, "");
+  processed = processed.replace(/(?<![a-zA-Z0-9])_(?![a-zA-Z0-9])/g, "");
 
   return processed;
 }

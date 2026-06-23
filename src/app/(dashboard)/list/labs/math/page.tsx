@@ -401,7 +401,7 @@ function SubjectIcon({ type, size = 22 }: { type?: string; size?: number }) {
 
 // ─── Main Component ──────────────────────────────────────────
 const LabsPage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [subject, setSubject] = useState<SubjectOrGraphing>("basicmath");
   const [navOpen, setNavOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -558,6 +558,7 @@ const LabsPage = () => {
       askClaudeStreaming(
         contextPrefix + eq,
         (subject as string) === "graphing" ? undefined : (subject as string),
+        locale,
         (chunk) => {
           setSolvingStream((prev) => prev + chunk);
           setMessages((p) => p.map((m) => m.id === botId ? { ...m, content: m.content + chunk, isLoading: false } : m));
@@ -642,6 +643,7 @@ const LabsPage = () => {
       askClaudeStreaming(
         `Solve this math problem step by step with complete mathematical rigor. Show every step clearly. Use LaTeX notation (wrap math in $ or $$). Double-check your answer before presenting it. If the equation has no closed-form solution, state that and provide a numerical approximation. Problem: ${eq}`,
         (subject as string) === "graphing" ? undefined : (subject as string),
+        locale,
         (chunk) => {
           setSolvingStream((prev) => prev + chunk);
           setMessages((p) => p.map((m) => m.id === botId ? { ...m, content: m.content + chunk, isLoading: false } : m));
@@ -786,6 +788,7 @@ const LabsPage = () => {
                               askClaudeStreaming(
                                 `Explain step by step how to solve: ${msg.solution!.originalEquation}`,
                                 (subject as string) === "graphing" ? undefined : (subject as string),
+                                locale,
                                 (chunk) => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: m.content + chunk, isLoading: false } : m)); },
                                 () => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: cleanGPTOutput(m.content), isLoading: false } : m)); },
                                 (err) => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: `Error: ${err}`, isLoading: false } : m)); },
