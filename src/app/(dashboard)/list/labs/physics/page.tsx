@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/contexts/LanguageContext";
 import { askWolframAgent, type WolframAgentResult } from "@/lib/math/wolframAgent";
+import AnswerActions from "@/components/labs/AnswerActions";
 
 interface ChatMsg {
   id: string;
@@ -40,6 +41,8 @@ const PhysicsPage = () => {
     { id: "welcome", role: "bot", text: t("labs.physicsWelcome") },
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // Per-message DOM ref for the Print / Download buttons.
+  const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -139,8 +142,10 @@ const PhysicsPage = () => {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="max-w-3xl mx-auto space-y-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {messages.map((msg) => {
+                const hasAnswer = !msg.loading && msg.role === "bot" && (!!msg.text || !!msg.agentResult);
+                return (
+                <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                     msg.role === "user"
                       ? "bg-blue-600 text-white rounded-tr-md"
@@ -151,7 +156,12 @@ const PhysicsPage = () => {
                         <span className="animate-spin">⏳</span> {t("labs.askingWolfram")}
                       </div>
                     ) : (
-                      <>
+                      <div
+                        ref={(el) => {
+                          if (el) answerRefs.current.set(msg.id, el);
+                          else answerRefs.current.delete(msg.id);
+                        }}
+                      >
                         <p className="text-sm whitespace-pre-wrap select-text">{msg.text}</p>
 
                         {/* Wolfram Agent pods */}
@@ -181,11 +191,22 @@ const PhysicsPage = () => {
                             {msg.agentResult.text}
                           </pre>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
+                  {hasAnswer && (
+                    <div className="mt-1.5 max-w-[85%]">
+                      <AnswerActions
+                        getElement={() => answerRefs.current.get(msg.id) ?? null}
+                        title={msg.text?.slice(0, 60) || t("labs.physicsLabTitle")}
+                        subject={t("labs.physicsLabTitle")}
+                        tone="light"
+                      />
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
               <div ref={chatEndRef} />
             </div>
           </div>

@@ -50,6 +50,12 @@ export const dict = {
       physicsError: "Sorry, I couldn't answer that: {error}",
       physicsGenericError: "Something went wrong. Please try again.",
 
+      // ── Answer actions (Print / Download — shared across all labs) ──
+      print: "Print",
+      download: "Download",
+      printSolution: "Print this solution",
+      downloadSolution: "Download this solution",
+
       // ── Chemistry lab ──
       chemistryHeaderTitle: "Chemistry — Periodic Table",
       chemistryPoweredBy: "Powered by ZPeriod",
@@ -216,6 +222,12 @@ export const dict = {
       physicsError: "Désolé, je n'ai pas pu répondre à cela : {error}",
       physicsGenericError: "Une erreur s'est produite. Veuillez réessayer.",
 
+      // ── Answer actions (Print / Download — shared across all labs) ──
+      print: "Imprimer",
+      download: "Télécharger",
+      printSolution: "Imprimer cette solution",
+      downloadSolution: "Télécharger cette solution",
+
       // ── Chemistry lab ──
       chemistryHeaderTitle: "Chimie — Tableau périodique",
       chemistryPoweredBy: "Propulsé par ZPeriod",
@@ -357,6 +369,12 @@ export const dict = {
       topics: "المواضيع",
       keyFormulas: "الصيغ الرئيسية",
       ask: "اسأل",
+
+      // ── Answer actions ──
+      print: "طباعة",
+      download: "تنزيل",
+      printSolution: "طباعة هذا الحل",
+      downloadSolution: "تنزيل هذا الحل",
 
       // ── Chemistry lab ──
       chemistryLoading: "جارٍ تحميل الجدول الدوري...",

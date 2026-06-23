@@ -13,6 +13,7 @@ import PlaybackControls from "@/components/labs/PlaybackControls";
 import MathInput, { type MathSubject, type ShapeSubmitData, type ShapeTemplate, type MathInputHandle } from "@/components/labs/MathInput";
 import KaTeXRenderer from "@/components/labs/KaTeXRenderer";
 import PlotlyGraph from "@/components/labs/PlotlyGraph";
+import AnswerActions from "@/components/labs/AnswerActions";
 import PhotoInput from "@/components/labs/PhotoInput";
 import StepByStepAnimator from "@/features/math-animation/components/StepByStepAnimator";
 
@@ -431,6 +432,11 @@ const LabsPage = () => {
   const [lastSolvedEquation, setLastSolvedEquation] = useState("");
   const [lastSolvedAnswer, setLastSolvedAnswer] = useState("");
 
+  // Per-message DOM ref so the Print / Download buttons can capture exactly
+  // the answer block for that bubble (and nothing else — no buttons, no
+  // sibling bubbles).
+  const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   // ── Shape submit → modal ──
@@ -749,6 +755,16 @@ const LabsPage = () => {
                       </div>
                     )}
 
+                    {/* Capture wrapper: everything inside gets printed / downloaded
+                        when the Print or Download button is clicked. */}
+                    <div
+                      ref={(el) => {
+                        if (el) answerRefs.current.set(msg.id, el);
+                        else answerRefs.current.delete(msg.id);
+                      }}
+                      className="space-y-2"
+                    >
+
                     {/* Claude/GPT streaming / text content */}
                     {msg.content && !msg.isLoading && (
                       <div className="bg-white/[0.07] backdrop-blur-sm text-slate-200 text-[14px] leading-relaxed rounded-2xl rounded-tl-md px-5 py-4 border border-white/[0.06] select-text">
@@ -904,6 +920,20 @@ const LabsPage = () => {
                       <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl overflow-hidden" style={{ height: 250 }}>
                         <PlotlyGraph expressions={msg.graphExpressions} darkMode className="h-full" />
                       </div>
+                    )}
+                    </div>
+
+                    {/* Print / Download actions — shown only when the bubble
+                        carries an actual answer (not the welcome, not loading). */}
+                    {!msg.isLoading && msg.id !== "welcome" && (
+                      msg.content || msg.solution || msg.mathResult || msg.shapeSolution || (msg.graphExpressions?.length ?? 0) > 0
+                    ) && (
+                      <AnswerActions
+                        getElement={() => answerRefs.current.get(msg.id) ?? null}
+                        title={lastSolvedEquation || msg.solution?.originalEquation || msg.mathResult?.originalQuery || t("labs.mathTitle")}
+                        subject={t("labs.mathTitle")}
+                        tone="dark"
+                      />
                     )}
                   </div>
                 </div>
