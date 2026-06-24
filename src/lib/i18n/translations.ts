@@ -71,6 +71,10 @@ const en = {
   cal: {
     downloadCalendar: "Download (.ics)",
     eventsCount: "{n} class sessions this week",
+    workWeek: "Week",
+    day: "Day",
+    empty: "No classes scheduled yet.",
+    emptyHint: "Once the school sets your timetable it'll appear here.",
   },
   platform: {
     consoleTitle: "Platform Console",
@@ -330,6 +334,10 @@ const fr: Dict = {
   cal: {
     downloadCalendar: "Télécharger (.ics)",
     eventsCount: "{n} séances de cours cette semaine",
+    workWeek: "Semaine",
+    day: "Jour",
+    empty: "Aucun cours programmé pour le moment.",
+    emptyHint: "Votre emploi du temps apparaîtra ici dès qu'il sera créé.",
   },
   platform: {
     consoleTitle: "Console de la plateforme",
@@ -587,6 +595,10 @@ const ar: Dict = {
   cal: {
     downloadCalendar: "تنزيل (.ics)",
     eventsCount: "{n} جلسات هذا الأسبوع",
+    workWeek: "الأسبوع",
+    day: "اليوم",
+    empty: "لا توجد دروس مجدولة بعد.",
+    emptyHint: "سيظهر جدولك هنا بمجرد إعداده.",
   },
   platform: {
     consoleTitle: "لوحة المنصة",
