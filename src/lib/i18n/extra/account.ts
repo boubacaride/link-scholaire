@@ -55,7 +55,7 @@ export const dict = {
         other: "Other",
       },
     },
-    nav: { myDocuments: "My Documents" },
+    nav: { myDocuments: "My Documents", reportCards: "Report Cards" },
   },
   fr: {
     settings: {
@@ -111,7 +111,7 @@ export const dict = {
         other: "Autre",
       },
     },
-    nav: { myDocuments: "Mes documents" },
+    nav: { myDocuments: "Mes documents", reportCards: "Bulletins scolaires" },
   },
   ar: {
     settings: {
@@ -167,6 +167,6 @@ export const dict = {
         other: "أخرى",
       },
     },
-    nav: { myDocuments: "مستنداتي" },
+    nav: { myDocuments: "مستنداتي", reportCards: "بطاقات التقارير" },
   },
 } as Record<string, unknown>;

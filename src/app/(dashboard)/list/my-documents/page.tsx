@@ -91,9 +91,25 @@ const MyDocumentsPage = () => {
     load();
   }, [user?.profileId]);
 
+  const [yearFilter, setYearFilter] = useState<string>("all");
+  const [termFilter, setTermFilter] = useState<string>("all");
+
+  const yearOptions = useMemo(
+    () => Array.from(new Set(docs.map((d) => d.academic_year).filter((v): v is string => !!v))).sort().reverse(),
+    [docs],
+  );
+  const termOptions = useMemo(
+    () => Array.from(new Set(docs.map((d) => d.term).filter((v): v is string => !!v))).sort(),
+    [docs],
+  );
+
   const filtered = useMemo(
-    () => (filter === "all" ? docs : docs.filter((d) => d.category === filter)),
-    [docs, filter],
+    () => docs.filter((d) =>
+      (filter === "all" || d.category === filter) &&
+      (yearFilter === "all" || d.academic_year === yearFilter) &&
+      (termFilter === "all" || d.term === termFilter),
+    ),
+    [docs, filter, yearFilter, termFilter],
   );
 
   const download = async (d: DocRow) => {
@@ -121,21 +137,48 @@ const MyDocumentsPage = () => {
               {t("docs.emptyHint")}
             </p>
           </div>
-          {/* Category filter chips */}
-          <div className="flex gap-1.5 flex-wrap">
-            {(["all", "report_card", "certificate", "letter", "transcript", "other"] as const).map((c) => (
-              <button
-                key={c}
-                onClick={() => setFilter(c)}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                  filter === c
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {c === "all" ? t("docs.allCategories") : t(`docs.categories.${c}`)}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 items-end">
+            {/* Year + term dropdowns (only shown if any value to filter on) */}
+            {(yearOptions.length > 0 || termOptions.length > 0) && (
+              <div className="flex gap-2">
+                {yearOptions.length > 0 && (
+                  <select
+                    value={yearFilter}
+                    onChange={(e) => setYearFilter(e.target.value)}
+                    className="text-[11px] px-2.5 py-1 rounded-md border border-gray-200 bg-white text-gray-700"
+                  >
+                    <option value="all">— Year —</option>
+                    {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                )}
+                {termOptions.length > 0 && (
+                  <select
+                    value={termFilter}
+                    onChange={(e) => setTermFilter(e.target.value)}
+                    className="text-[11px] px-2.5 py-1 rounded-md border border-gray-200 bg-white text-gray-700"
+                  >
+                    <option value="all">— Term —</option>
+                    {termOptions.map((tm) => <option key={tm} value={tm}>{tm}</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+            {/* Category filter chips */}
+            <div className="flex gap-1.5 flex-wrap justify-end">
+              {(["all", "report_card", "certificate", "letter", "transcript", "other"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setFilter(c)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                    filter === c
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {c === "all" ? t("docs.allCategories") : t(`docs.categories.${c}`)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

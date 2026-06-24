@@ -28,6 +28,7 @@ const NAV_KEY: Record<string, string> = {
   Exams: "nav.exams",
   Assignments: "nav.assignments",
   Grades: "nav.grades",
+  "Report Cards": "nav.reportCards",
   "My Documents": "nav.myDocuments",
   Documents: "nav.myDocuments",
   Attendance: "nav.attendance",
@@ -127,6 +128,13 @@ const menuItems = [
         label: "Grades",
         href: "/list/results",
         visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
+      },
+      // Report-card generation / batch console for teachers and admins.
+      {
+        icon: "/result.png",
+        label: "Report Cards",
+        href: "/list/report-cards",
+        visible: ["school_admin", "teacher"],
       },
       // Student / parent view of documents the school has issued (report
       // cards, certificates, official letters, transcripts).
