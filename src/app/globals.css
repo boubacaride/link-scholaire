@@ -64,8 +64,19 @@
   border-color: #eee !important;
 }
 
+/* Day-of-week header — give it room and style so Mon / Tue / Wed are visible. */
 .rbc-time-header {
-  display: none !important;
+  background: #f8fafc !important;
+}
+.rbc-time-header .rbc-header {
+  padding: 8px 4px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
+}
+.rbc-time-header-content {
+  border-color: #e2e8f0 !important;
 }
 
 .rbc-time-content {

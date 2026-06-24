@@ -28,6 +28,8 @@ const NAV_KEY: Record<string, string> = {
   Exams: "nav.exams",
   Assignments: "nav.assignments",
   Grades: "nav.grades",
+  "My Documents": "nav.myDocuments",
+  Documents: "nav.myDocuments",
   Attendance: "nav.attendance",
   Events: "nav.events",
   Messages: "nav.messages",
@@ -125,6 +127,21 @@ const menuItems = [
         label: "Grades",
         href: "/list/results",
         visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
+      },
+      // Student / parent view of documents the school has issued (report
+      // cards, certificates, official letters, transcripts).
+      {
+        icon: "/result.png",
+        label: "My Documents",
+        href: "/list/my-documents",
+        visible: ["student", "parent"],
+      },
+      // Teacher / admin upload-and-manage view of the same docs.
+      {
+        icon: "/result.png",
+        label: "Documents",
+        href: "/list/documents",
+        visible: ["school_admin", "teacher"],
       },
       {
         icon: "/attendance.png",

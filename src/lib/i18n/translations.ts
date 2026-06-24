@@ -68,6 +68,10 @@ const en = {
     viewAll: "View all",
     close: "Close",
   },
+  cal: {
+    downloadCalendar: "Download (.ics)",
+    eventsCount: "{n} class sessions this week",
+  },
   platform: {
     consoleTitle: "Platform Console",
     consoleSubtitle: "Welcome, {name} · Manage your school tenants and their subscriptions",
@@ -323,6 +327,10 @@ const fr: Dict = {
     viewAll: "Tout voir",
     close: "Fermer",
   },
+  cal: {
+    downloadCalendar: "Télécharger (.ics)",
+    eventsCount: "{n} séances de cours cette semaine",
+  },
   platform: {
     consoleTitle: "Console de la plateforme",
     consoleSubtitle: "Bienvenue, {name} · Gérez vos écoles clientes et leurs abonnements",
@@ -575,6 +583,10 @@ const ar: Dict = {
     search: "بحث...",
     viewAll: "عرض الكل",
     close: "إغلاق",
+  },
+  cal: {
+    downloadCalendar: "تنزيل (.ics)",
+    eventsCount: "{n} جلسات هذا الأسبوع",
   },
   platform: {
     consoleTitle: "لوحة المنصة",

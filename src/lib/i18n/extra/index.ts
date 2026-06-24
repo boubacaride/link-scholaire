@@ -10,10 +10,11 @@ import { dict as dashboard } from "./dashboard";
 import { dict as ui } from "./ui";
 import { dict as labs } from "./labs";
 import { dict as timeoff } from "./timeoff";
+import { dict as account } from "./account";
 
 type AnyRecord = Record<string, unknown>;
 
-const MODULES = [expenses, finance, employees, dashboard, ui, labs, timeoff];
+const MODULES = [expenses, finance, employees, dashboard, ui, labs, timeoff, account];
 
 const isObj = (v: unknown): v is AnyRecord =>
   typeof v === "object" && v !== null && !Array.isArray(v);
