@@ -125,20 +125,51 @@ function fmtLocal(d: Date): string {
   );
 }
 
-function buildICS(events: ClassEvent[], calendarName: string): string {
-  // Anchor every event to THIS Monday so the BYDAY-based weekly RRULE
-  // has a sane DTSTART. Mutating-style date math kept local to this
-  // function.
-  const monday = new Date();
-  const wd = monday.getDay();                                     // 0 = Sun
-  monday.setDate(monday.getDate() + (wd === 0 ? -6 : 1 - wd));
-  monday.setHours(0, 0, 0, 0);
+function buildICS(
+  events: ClassEvent[],
+  calendarName: string,
+  /** Inclusive window the schedule applies to. When provided the RRULE
+   *  is clamped to this range so recurrences don't spill past the term
+   *  or school year. */
+  seasonStart: Date | null,
+  seasonEnd: Date | null,
+): string {
+  // Anchor every event to the Monday of the WEEK we start exporting
+  // from. Normally that's this week; if the season hasn't started yet
+  // we anchor to the Monday of the season's first week so DTSTART is
+  // inside the bounds.
+  const todayMon = new Date();
+  const wd = todayMon.getDay();                                   // 0 = Sun
+  todayMon.setDate(todayMon.getDate() + (wd === 0 ? -6 : 1 - wd));
+  todayMon.setHours(0, 0, 0, 0);
 
-  // Bound the recurrence so importers don't try to materialise an
-  // infinite series. One school year out is more than enough.
-  const until = new Date(monday);
-  until.setFullYear(until.getFullYear() + 1);
+  let monday = todayMon;
+  if (seasonStart && seasonStart > monday) {
+    monday = new Date(seasonStart);
+    const sw = monday.getDay();
+    monday.setDate(monday.getDate() + (sw === 0 ? -6 : 1 - sw));
+    monday.setHours(0, 0, 0, 0);
+  }
+
+  // Bound the recurrence to the season's end_date when configured,
+  // otherwise default to monday + 1 year so we still produce a valid
+  // (bounded) file for schools that haven't set up the calendar yet.
+  const until = seasonEnd
+    ? new Date(seasonEnd)
+    : (() => { const d = new Date(monday); d.setFullYear(d.getFullYear() + 1); return d; })();
   const untilStr = fmtLocal(until) + "Z";   // UNTIL must be UTC per RFC 5545
+
+  // If the season is already over, return an empty calendar instead of
+  // generating events with DTSTART > UNTIL (which is malformed).
+  if (until <= monday) {
+    return [
+      "BEGIN:VCALENDAR", "VERSION:2.0",
+      "PRODID:-//Link Scholaire//Schedule//EN",
+      "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      foldLine(`X-WR-CALNAME:${icsEscape(calendarName)}`),
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+  }
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -225,6 +256,13 @@ const BigCalendar = () => {
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [semester, setSemester] = useState<string>("");           // "TRIMESTRE 1 2025-2026" or similar
+  // Date window that bounds the schedule — narrowest of (current term,
+  // active academic year). When unset, the export falls back to a
+  // generic "monday + 1 year" so a brand-new school without any
+  // calendar configured still gets a working file.
+  const [seasonStart, setSeasonStart] = useState<Date | null>(null);
+  const [seasonEnd, setSeasonEnd] = useState<Date | null>(null);
+  const [seasonLabel, setSeasonLabel] = useState<string>("");      // "term" | "year" | ""
 
   const dayLabels = DAY_LABELS[locale as "en" | "fr" | "ar"] ?? DAY_LABELS.en;
 
@@ -293,10 +331,13 @@ const BigCalendar = () => {
           }
         }
 
-        // 3) Active academic year + matching term for the semester chip.
+        // 3) Active academic year + matching term — both for the header
+        //    chip AND for bounding the schedule to the configured
+        //    season. The narrower of (current term, year) wins so a
+        //    semester-based school doesn't get year-long recurrences.
         const { data: activeYear } = await supabase
           .from("academic_years")
-          .select("id, name")
+          .select("id, name, start_date, end_date")
           .eq("school_id", user.schoolId)
           .eq("is_active", true)
           .limit(1)
@@ -305,7 +346,7 @@ const BigCalendar = () => {
           const today = new Date().toISOString().slice(0, 10);
           const { data: currentTerm } = await supabase
             .from("terms")
-            .select("name")
+            .select("name, start_date, end_date")
             .eq("academic_year_id", activeYear.id)
             .lte("start_date", today)
             .gte("end_date", today)
@@ -316,6 +357,17 @@ const BigCalendar = () => {
               ? `${currentTerm.name} · ${activeYear.name}`
               : activeYear.name,
           );
+          // Pick the narrower bound that covers today, prefer term when
+          // both are configured.
+          if (currentTerm?.start_date && currentTerm?.end_date) {
+            setSeasonStart(new Date(currentTerm.start_date + "T00:00:00"));
+            setSeasonEnd(new Date(currentTerm.end_date + "T23:59:59"));
+            setSeasonLabel("term");
+          } else if (activeYear.start_date && activeYear.end_date) {
+            setSeasonStart(new Date(activeYear.start_date + "T00:00:00"));
+            setSeasonEnd(new Date(activeYear.end_date + "T23:59:59"));
+            setSeasonLabel("year");
+          }
         }
 
         // 4) Build the events, dropping weekend lessons + clamping times.
@@ -361,10 +413,17 @@ const BigCalendar = () => {
   })();
   const nowOffsetPx = ((nowMin - START_HOUR * 60) / SLOT_MINUTES) * ROW_PX;
 
-  // ICS download.
+  // ICS download — bounded to the active term, or the active academic
+  // year if no term is configured, so the recurrence stops at the real
+  // school-calendar end instead of running indefinitely.
   const downloadICS = useCallback(() => {
     if (events.length === 0) return;
-    const ics = buildICS(events, `${user?.firstName || "My"} ${user?.lastName || ""} — Schedule`);
+    const ics = buildICS(
+      events,
+      `${user?.firstName || "My"} ${user?.lastName || ""} — Schedule`,
+      seasonStart,
+      seasonEnd,
+    );
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -372,7 +431,7 @@ const BigCalendar = () => {
     a.download = `schedule-${new Date().toISOString().slice(0, 10)}.ics`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, [events, user?.firstName, user?.lastName]);
+  }, [events, user?.firstName, user?.lastName, seasonStart, seasonEnd]);
 
   // Auto-scroll so "now" is visible when the calendar mounts and it's
   // during the school day. Avoids the teacher having to hunt for it.
@@ -431,7 +490,11 @@ const BigCalendar = () => {
           onClick={downloadICS}
           disabled={events.length === 0}
           className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
-          title={t("cal.downloadCalendar")}
+          title={
+            seasonEnd
+              ? `${t("cal.downloadCalendar")} — bounded to ${seasonLabel === "term" ? "the current term" : "the school year"} (ends ${seasonEnd.toLocaleDateString()})`
+              : t("cal.downloadCalendar")
+          }
         >
           ⬇ {t("cal.downloadCalendar")}
         </button>
