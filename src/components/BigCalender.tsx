@@ -75,54 +75,113 @@ const fmtHour = (mins: number): string => {
   return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
 };
 
-// ─── ICS export (kept from the old component) ─────────────────────
+// ─── ICS export — RFC 5545 compliant ──────────────────────────────
+// Apple Calendar (the strictest mainstream importer) hangs forever if
+// the file has:
+//   • unescaped commas / semicolons / colons in SUMMARY or DESCRIPTION
+//   • an unbounded RRULE that lets it try to compute infinite instances
+//   • lines longer than 75 octets without continuation folding
+//   • no trailing CRLF after END:VCALENDAR
+// All four were live before this rewrite — fixing them here.
+
+/** Escape any TEXT value per RFC 5545 §3.3.11. */
+function icsEscape(input: string): string {
+  return (input ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+/** Fold a single content line so no physical line exceeds 75 octets,
+ *  per RFC 5545 §3.1. Continuation lines start with a single space. */
+function foldLine(line: string): string {
+  if (line.length <= 75) return line;
+  const out: string[] = [];
+  let i = 0;
+  out.push(line.slice(0, 75));
+  i = 75;
+  while (i < line.length) {
+    out.push(" " + line.slice(i, i + 74));
+    i += 74;
+  }
+  return out.join("\r\n");
+}
+
+/** Local-time format (no timezone designator, no Z). For weekly school
+ *  schedules this is the correct representation — "this class meets at
+ *  09:00 wherever you are" — and avoids the import hangs we saw when
+ *  Apple tried to reconcile UTC-stamped weekly events. */
+function fmtLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    d.getFullYear().toString() +
+    pad(d.getMonth() + 1) +
+    pad(d.getDate()) +
+    "T" +
+    pad(d.getHours()) +
+    pad(d.getMinutes()) +
+    pad(d.getSeconds())
+  );
+}
 
 function buildICS(events: ClassEvent[], calendarName: string): string {
-  const now = new Date();
-  // Anchor week to this Monday so RRULE WEEKLY repeats from a known date.
-  const monday = new Date(now);
-  const day = monday.getDay();                                   // 0 = Sun
-  const diff = (day === 0 ? -6 : 1 - day);                        // shift to Monday
-  monday.setDate(monday.getDate() + diff);
+  // Anchor every event to THIS Monday so the BYDAY-based weekly RRULE
+  // has a sane DTSTART. Mutating-style date math kept local to this
+  // function.
+  const monday = new Date();
+  const wd = monday.getDay();                                     // 0 = Sun
+  monday.setDate(monday.getDate() + (wd === 0 ? -6 : 1 - wd));
   monday.setHours(0, 0, 0, 0);
 
-  const fmt = (d: Date) => {
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const hh = String(d.getUTCHours()).padStart(2, "0");
-    const mi = String(d.getUTCMinutes()).padStart(2, "0");
-    const ss = String(d.getUTCSeconds()).padStart(2, "0");
-    return `${yyyy}${mm}${dd}T${hh}${mi}${ss}Z`;
-  };
+  // Bound the recurrence so importers don't try to materialise an
+  // infinite series. One school year out is more than enough.
+  const until = new Date(monday);
+  until.setFullYear(until.getFullYear() + 1);
+  const untilStr = fmtLocal(until) + "Z";   // UNTIL must be UTC per RFC 5545
 
   const lines: string[] = [
-    "BEGIN:VCALENDAR", "VERSION:2.0",
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
     "PRODID:-//Link Scholaire//Schedule//EN",
-    `X-WR-CALNAME:${calendarName}`,
-    "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    foldLine(`X-WR-CALNAME:${icsEscape(calendarName)}`),
   ];
+
+  const BYDAY = ["MO", "TU", "WE", "TH", "FR"];
+
   for (const ev of events) {
+    // Mon–Fri guard — anything else means upstream data is wrong; skip
+    // instead of writing an event Apple Calendar can't parse.
+    if (ev.dayIndex < 0 || ev.dayIndex > 4) continue;
+    if (ev.endMinutes <= ev.startMinutes) continue;
+
     const day = new Date(monday);
     day.setDate(monday.getDate() + ev.dayIndex);
     const start = new Date(day);
     start.setHours(0, ev.startMinutes, 0, 0);
     const end = new Date(day);
     end.setHours(0, ev.endMinutes, 0, 0);
-    lines.push(
-      "BEGIN:VEVENT",
-      `UID:${ev.id}@link-scholaire`,
-      `DTSTAMP:${fmt(new Date())}`,
-      `DTSTART:${fmt(start)}`,
-      `DTEND:${fmt(end)}`,
-      "RRULE:FREQ=WEEKLY;BYDAY=" + ["MO","TU","WE","TH","FR"][ev.dayIndex],
-      `SUMMARY:${ev.subjectName}${ev.classCode ? " (" + ev.classCode + ")" : ""}`,
-      ev.teacherName ? `DESCRIPTION:${ev.teacherName}` : "",
-      "END:VEVENT",
-    );
+
+    const summary = ev.subjectName + (ev.classCode ? ` (${ev.classCode})` : "");
+
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:${ev.id}@link-scholaire`);
+    lines.push(`DTSTAMP:${fmtLocal(new Date())}Z`);
+    lines.push(`DTSTART:${fmtLocal(start)}`);
+    lines.push(`DTEND:${fmtLocal(end)}`);
+    lines.push(`RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=${BYDAY[ev.dayIndex]};UNTIL=${untilStr}`);
+    lines.push(foldLine(`SUMMARY:${icsEscape(summary)}`));
+    if (ev.teacherName) {
+      lines.push(foldLine(`DESCRIPTION:${icsEscape(ev.teacherName)}`));
+    }
+    lines.push("END:VEVENT");
   }
+
   lines.push("END:VCALENDAR");
-  return lines.filter(Boolean).join("\r\n");
+  // Trailing CRLF after the last line is required by §3.1.
+  return lines.join("\r\n") + "\r\n";
 }
 
 // ─── Live "now" line ──────────────────────────────────────────────
