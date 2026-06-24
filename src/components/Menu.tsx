@@ -29,6 +29,7 @@ const NAV_KEY: Record<string, string> = {
   Assignments: "nav.assignments",
   Grades: "nav.grades",
   "Report Cards": "nav.reportCards",
+  "Academic Calendar": "nav.academicCalendar",
   "My Documents": "nav.myDocuments",
   Documents: "nav.myDocuments",
   Attendance: "nav.attendance",
@@ -135,6 +136,15 @@ const menuItems = [
         label: "Report Cards",
         href: "/list/report-cards",
         visible: ["school_admin", "teacher"],
+      },
+      // Academic calendar — years + grading terms (school_admin only).
+      // The Report Cards generator can't run until at least one term
+      // exists here and is locked.
+      {
+        icon: "/calendar.png",
+        label: "Academic Calendar",
+        href: "/list/terms",
+        visible: ["school_admin"],
       },
       // Student / parent view of documents the school has issued (report
       // cards, certificates, official letters, transcripts).

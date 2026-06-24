@@ -55,7 +55,7 @@ export const dict = {
         other: "Other",
       },
     },
-    nav: { myDocuments: "My Documents", reportCards: "Report Cards" },
+    nav: { myDocuments: "My Documents", reportCards: "Report Cards", academicCalendar: "Academic Calendar" },
   },
   fr: {
     settings: {
@@ -111,7 +111,7 @@ export const dict = {
         other: "Autre",
       },
     },
-    nav: { myDocuments: "Mes documents", reportCards: "Bulletins scolaires" },
+    nav: { myDocuments: "Mes documents", reportCards: "Bulletins scolaires", academicCalendar: "Calendrier scolaire" },
   },
   ar: {
     settings: {
@@ -167,6 +167,6 @@ export const dict = {
         other: "أخرى",
       },
     },
-    nav: { myDocuments: "مستنداتي", reportCards: "بطاقات التقارير" },
+    nav: { myDocuments: "مستنداتي", reportCards: "بطاقات التقارير", academicCalendar: "التقويم الأكاديمي" },
   },
 } as Record<string, unknown>;
