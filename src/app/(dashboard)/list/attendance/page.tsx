@@ -73,6 +73,14 @@ const AttendancePage = () => {
                 ✓ Take Attendance
               </Link>
             )}
+            {(user?.role === "school_admin" || user?.role === "platform_admin") && (
+              <Link
+                href="/list/attendance/admin"
+                className="text-xs font-medium bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
+              >
+                📊 School Dashboard
+              </Link>
+            )}
           </div>
         </div>
       </div>
