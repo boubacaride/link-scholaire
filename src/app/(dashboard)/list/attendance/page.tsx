@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
 import { useI18n } from "@/contexts/LanguageContext";
 import Image from "next/image";
+import Link from "next/link";
 
 type AttendanceRow = {
   id: string;
@@ -64,6 +65,14 @@ const AttendancePage = () => {
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
+            {(user?.role === "teacher" || user?.role === "school_admin" || user?.role === "platform_admin") && (
+              <Link
+                href="/list/attendance/take"
+                className="text-xs font-medium bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+              >
+                ✓ Take Attendance
+              </Link>
+            )}
           </div>
         </div>
       </div>
