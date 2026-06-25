@@ -16,6 +16,9 @@ interface UserContext {
   lastName: string;
   email: string;
   avatarUrl: string | null;
+  /** School-issued ID (e.g. "LA000123") for students / teachers /
+   *  school admins / employees. Null for parents + platform admins. */
+  memberId: string | null;
 }
 
 interface AuthContextType {
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: data.last_name,
         email: data.email,
         avatarUrl: data.avatar_url,
+        memberId: data.member_id ?? null,
       });
     } catch {
       setUser(null);

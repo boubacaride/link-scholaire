@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Employee {
   id: string;
+  member_id: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -37,7 +38,7 @@ const EmployeesPage = () => {
       if (!supabase || !user?.schoolId) { setLoading(false); return; }
       const { data } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, email, phone, employee_category, job_title, hire_date, termination_date, is_active")
+        .select("id, member_id, first_name, last_name, email, phone, employee_category, job_title, hire_date, termination_date, is_active")
         .eq("school_id", user.schoolId)
         .eq("role", "employee")
         .order("last_name");
@@ -91,6 +92,7 @@ const EmployeesPage = () => {
 
   const columns = [
     { header: t("emp.colName"), accessor: "name" },
+    { header: "Employee ID", accessor: "member_id", className: "hidden md:table-cell" },
     { header: t("emp.colCategory"), accessor: "category", className: "hidden md:table-cell" },
     { header: t("emp.colJobTitle"), accessor: "title" },
     { header: t("emp.colHireDate"), accessor: "hire_date", className: "hidden lg:table-cell" },
@@ -103,6 +105,9 @@ const EmployeesPage = () => {
       <td className="p-4">
         <p className="font-medium">{item.first_name} {item.last_name}</p>
         <p className="text-[11px] text-gray-400">{item.email}</p>
+      </td>
+      <td className="hidden md:table-cell font-mono text-xs tracking-wider text-gray-700">
+        {item.member_id || "—"}
       </td>
       <td className="hidden md:table-cell text-gray-600">{item.employee_category || "—"}</td>
       <td>{item.job_title || "—"}</td>

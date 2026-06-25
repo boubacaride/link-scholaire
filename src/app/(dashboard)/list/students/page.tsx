@@ -12,6 +12,7 @@ import Link from "next/link";
 
 type StudentRow = {
   id: string;
+  member_id: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -26,6 +27,7 @@ const StudentListPage = () => {
   const { t } = useI18n();
   const columns = [
   { header: t("col.info"), accessor: "info" },
+  { header: "Student ID", accessor: "student_id", className: "hidden md:table-cell" },
   { header: t("col.grade"), accessor: "grade", className: "hidden md:table-cell" },
   { header: t("col.phone"), accessor: "phone", className: "hidden lg:table-cell" },
   { header: t("col.address"), accessor: "address", className: "hidden lg:table-cell" },
@@ -37,7 +39,7 @@ const StudentListPage = () => {
   const { data, loading } = useSupabaseQuery<StudentRow>({
     table: "profiles",
     select: `
-      id, first_name, last_name, email, phone, avatar_url, address,
+      id, member_id, first_name, last_name, email, phone, avatar_url, address,
       enrollment:student_classes(class:classes(name, grade))
     `,
     filters: [{ column: "role", value: "student" }],
@@ -59,6 +61,9 @@ const StudentListPage = () => {
             <h3 className="font-semibold">{item.first_name} {item.last_name}</h3>
             <p className="text-xs text-gray-500">{className}</p>
           </div>
+        </td>
+        <td className="hidden md:table-cell font-mono text-xs tracking-wider text-gray-700">
+          {item.member_id || "—"}
         </td>
         <td className="hidden md:table-cell">{grade}</td>
         <td className="hidden lg:table-cell">{item.phone || "—"}</td>

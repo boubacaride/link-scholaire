@@ -142,6 +142,24 @@ const ProfilePage = () => {
                 <label className="text-xs text-gray-400 uppercase tracking-wide">{t("ui.role")}</label>
                 <p className="text-gray-800 font-medium capitalize">{user?.role?.replace("_", " ") || "—"}</p>
               </div>
+              {/* School-issued member ID — auto-generated for students,
+                  teachers, school admins and employees the moment their
+                  profile is created (migration 028). Hidden for parents
+                  and the platform admin since they don't get one. */}
+              {user?.memberId && (
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">
+                    {user.role === "student"
+                      ? "Student ID"
+                      : user.role === "teacher"
+                      ? "Teacher ID"
+                      : "Employee ID"}
+                  </label>
+                  <p className="text-gray-800 font-mono font-semibold tracking-wider">
+                    {user.memberId}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-400 uppercase tracking-wide">{t("ui.school")}</label>
                 <p className="text-gray-800 font-medium">{user?.schoolName || "—"}</p>
