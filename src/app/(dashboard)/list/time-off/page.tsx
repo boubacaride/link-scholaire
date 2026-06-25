@@ -125,10 +125,21 @@ const TimeOffSection = ({
   const [start, setStart] = useState(todayISO());
   const [end, setEnd] = useState(todayISO());
   const [reason, setReason] = useState("");
+  // type is required for staff (teachers / employees) per spec; for
+  // student requests it stays defaulted to 'personal' since the form
+  // doesn't surface the choice to a student/parent.
+  const [type, setType] = useState<"vacation" | "sick" | "personal">("personal");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  const reset = () => { setSubjectId(""); setStart(todayISO()); setEnd(todayISO()); setReason(""); setErr(""); };
+  const reset = () => {
+    setSubjectId(""); setStart(todayISO()); setEnd(todayISO());
+    setReason(""); setType("personal"); setErr("");
+  };
+
+  // Only staff submitters see the Type picker. Parents filing for a
+  // student keep the implicit 'personal' value.
+  const showTypePicker = !isParent && user?.role !== "student";
 
   const submit = async () => {
     if (!supabase || !user?.profileId || !user?.schoolId) return;
@@ -141,6 +152,7 @@ const TimeOffSection = ({
       requester_id: user.profileId,
       subject_id: subject,
       requester_kind: isParent ? "student" : (user.role === "student" ? "student" : "staff"),
+      type,
       start_date: start,
       end_date: end,
       reason: reason || null,
@@ -172,6 +184,21 @@ const TimeOffSection = ({
                   <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
                 ))}
               </select>
+            </label>
+          )}
+          {showTypePicker && (
+            <label className="flex flex-col gap-1 text-xs text-gray-500">
+              {t("timeoff.type")}
+              <select
+                className={field}
+                value={type}
+                onChange={(e) => setType(e.target.value as "vacation" | "sick" | "personal")}
+              >
+                <option value="personal">{t("timeoff.typePersonal")}</option>
+                <option value="sick">{t("timeoff.typeSick")}</option>
+                <option value="vacation">{t("timeoff.typeVacation")}</option>
+              </select>
+              <span className="text-[10px] text-gray-400">{t("timeoff.typeHint")}</span>
             </label>
           )}
           <div className="flex flex-wrap gap-3">
