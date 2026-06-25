@@ -12,7 +12,7 @@ import Link from "next/link";
 
 type TeacherRow = {
   id: string;
-  member_id: string | null;
+  institutional_id: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -41,7 +41,7 @@ const TeacherListPage = () => {
   const { data, loading } = useSupabaseQuery<TeacherRow>({
     table: "profiles",
     select: `
-      id, member_id, first_name, last_name, email, phone, avatar_url, address,
+      id, institutional_id, first_name, last_name, email, phone, avatar_url, address,
       subjects:class_subjects(subject:subjects(name)),
       classes:class_subjects(class:classes(name))
     `,
@@ -69,7 +69,7 @@ const TeacherListPage = () => {
           </div>
         </td>
         <td className="hidden md:table-cell font-mono text-xs tracking-wider text-gray-700">
-          {item.member_id || "—"}
+          {item.institutional_id || "—"}
         </td>
         <td className="hidden md:table-cell">{subjectNames.join(", ") || "—"}</td>
         <td className="hidden md:table-cell">{classNames.join(", ") || "—"}</td>

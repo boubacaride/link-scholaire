@@ -12,7 +12,7 @@ import Link from "next/link";
 
 type StudentRow = {
   id: string;
-  member_id: string | null;
+  institutional_id: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -39,7 +39,7 @@ const StudentListPage = () => {
   const { data, loading } = useSupabaseQuery<StudentRow>({
     table: "profiles",
     select: `
-      id, member_id, first_name, last_name, email, phone, avatar_url, address,
+      id, institutional_id, first_name, last_name, email, phone, avatar_url, address,
       enrollment:student_classes(class:classes(name, grade))
     `,
     filters: [{ column: "role", value: "student" }],
@@ -63,7 +63,7 @@ const StudentListPage = () => {
           </div>
         </td>
         <td className="hidden md:table-cell font-mono text-xs tracking-wider text-gray-700">
-          {item.member_id || "—"}
+          {item.institutional_id || "—"}
         </td>
         <td className="hidden md:table-cell">{grade}</td>
         <td className="hidden lg:table-cell">{item.phone || "—"}</td>

@@ -66,7 +66,7 @@ export interface GenerationResult {
 // ─── Data fetching ────────────────────────────────────────────────
 
 interface RawClassData {
-  students: { id: string; member_id: string | null; first_name: string; last_name: string;
+  students: { id: string; institutional_id: string | null; first_name: string; last_name: string;
               date_of_birth: string | null; avatar_url: string | null }[];
   classSubjects: { id: string; subject_id: string; teacher_id: string;
                    coefficient: number; subject: { id: string; name: string } }[];
@@ -87,7 +87,7 @@ async function fetchClassData(
   // The class roster.
   const { data: rosterRows, error: rosterErr } = await supabase
     .from("student_classes")
-    .select("student_id, profiles:student_id(id, member_id, first_name, last_name, date_of_birth, avatar_url)")
+    .select("student_id, profiles:student_id(id, institutional_id, first_name, last_name, date_of_birth, avatar_url)")
     .eq("class_id", classId);
   if (rosterErr) throw rosterErr;
   type RosterRow = { student_id: string; profiles: RawClassData["students"][number] | null };
@@ -354,7 +354,7 @@ export async function generateOne(
     branding: opts.branding,
     student: {
       fullName: studentName,
-      studentNumber: student.member_id ?? undefined,
+      studentNumber: student.institutional_id ?? undefined,
       className: data.className,
       dateOfBirth: student.date_of_birth ?? undefined,
       photoDataUrl: undefined,
@@ -408,7 +408,7 @@ export async function generateAll(
       branding: opts.branding,
       student: {
         fullName: studentName,
-        studentNumber: student.member_id ?? undefined,
+        studentNumber: student.institutional_id ?? undefined,
         className: data.className,
         dateOfBirth: student.date_of_birth ?? undefined,
       },
@@ -463,7 +463,7 @@ export async function buildPreviewProps(
     branding: opts.branding,
     student: {
       fullName: `${student.first_name} ${student.last_name}`.trim(),
-      studentNumber: student.member_id ?? undefined,
+      studentNumber: student.institutional_id ?? undefined,
       className: data.className,
       dateOfBirth: student.date_of_birth ?? undefined,
     },
