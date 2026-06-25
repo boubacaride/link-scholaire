@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import InputField from "../InputField";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { validateDateOfBirth } from "@/lib/validators/dateOfBirth";
 
 const schema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters long!" }).max(20),
@@ -17,7 +18,14 @@ const schema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   bloodType: z.string().optional(),
-  birthday: z.string().optional(),
+  // Required on new student registrations (per spec). Validation runs
+  // against validateDateOfBirth so the same rule applies to staff forms.
+  birthday: z.string().min(1, { message: "Date of birth is required." })
+    .refine((v) => validateDateOfBirth(v).ok, {
+      message: "Enter a valid date of birth (not in the future, not over 120 years ago).",
+    }),
+  // Required on new student registrations (per spec). Free text.
+  placeOfBirth: z.string().min(1, { message: "Place of birth is required." }),
   sex: z.string().optional(),
 });
 
@@ -83,6 +91,9 @@ const StudentForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
           p_last_name: formData.lastName,
           p_phone: formData.phone || null,
           p_address: formData.address || null,
+          p_date_of_birth: formData.birthday,
+          p_place_of_birth: formData.placeOfBirth,
+          p_gender: formData.sex || null,
         });
         if (error) throw error;
         if (result?.error) throw new Error(result.error);
@@ -96,6 +107,9 @@ const StudentForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
             email: formData.email,
             phone: formData.phone,
             address: formData.address,
+            date_of_birth: formData.birthday,
+            place_of_birth: formData.placeOfBirth,
+            gender: formData.sex || null,
           })
           .eq("id", studentId);
         if (error) throw error;
@@ -141,10 +155,11 @@ const StudentForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         <InputField label={t("form.fields.phone")} name="phone" defaultValue={data?.phone} register={register} error={errors.phone} />
         <InputField label={t("form.fields.address")} name="address" defaultValue={data?.address} register={register} error={errors.address} />
         <InputField label={t("form.fields.bloodType")} name="bloodType" defaultValue={data?.bloodType} register={register} error={errors.bloodType} />
-        <InputField label={t("form.fields.birthday")} name="birthday" defaultValue={data?.birthday} register={register} error={errors.birthday} type="date" />
+        <InputField label={t("form.fields.birthday")} name="birthday" defaultValue={data?.birthday || data?.date_of_birth} register={register} error={errors.birthday} type="date" />
+        <InputField label={t("form.fields.placeOfBirth")} name="placeOfBirth" defaultValue={data?.placeOfBirth || data?.place_of_birth} register={register} error={errors.placeOfBirth} />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
-          <select className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" {...register("sex")} defaultValue={data?.sex}>
+          <select className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" {...register("sex")} defaultValue={data?.sex || data?.gender}>
             <option value="">Select</option>
             <option value="male">Male</option>
             <option value="female">Female</option>

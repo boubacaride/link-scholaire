@@ -170,7 +170,7 @@ const en = {
     fields: {
       username: "Username", email: "Email", password: "Password", firstName: "First Name",
       lastName: "Last Name", phone: "Phone", address: "Address", bloodType: "Blood Type",
-      birthday: "Birthday", subjectName: "Subject Name", subjectCode: "Subject Code",
+      birthday: "Birthday", placeOfBirth: "Place of Birth", subjectName: "Subject Name", subjectCode: "Subject Code",
       className: "Class Name", capacity: "Capacity", gradeLevel: "Grade Level", title: "Title",
       date: "Date", dueDate: "Due Date", score: "Score", maxScore: "Max Score", term: "Term",
       description: "Description", startDate: "Start Date", endDate: "End Date",
@@ -433,7 +433,7 @@ const fr: Dict = {
     fields: {
       username: "Nom d'utilisateur", email: "E-mail", password: "Mot de passe", firstName: "Prénom",
       lastName: "Nom", phone: "Téléphone", address: "Adresse", bloodType: "Groupe sanguin",
-      birthday: "Date de naissance", subjectName: "Nom de la matière", subjectCode: "Code de la matière",
+      birthday: "Date de naissance", placeOfBirth: "Lieu de naissance", subjectName: "Nom de la matière", subjectCode: "Code de la matière",
       className: "Nom de la classe", capacity: "Capacité", gradeLevel: "Niveau", title: "Titre",
       date: "Date", dueDate: "Échéance", score: "Note", maxScore: "Note maximale", term: "Trimestre",
       description: "Description", startDate: "Date de début", endDate: "Date de fin",
@@ -694,7 +694,7 @@ const ar: Dict = {
     fields: {
       username: "اسم المستخدم", email: "البريد الإلكتروني", password: "كلمة المرور", firstName: "الاسم الأول",
       lastName: "اسم العائلة", phone: "الهاتف", address: "العنوان", bloodType: "فصيلة الدم",
-      birthday: "تاريخ الميلاد", subjectName: "اسم المادة", subjectCode: "رمز المادة",
+      birthday: "تاريخ الميلاد", placeOfBirth: "مكان الميلاد", subjectName: "اسم المادة", subjectCode: "رمز المادة",
       className: "اسم الفصل", capacity: "السعة", gradeLevel: "الصف", title: "العنوان",
       date: "التاريخ", dueDate: "تاريخ الاستحقاق", score: "الدرجة", maxScore: "الدرجة القصوى", term: "الفصل الدراسي",
       description: "الوصف", startDate: "تاريخ البداية", endDate: "تاريخ النهاية",
