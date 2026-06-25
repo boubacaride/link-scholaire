@@ -14,6 +14,7 @@ type AnnouncementRow = {
   title: string;
   description: string;
   created_at: string;
+  author_id: string;
   class: { name: string } | null;
   author: { first_name: string; last_name: string } | null;
 };
@@ -33,30 +34,35 @@ const AnnouncementListPage = () => {
 
   const { data, loading } = useSupabaseQuery<AnnouncementRow>({
     table: "announcements",
-    select: "id, title, description, created_at, class:classes(name), author:profiles!author_id(first_name, last_name)",
+    select: "id, title, description, created_at, author_id, class:classes(name), author:profiles!author_id(first_name, last_name)",
     orderBy: { column: "created_at", ascending: false },
   });
 
-  const renderRow = (item: AnnouncementRow) => (
-    <tr key={item.id} className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight">
-      <td className="flex items-center gap-4 p-4">{item.title}</td>
-      <td>{item.class?.name || "School-wide"}</td>
-      <td className="hidden md:table-cell">
-        {item.author ? `${item.author.first_name} ${item.author.last_name}` : "—"}
-      </td>
-      <td className="hidden md:table-cell">{new Date(item.created_at).toLocaleDateString()}</td>
-      <td>
-        <div className="flex items-center gap-2">
-          {(role === "school_admin" || role === "platform_admin") && (
-            <>
-              <FormModal table="announcement" type="update" data={item} />
-              <FormModal table="announcement" type="delete" id={item.id} />
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+  const renderRow = (item: AnnouncementRow) => {
+    const isAdmin = role === "school_admin" || role === "platform_admin";
+    const isAuthor = item.author_id === user?.profileId;
+    const canEdit = isAdmin || isAuthor;
+    return (
+      <tr key={item.id} className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight">
+        <td className="flex items-center gap-4 p-4">{item.title}</td>
+        <td>{item.class?.name || "School-wide"}</td>
+        <td className="hidden md:table-cell">
+          {item.author ? `${item.author.first_name} ${item.author.last_name}` : "—"}
+        </td>
+        <td className="hidden md:table-cell">{new Date(item.created_at).toLocaleDateString()}</td>
+        <td>
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <>
+                <FormModal table="announcement" type="update" data={item} />
+                <FormModal table="announcement" type="delete" id={item.id} />
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   if (loading) {
     return <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">Loading announcements...</div>;
@@ -75,7 +81,7 @@ const AnnouncementListPage = () => {
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
-            {(role === "school_admin" || role === "platform_admin") && (
+            {(role === "school_admin" || role === "platform_admin" || role === "teacher") && (
               <FormModal table="announcement" type="create" />
             )}
           </div>
