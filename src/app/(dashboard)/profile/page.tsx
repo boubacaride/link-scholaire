@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import AvatarUploader from "@/components/AvatarUploader";
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -93,10 +94,18 @@ const ProfilePage = () => {
           </p>
         )}
 
+        {/* Avatar — every role can upload one. AuthContext is reloaded
+            after a successful save so the new image shows in the navbar
+            and everywhere else that reads user.avatarUrl. */}
+        <div className="mb-6">
+          <AvatarUploader
+            currentUrl={user?.avatarUrl ?? null}
+            initials={user ? `${user.firstName[0]}${user.lastName[0]}` : "?"}
+            onUploaded={() => { setTimeout(() => window.location.reload(), 600); }}
+          />
+        </div>
+
         <div className="flex items-start gap-6">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-            {user ? `${user.firstName[0]}${user.lastName[0]}` : "?"}
-          </div>
           <div className="flex-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -133,6 +142,23 @@ const ProfilePage = () => {
                 <label className="text-xs text-gray-400 uppercase tracking-wide">{t("ui.role")}</label>
                 <p className="text-gray-800 font-medium capitalize">{user?.role?.replace("_", " ") || "—"}</p>
               </div>
+              {/* School-issued institutional ID — auto-generated for
+                  students, teachers, school admins and employees the
+                  moment their profile is created (migration 029).
+                  Hidden for parents and the platform admin. */}
+              {user?.institutionalId && (
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">
+                    {user.role === "student"      ? "Student ID"
+                     : user.role === "teacher"    ? "Teacher ID"
+                     : user.role === "school_admin" ? "Administrator ID"
+                     : "Employee ID"}
+                  </label>
+                  <p className="text-gray-800 font-mono font-semibold tracking-wider">
+                    {user.institutionalId}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-400 uppercase tracking-wide">{t("ui.school")}</label>
                 <p className="text-gray-800 font-medium">{user?.schoolName || "—"}</p>

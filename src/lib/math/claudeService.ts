@@ -10,12 +10,13 @@ export interface ClaudeResponse {
 export async function askClaude(
   question: string,
   subject?: string,
+  locale?: string,
 ): Promise<ClaudeResponse> {
   try {
     const response = await fetch("/api/math/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, subject }),
+      body: JSON.stringify({ question, subject, locale }),
     });
 
     if (!response.ok) {
@@ -44,6 +45,7 @@ export async function askClaude(
 export async function askClaudeStreaming(
   question: string,
   subject: string | undefined,
+  locale: string | undefined,
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (error: string) => void,
@@ -52,7 +54,7 @@ export async function askClaudeStreaming(
     const response = await fetch("/api/math/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, subject }),
+      body: JSON.stringify({ question, subject, locale }),
     });
 
     if (!response.ok) {

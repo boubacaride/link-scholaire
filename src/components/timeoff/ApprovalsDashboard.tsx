@@ -99,16 +99,33 @@ const ApprovalsDashboard = ({ kind }: { kind: RequesterKind }) => {
       .eq("id", id);
     if (error) { flash(t("timeoff.errorPrefix", { message: error.message })); return; }
     if (status === "approved") {
-      // Fire the approval email; the approval stands regardless of delivery.
+      // Two independent post-approval side effects. Either failing
+      // does NOT undo the approval — both routes log + report softly.
+      //   1. Email the subject (existing /api/timeoff/notify route).
+      //   2. Fan out class-session notifications to affected students +
+      //      linked parents (new /api/timeoff/notify-students route).
+      //      Privacy: the absence type is NOT included in those messages.
       try {
-        const res = await fetch("/api/timeoff/notify", {
+        const emailRes = await fetch("/api/timeoff/notify", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ requestId: id }),
         });
-        const json = await res.json().catch(() => ({}));
-        flash(json?.sent ? t("timeoff.emailSent") : t("timeoff.emailQueued"));
+        const emailJson = await emailRes.json().catch(() => ({}));
+        flash(emailJson?.sent ? t("timeoff.emailSent") : t("timeoff.emailQueued"));
       } catch {
         flash(t("timeoff.emailQueued"));
+      }
+      try {
+        const studRes = await fetch("/api/timeoff/notify-students", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: id, locale }),
+        });
+        const studJson = await studRes.json().catch(() => ({}));
+        if (typeof studJson?.sent === "number" && studJson.sent > 0) {
+          flash(t("timeoff.classNotified", { n: studJson.sent }));
+        }
+      } catch (e) {
+        console.warn("[approval] notify-students failed:", e);
       }
     } else {
       flash(t("timeoff.rejectedToast"));

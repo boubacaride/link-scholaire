@@ -68,6 +68,14 @@ const en = {
     viewAll: "View all",
     close: "Close",
   },
+  cal: {
+    downloadCalendar: "Download (.ics)",
+    eventsCount: "{n} class sessions this week",
+    workWeek: "Week",
+    day: "Day",
+    empty: "No classes scheduled yet.",
+    emptyHint: "Once the school sets your timetable it'll appear here.",
+  },
   platform: {
     consoleTitle: "Platform Console",
     consoleSubtitle: "Welcome, {name} · Manage your school tenants and their subscriptions",
@@ -162,7 +170,7 @@ const en = {
     fields: {
       username: "Username", email: "Email", password: "Password", firstName: "First Name",
       lastName: "Last Name", phone: "Phone", address: "Address", bloodType: "Blood Type",
-      birthday: "Birthday", subjectName: "Subject Name", subjectCode: "Subject Code",
+      birthday: "Birthday", placeOfBirth: "Place of Birth", subjectName: "Subject Name", subjectCode: "Subject Code",
       className: "Class Name", capacity: "Capacity", gradeLevel: "Grade Level", title: "Title",
       date: "Date", dueDate: "Due Date", score: "Score", maxScore: "Max Score", term: "Term",
       description: "Description", startDate: "Start Date", endDate: "End Date",
@@ -323,6 +331,14 @@ const fr: Dict = {
     viewAll: "Tout voir",
     close: "Fermer",
   },
+  cal: {
+    downloadCalendar: "Télécharger (.ics)",
+    eventsCount: "{n} séances de cours cette semaine",
+    workWeek: "Semaine",
+    day: "Jour",
+    empty: "Aucun cours programmé pour le moment.",
+    emptyHint: "Votre emploi du temps apparaîtra ici dès qu'il sera créé.",
+  },
   platform: {
     consoleTitle: "Console de la plateforme",
     consoleSubtitle: "Bienvenue, {name} · Gérez vos écoles clientes et leurs abonnements",
@@ -417,7 +433,7 @@ const fr: Dict = {
     fields: {
       username: "Nom d'utilisateur", email: "E-mail", password: "Mot de passe", firstName: "Prénom",
       lastName: "Nom", phone: "Téléphone", address: "Adresse", bloodType: "Groupe sanguin",
-      birthday: "Date de naissance", subjectName: "Nom de la matière", subjectCode: "Code de la matière",
+      birthday: "Date de naissance", placeOfBirth: "Lieu de naissance", subjectName: "Nom de la matière", subjectCode: "Code de la matière",
       className: "Nom de la classe", capacity: "Capacité", gradeLevel: "Niveau", title: "Titre",
       date: "Date", dueDate: "Échéance", score: "Note", maxScore: "Note maximale", term: "Trimestre",
       description: "Description", startDate: "Date de début", endDate: "Date de fin",
@@ -576,6 +592,14 @@ const ar: Dict = {
     viewAll: "عرض الكل",
     close: "إغلاق",
   },
+  cal: {
+    downloadCalendar: "تنزيل (.ics)",
+    eventsCount: "{n} جلسات هذا الأسبوع",
+    workWeek: "الأسبوع",
+    day: "اليوم",
+    empty: "لا توجد دروس مجدولة بعد.",
+    emptyHint: "سيظهر جدولك هنا بمجرد إعداده.",
+  },
   platform: {
     consoleTitle: "لوحة المنصة",
     consoleSubtitle: "مرحبًا، {name} · أدِر المدارس المشتركة واشتراكاتها",
@@ -670,7 +694,7 @@ const ar: Dict = {
     fields: {
       username: "اسم المستخدم", email: "البريد الإلكتروني", password: "كلمة المرور", firstName: "الاسم الأول",
       lastName: "اسم العائلة", phone: "الهاتف", address: "العنوان", bloodType: "فصيلة الدم",
-      birthday: "تاريخ الميلاد", subjectName: "اسم المادة", subjectCode: "رمز المادة",
+      birthday: "تاريخ الميلاد", placeOfBirth: "مكان الميلاد", subjectName: "اسم المادة", subjectCode: "رمز المادة",
       className: "اسم الفصل", capacity: "السعة", gradeLevel: "الصف", title: "العنوان",
       date: "التاريخ", dueDate: "تاريخ الاستحقاق", score: "الدرجة", maxScore: "الدرجة القصوى", term: "الفصل الدراسي",
       description: "الوصف", startDate: "تاريخ البداية", endDate: "تاريخ النهاية",

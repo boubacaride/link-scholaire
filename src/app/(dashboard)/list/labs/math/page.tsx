@@ -13,6 +13,7 @@ import PlaybackControls from "@/components/labs/PlaybackControls";
 import MathInput, { type MathSubject, type ShapeSubmitData, type ShapeTemplate, type MathInputHandle } from "@/components/labs/MathInput";
 import KaTeXRenderer from "@/components/labs/KaTeXRenderer";
 import PlotlyGraph from "@/components/labs/PlotlyGraph";
+import AnswerActions from "@/components/labs/AnswerActions";
 import PhotoInput from "@/components/labs/PhotoInput";
 import StepByStepAnimator from "@/features/math-animation/components/StepByStepAnimator";
 
@@ -401,7 +402,7 @@ function SubjectIcon({ type, size = 22 }: { type?: string; size?: number }) {
 
 // ─── Main Component ──────────────────────────────────────────
 const LabsPage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [subject, setSubject] = useState<SubjectOrGraphing>("basicmath");
   const [navOpen, setNavOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -430,6 +431,11 @@ const LabsPage = () => {
   const [solvingStream, setSolvingStream] = useState("");
   const [lastSolvedEquation, setLastSolvedEquation] = useState("");
   const [lastSolvedAnswer, setLastSolvedAnswer] = useState("");
+
+  // Per-message DOM ref so the Print / Download buttons can capture exactly
+  // the answer block for that bubble (and nothing else — no buttons, no
+  // sibling bubbles).
+  const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -558,6 +564,7 @@ const LabsPage = () => {
       askClaudeStreaming(
         contextPrefix + eq,
         (subject as string) === "graphing" ? undefined : (subject as string),
+        locale,
         (chunk) => {
           setSolvingStream((prev) => prev + chunk);
           setMessages((p) => p.map((m) => m.id === botId ? { ...m, content: m.content + chunk, isLoading: false } : m));
@@ -642,6 +649,7 @@ const LabsPage = () => {
       askClaudeStreaming(
         `Solve this math problem step by step with complete mathematical rigor. Show every step clearly. Use LaTeX notation (wrap math in $ or $$). Double-check your answer before presenting it. If the equation has no closed-form solution, state that and provide a numerical approximation. Problem: ${eq}`,
         (subject as string) === "graphing" ? undefined : (subject as string),
+        locale,
         (chunk) => {
           setSolvingStream((prev) => prev + chunk);
           setMessages((p) => p.map((m) => m.id === botId ? { ...m, content: m.content + chunk, isLoading: false } : m));
@@ -747,6 +755,16 @@ const LabsPage = () => {
                       </div>
                     )}
 
+                    {/* Capture wrapper: everything inside gets printed / downloaded
+                        when the Print or Download button is clicked. */}
+                    <div
+                      ref={(el) => {
+                        if (el) answerRefs.current.set(msg.id, el);
+                        else answerRefs.current.delete(msg.id);
+                      }}
+                      className="space-y-2"
+                    >
+
                     {/* Claude/GPT streaming / text content */}
                     {msg.content && !msg.isLoading && (
                       <div className="bg-white/[0.07] backdrop-blur-sm text-slate-200 text-[14px] leading-relaxed rounded-2xl rounded-tl-md px-5 py-4 border border-white/[0.06] select-text">
@@ -786,6 +804,7 @@ const LabsPage = () => {
                               askClaudeStreaming(
                                 `Explain step by step how to solve: ${msg.solution!.originalEquation}`,
                                 (subject as string) === "graphing" ? undefined : (subject as string),
+                                locale,
                                 (chunk) => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: m.content + chunk, isLoading: false } : m)); },
                                 () => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: cleanGPTOutput(m.content), isLoading: false } : m)); },
                                 (err) => { setMessages((p) => p.map((m) => m.id === id ? { ...m, content: `Error: ${err}`, isLoading: false } : m)); },
@@ -901,6 +920,20 @@ const LabsPage = () => {
                       <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl overflow-hidden" style={{ height: 250 }}>
                         <PlotlyGraph expressions={msg.graphExpressions} darkMode className="h-full" />
                       </div>
+                    )}
+                    </div>
+
+                    {/* Print / Download actions — shown only when the bubble
+                        carries an actual answer (not the welcome, not loading). */}
+                    {!msg.isLoading && msg.id !== "welcome" && (
+                      msg.content || msg.solution || msg.mathResult || msg.shapeSolution || (msg.graphExpressions?.length ?? 0) > 0
+                    ) && (
+                      <AnswerActions
+                        getElement={() => answerRefs.current.get(msg.id) ?? null}
+                        title={lastSolvedEquation || msg.solution?.originalEquation || msg.mathResult?.originalQuery || t("labs.mathTitle")}
+                        subject={t("labs.mathTitle")}
+                        tone="dark"
+                      />
                     )}
                   </div>
                 </div>

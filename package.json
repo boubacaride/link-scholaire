@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
     "@hookform/resolvers": "^3.9.0",
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",
+    "@react-pdf/renderer": "^3.4.5",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.102.1",
     "@types/katex": "^0.16.8",
@@ -45,10 +48,12 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitest/ui": "^1.6.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^1.6.1"
   }
 }

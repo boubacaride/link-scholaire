@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { EMPLOYEE_CATEGORIES, rolesForCategory } from "@/lib/employeeRoles";
+import { validateDateOfBirth } from "@/lib/validators/dateOfBirth";
 
 const schema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -19,6 +20,11 @@ const schema = z.object({
   category: z.string().min(1, "Category is required"),
   job_title: z.string().min(1, "Job title is required"),
   hire_date: z.string().optional(),
+  // Required on staff registrations per spec.
+  date_of_birth: z.string().min(1, "Date of birth is required.")
+    .refine((v) => validateDateOfBirth(v).ok, {
+      message: "Enter a valid date of birth (not in the future, not over 120 years ago).",
+    }),
 });
 
 type Inputs = z.infer<typeof schema>;
@@ -50,6 +56,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
       category: data?.employee_category || "",
       job_title: data?.job_title || "",
       hire_date: data?.hire_date ? String(data.hire_date).slice(0, 10) : "",
+      date_of_birth: data?.date_of_birth ? String(data.date_of_birth).slice(0, 10) : "",
     },
   });
 
@@ -72,6 +79,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
           p_last_name: formData.last_name,
           p_phone: formData.phone || null,
           p_address: null,
+          p_date_of_birth: formData.date_of_birth,
         });
         if (error) throw error;
         if (!result || result.error) throw new Error(result?.error || "Failed to create employee");
@@ -84,6 +92,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
         employee_category: formData.category,
         job_title: formData.job_title,
         hire_date: formData.hire_date || null,
+        date_of_birth: formData.date_of_birth || null,
       };
       if (type === "update") {
         updatePayload.first_name = formData.first_name;
@@ -164,6 +173,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
         </label>
 
         <InputField label={t("emp.hireDate")} name="hire_date" type="date" register={register} error={errors.hire_date} />
+        <InputField label={t("form.fields.birthday")} name="date_of_birth" type="date" register={register} error={errors.date_of_birth} />
       </div>
 
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}

@@ -12,6 +12,7 @@ import Link from "next/link";
 
 type TeacherRow = {
   id: string;
+  institutional_id: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -27,6 +28,7 @@ const TeacherListPage = () => {
   const { t } = useI18n();
   const columns = [
   { header: t("col.info"), accessor: "info" },
+  { header: "Teacher ID", accessor: "teacher_id", className: "hidden md:table-cell" },
   { header: t("col.subjects"), accessor: "subjects", className: "hidden md:table-cell" },
   { header: t("col.classes"), accessor: "classes", className: "hidden md:table-cell" },
   { header: t("col.phone"), accessor: "phone", className: "hidden lg:table-cell" },
@@ -39,7 +41,7 @@ const TeacherListPage = () => {
   const { data, loading } = useSupabaseQuery<TeacherRow>({
     table: "profiles",
     select: `
-      id, first_name, last_name, email, phone, avatar_url, address,
+      id, institutional_id, first_name, last_name, email, phone, avatar_url, address,
       subjects:class_subjects(subject:subjects(name)),
       classes:class_subjects(class:classes(name))
     `,
@@ -65,6 +67,9 @@ const TeacherListPage = () => {
             <h3 className="font-semibold">{item.first_name} {item.last_name}</h3>
             <p className="text-xs text-gray-500">{item.email}</p>
           </div>
+        </td>
+        <td className="hidden md:table-cell font-mono text-xs tracking-wider text-gray-700">
+          {item.institutional_id || "—"}
         </td>
         <td className="hidden md:table-cell">{subjectNames.join(", ") || "—"}</td>
         <td className="hidden md:table-cell">{classNames.join(", ") || "—"}</td>

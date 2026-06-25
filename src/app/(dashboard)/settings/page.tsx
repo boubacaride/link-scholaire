@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { useState } from "react";
+import ChangePasswordPanel from "@/components/ChangePasswordPanel";
 
 const SettingsPage = () => {
   const { user, signOut } = useAuth();
@@ -40,6 +41,12 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Security */}
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">{t("settings.security")}</h2>
+          <ChangePasswordPanel />
         </div>
 
         {/* Preferences */}

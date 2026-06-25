@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { roleHome } from "@/lib/roleHome";
 import { useI18n } from "@/contexts/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import Image from "next/image";
+import LinkScholaireLogo from "@/components/LinkScholaireLogo";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -47,50 +47,71 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex relative">
-      {/* Language switcher — available right on the welcome/login screen */}
+      {/* Brand mark — top-left corner. The dark navy pill matches the new
+          page navy so it blends invisibly on the left branding panel, and
+          gives the white wordmark a legible backdrop when it sits over the
+          light sign-in panel on mobile. */}
+      <div className="absolute top-4 start-4 z-20">
+        <div
+          className="rounded-2xl px-4 py-2.5 shadow-lg"
+          style={{ background: "rgb(18, 21, 62)" }}
+        >
+          <LinkScholaireLogo size={48} />
+        </div>
+      </div>
+      {/* Language switcher — top-right corner. */}
       <div className="absolute top-4 end-4 z-20">
         <LanguageSwitcher />
       </div>
-      {/* Left — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 items-center justify-center p-12">
+      {/* Left — Branding (solid navy block, matches the wordmark artwork). */}
+      <div
+        className="hidden lg:flex lg:w-1/2 items-center justify-center px-12 py-16"
+        style={{ background: "rgb(18, 21, 62)" }}
+      >
         <div className="max-w-md text-white">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <Image src="/logo.png" alt="SchoolFlow" width={32} height={32} />
-            </div>
-            <h1 className="text-3xl font-bold">SchoolFlow</h1>
-          </div>
-          <h2 className="text-4xl font-bold mb-4 leading-tight">
-            {t("signIn.brandTagline")}
-          </h2>
-          <p className="text-blue-100 text-lg leading-relaxed">
+          {/* Thin brand-color accent bar — picks up the chain icon palette
+              (magenta → amber → cyan) and grounds the type below. */}
+          <div
+            className="h-1 w-16 rounded-full mb-6"
+            style={{ background: "linear-gradient(90deg, #E63D8D 0%, #F5C544 50%, #5BC0EB 100%)" }}
+          />
+          {(() => {
+            const tagline = t("signIn.brandTagline");
+            const highlight = t("signIn.brandHighlight");
+            const idx = tagline.toLowerCase().lastIndexOf(highlight.toLowerCase());
+            const lead = idx >= 0 ? tagline.slice(0, idx).trim() : tagline;
+            const tail = idx >= 0 ? tagline.slice(idx).trim() : "";
+            return (
+              <h2 className="text-5xl font-bold leading-[1.1] tracking-tight mb-6">
+                <span className="block">{lead}</span>
+                {tail && (
+                  <span
+                    className="block mt-2"
+                    style={{
+                      backgroundImage: "linear-gradient(90deg, #E63D8D 0%, #F5C544 55%, #5BC0EB 100%)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                    }}
+                  >
+                    {tail}
+                  </span>
+                )}
+              </h2>
+            );
+          })()}
+          <p
+            className="text-lg leading-relaxed max-w-sm"
+            style={{ color: "rgba(255, 255, 255, 0.72)" }}
+          >
             {t("signIn.brandBody")}
           </p>
-          <div className="mt-10 grid grid-cols-3 gap-4">
-            <div className="bg-white/10 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold">5+</div>
-              <div className="text-xs text-blue-200">{t("signIn.statRoles")}</div>
-            </div>
-            <div className="bg-white/10 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold">LMS</div>
-              <div className="text-xs text-blue-200">{t("signIn.statBuiltIn")}</div>
-            </div>
-            <div className="bg-white/10 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold">24/7</div>
-              <div className="text-xs text-blue-200">{t("signIn.statAccess")}</div>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Right — Sign In Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
-            <Image src="/logo.png" alt="SchoolFlow" width={32} height={32} />
-            <h1 className="text-2xl font-bold text-gray-900">SchoolFlow</h1>
-          </div>
-
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("signIn.welcomeBack")}</h2>
           <p className="text-gray-500 mb-8">{t("signIn.subtitle")}</p>
 
@@ -157,7 +178,7 @@ export default function SignInPage() {
           </div>
 
           <p className="text-xs text-gray-400 text-center mt-8">
-            &copy; {new Date().getFullYear()} SchoolFlow. {t("signIn.rights")}
+            &copy; {new Date().getFullYear()} Link Scholaire. {t("signIn.rights")}
           </p>
         </div>
       </div>
