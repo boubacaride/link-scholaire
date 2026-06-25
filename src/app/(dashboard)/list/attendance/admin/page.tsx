@@ -119,6 +119,7 @@ const AdminAttendancePage = () => {
   const [anchor, setAnchor] = useState(todayISO());
   const [range, setRange]   = useState<RangeKind>("day");
   const [yearStart, setYearStart] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string>("");
 
   const [grades, setGrades]   = useState<GradeRow[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -132,18 +133,28 @@ const AdminAttendancePage = () => {
   const [absentStaffNote, setAbsentStaffNote] = useState<string>("");
   const [marking, setMarking] = useState(false);
 
-  // Load active academic year start once so "Year-to-date" uses real data.
+  // Load active academic year start (for the "Year-to-date" range) and
+  // the school name (for the header) in parallel — both are static for
+  // the lifetime of the page.
   useEffect(() => {
     if (!supabase || !user?.schoolId) return;
     (async () => {
-      const { data } = await supabase
-        .from("academic_years")
-        .select("start_date")
-        .eq("school_id", user.schoolId)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-      setYearStart(data?.start_date ?? null);
+      const [yearRes, schoolRes] = await Promise.all([
+        supabase
+          .from("academic_years")
+          .select("start_date")
+          .eq("school_id", user.schoolId)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("schools")
+          .select("name")
+          .eq("id", user.schoolId)
+          .maybeSingle(),
+      ]);
+      setYearStart(yearRes.data?.start_date ?? null);
+      setSchoolName(schoolRes.data?.name ?? "");
     })();
   }, [user?.schoolId]);
 
@@ -287,7 +298,10 @@ const AdminAttendancePage = () => {
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold text-gray-800">Attendance — Admin Overview</h1>
+            <h1 className="text-xl font-semibold text-gray-800">
+              {schoolName ? `${schoolName}, Attendance` : "Attendance"}
+            </h1>
+            <p className="text-sm text-gray-600 mt-0.5">Admin Overview</p>
             <p className="text-xs text-gray-500 mt-0.5">
               {rangeLabel} · {start === end ? start : `${start} → ${end}`}
               {loading && <span className="ml-2 text-blue-500">loading…</span>}
