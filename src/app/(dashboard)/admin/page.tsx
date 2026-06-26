@@ -44,7 +44,7 @@ const AdminPage = () => {
             {t("dash.welcomeBack", { name: user?.firstName || "Admin" })}
           </h1>
           <p className="text-blue-100 text-sm">
-            {user?.schoolName || "SchoolFlow"} &middot; {new Date().toLocaleDateString(locale === "ar" ? "ar" : locale === "fr" ? "fr-FR" : "en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            {user?.schoolName || "Link Scholaire"} &middot; {new Date().toLocaleDateString(locale === "ar" ? "ar" : locale === "fr" ? "fr-FR" : "en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
           </p>
         </div>
 

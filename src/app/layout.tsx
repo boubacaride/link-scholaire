@@ -17,7 +17,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "SchoolFlow — School Management Platform",
+  title: "Link Scholaire — School Management Platform",
   description: "Multi-tenant school management platform for academic operations, grading, content delivery, and administration.",
 };
 

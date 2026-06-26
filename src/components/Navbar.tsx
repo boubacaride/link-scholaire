@@ -29,7 +29,7 @@ const Navbar = () => {
 
   return (
     <div className="bg-[#1c1c1c] text-white px-4 py-1.5 flex items-center justify-between text-sm">
-      <span className="font-medium truncate">{user?.schoolName || "SchoolFlow"}</span>
+      <span className="font-medium truncate">{user?.schoolName || "Link Scholaire"}</span>
 
       <div className="flex items-center gap-4 shrink-0">
         <LanguageSwitcher />
