@@ -101,30 +101,40 @@ const FinanceChart = () => {
   const months = useMemo(() => MONTH_KEYS.map((k) => t(k)), [t]);
 
   const chartData = useMemo(() => {
-    const income = new Array(12).fill(0);
-    const expense = new Array(12).fill(0);
+    // Per-month movements first…
+    const incomeM = new Array(12).fill(0);
+    const expenseM = new Array(12).fill(0);
     fees.forEach((r) => {
       const d = bucketDate(r.paid_at, r.created_at);
       if (!d) return;
       const t = new Date(d);
       if (t.getFullYear() !== year) return;
-      income[t.getMonth()] += r.paid_amount ?? 0;
+      incomeM[t.getMonth()] += r.paid_amount ?? 0;
     });
     salaries.forEach((r) => {
       const d = bucketDate(r.paid_at, r.created_at);
       if (!d) return;
       const t = new Date(d);
       if (t.getFullYear() !== year) return;
-      expense[t.getMonth()] += r.net_salary ?? 0;
+      expenseM[t.getMonth()] += r.net_salary ?? 0;
     });
     opExpenses.forEach((r) => {
       const d = bucketDate(r.paid_at, r.created_at);
       if (!d) return;
       const t = new Date(d);
       if (t.getFullYear() !== year) return;
-      expense[t.getMonth()] += r.amount ?? 0;
+      expenseM[t.getMonth()] += r.amount ?? 0;
     });
-    return months.map((name, i) => ({ name, income: income[i], expense: expense[i] }));
+    // …then accumulate so each line is a *running total*. Income rises as money
+    // comes in and never falls back to zero; expense rises as money is paid out;
+    // balance (income − expense) is what's actually left in the bank that month.
+    let cumIncome = 0;
+    let cumExpense = 0;
+    return months.map((name, i) => {
+      cumIncome += incomeM[i];
+      cumExpense += expenseM[i];
+      return { name, income: cumIncome, expense: cumExpense, balance: cumIncome - cumExpense };
+    });
   }, [fees, salaries, opExpenses, year, months]);
 
   const totals = useMemo(() => {
@@ -154,7 +164,7 @@ const FinanceChart = () => {
         />
       </div>
 
-      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{t("fin.yearMonthlyDistribution", { year })}</p>
+      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{t("fin.yearRunningBalance", { year })}</p>
       <div className="flex-1 min-h-0 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 pointer-events-none">
@@ -174,8 +184,9 @@ const FinanceChart = () => {
             />
             <Tooltip formatter={(v: number) => fmtMoney(v)} />
             <Legend align="center" verticalAlign="top" wrapperStyle={{ paddingTop: "10px", paddingBottom: "20px" }} />
-            <Line type="monotone" dataKey="income" name={t("fin.income")} stroke="#3a6d9a" strokeWidth={3} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="expense" name={t("fin.expense")} stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="income" name={t("fin.income")} stroke="#3a6d9a" strokeWidth={2} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="expense" name={t("fin.expense")} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="balance" name={t("fin.balance")} stroke="#16a34a" strokeWidth={3} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
