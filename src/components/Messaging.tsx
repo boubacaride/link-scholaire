@@ -21,7 +21,14 @@ interface ChatMessage {
   body: string;
   is_read: boolean;
   created_at: string;
+  /** Hard-delete deadline (migration 037). NULL = retained forever. */
+  expires_at: string | null;
 }
+
+// Pairs subject to term-end deletion (migration 037).
+const isRetainedPair = (a?: UserRole, b?: UserRole) =>
+  (a === "student" && (b === "teacher" || b === "school_admin")) ||
+  (b === "student" && (a === "teacher" || a === "school_admin"));
 
 interface MessagingProps {
   /** Roles the current user is allowed to start a conversation with.
@@ -120,7 +127,7 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
     if (!supabase || !user?.profileId) return;
     const { data } = await supabase
       .from("messages")
-      .select("id, sender_id, recipient_id, body, is_read, created_at")
+      .select("id, sender_id, recipient_id, body, is_read, created_at, expires_at")
       .or(`sender_id.eq.${user.profileId},recipient_id.eq.${user.profileId}`)
       .order("created_at", { ascending: true });
     if (data) setMessages(data as ChatMessage[]);
@@ -206,6 +213,39 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
 
   const selectedContact = selectedId ? contactsById.get(selectedId) : undefined;
 
+  // Earliest expiry across the current thread — used to show the
+  // "messages will be deleted on …" banner when this conversation is
+  // subject to term-end retention (migration 037).
+  const threadExpiry = useMemo(() => {
+    if (!selectedContact || !isRetainedPair(user?.role, selectedContact.role)) {
+      return null;
+    }
+    const stamps = thread
+      .map((m) => m.expires_at)
+      .filter((s): s is string => !!s)
+      .sort();
+    return stamps[stamps.length - 1] ?? null;
+  }, [thread, selectedContact, user?.role]);
+
+  // Admin-only manual purge (in case pg_cron isn't enabled on this project).
+  const isAdminUser = user?.role === "school_admin" || user?.role === "platform_admin";
+  const [purging, setPurging] = useState(false);
+  const purgeNow = async () => {
+    if (!supabase) return;
+    setPurging(true);
+    try {
+      const { data, error } = await supabase.rpc("purge_expired_messages");
+      if (error) throw error;
+      const n = typeof data === "number" ? data : 0;
+      alert(n === 0 ? "No expired messages to purge." : `Purged ${n} expired message${n === 1 ? "" : "s"}.`);
+      loadMessages();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPurging(false);
+    }
+  };
+
   const filteredDirectory = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = q
@@ -228,6 +268,9 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
       body,
       is_read: false,
       created_at: new Date().toISOString(),
+      // Server trigger stamps the real value; the reload after insert
+      // replaces this optimistic row with the persisted one.
+      expires_at: null,
     };
     setMessages((prev) => [...prev, optimistic]);
     setDraft("");
@@ -267,12 +310,24 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
               <span className="text-[11px] text-blue-600">{t("msg.unread", { n: totalUnread })}</span>
             )}
           </div>
-          <button
-            onClick={() => setShowDirectory((v) => !v)}
-            className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-lg font-medium hover:bg-blue-100 transition-colors"
-          >
-            {showDirectory ? t("msg.back") : t("msg.new")}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {isAdminUser && (
+              <button
+                onClick={purgeNow}
+                disabled={purging}
+                title="Delete student↔teacher / student↔admin messages whose term has ended"
+                className="text-[11px] bg-gray-50 text-gray-600 px-2 py-1.5 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-40"
+              >
+                {purging ? "…" : "Purge expired"}
+              </button>
+            )}
+            <button
+              onClick={() => setShowDirectory((v) => !v)}
+              className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-lg font-medium hover:bg-blue-100 transition-colors"
+            >
+              {showDirectory ? t("msg.back") : t("msg.new")}
+            </button>
+          </div>
         </div>
 
         {showDirectory && (
@@ -380,6 +435,23 @@ const Messaging = ({ allowedRoles, initialContactId, className }: MessagingProps
                 </span>
               </div>
             </div>
+
+            {threadExpiry && (
+              <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-800 flex items-center gap-2">
+                <span>⏳</span>
+                <span>
+                  Messages in this conversation are deleted at the end of the term —{" "}
+                  <strong>
+                    {new Date(threadExpiry).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </strong>
+                  .
+                </span>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50/60">
               {thread.length === 0 ? (
