@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.TIMEOFF_FROM_EMAIL || "SchoolFlow <onboarding@resend.dev>";
+  const from = process.env.TIMEOFF_FROM_EMAIL || "Link Scholaire <onboarding@resend.dev>";
   const range = reqRow.start_date === reqRow.end_date
     ? reqRow.start_date
     : `${reqRow.start_date} → ${reqRow.end_date}`;
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Dates</td><td style="padding:4px 0"><strong>${range}</strong></td></tr>
         ${reqRow.reason ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Reason</td><td style="padding:4px 0">${reqRow.reason}</td></tr>` : ""}
       </table>
-      <p style="color:#6b7280;font-size:13px">This is an automated message from SchoolFlow.</p>
+      <p style="color:#6b7280;font-size:13px">This is an automated message from Link Scholaire.</p>
     </div>`;
 
   if (!apiKey) {

@@ -188,7 +188,7 @@ const ChildrenFooter = ({
         })}
       </div>
       <p className="text-[10px] text-white/40 hidden sm:block pb-1">
-        © {new Date().getFullYear()} SchoolFlow
+        © {new Date().getFullYear()} Link Scholaire
       </p>
     </div>
   </div>
