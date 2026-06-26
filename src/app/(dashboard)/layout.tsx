@@ -17,20 +17,21 @@ export default function DashboardLayout({
       {/* Below: sidebar (left) + main content (right) */}
       <div className="flex-1 flex overflow-hidden">
         <aside className="w-[14%] md:w-[8%] lg:w-[16%] xl:w-[14%] p-4 shrink-0 overflow-y-auto">
-          {/* Brand mark — Link Scolaire logo, in the same top-of-sidebar spot
-              the old SchoolFlow mark occupied. Full lockup on wide screens,
-              compact chain icon when the sidebar collapses. */}
+          {/* Brand mark — full Link Scolaire logo (icon + wordmark + tagline),
+              in the same top-of-sidebar spot the old SchoolFlow mark occupied.
+              On wide screens it fills the sidebar width for the best fit; on a
+              collapsed sidebar it falls back to the compact chain icon. */}
           <Link
             href="/"
             className="flex items-center justify-center lg:justify-start py-1"
           >
             <Image
-              src="/logo-mark.png"
+              src="/logo-linkscholaire.png"
               alt="Link Scolaire"
-              width={632}
-              height={129}
+              width={636}
+              height={133}
               priority
-              className="hidden lg:block h-9 w-auto"
+              className="hidden lg:block w-full h-auto"
             />
             <Image
               src="/logo-icon.png"
