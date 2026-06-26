@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
+import { usePendingApprovals } from "@/hooks/usePendingApprovals";
 import ExpensesMenuItem from "@/components/ExpensesMenuItem";
 import Image from "next/image";
 import Link from "next/link";
@@ -284,6 +285,16 @@ const isHrefActive = (pathname: string, href: string) => {
   return pathname === href || pathname.startsWith(href + "/");
 };
 
+// Per-href badge counts. Keyed by item.href so the render loop can look
+// up "is there a number to show next to this label?" in O(1).
+const useMenuBadges = (): Record<string, number> => {
+  const { staff, student } = usePendingApprovals();
+  return {
+    "/list/approvals/staff": staff,
+    "/list/approvals/students": student,
+  };
+};
+
 const Menu = () => {
   const { user, signOut } = useAuth();
   const { t } = useI18n();
@@ -291,6 +302,7 @@ const Menu = () => {
   const role = user?.role || "student";
   const isPrivateSchool = user?.schoolType === "private";
   const label = (l: string) => (NAV_KEY[l] ? t(NAV_KEY[l]) : l);
+  const badges = useMenuBadges();
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
@@ -406,18 +418,36 @@ const Menu = () => {
                 );
               }
 
+              const badge = badges[item.href] || 0;
               return (
                 <Link
                   href={item.href}
                   key={item.label}
-                  className={`flex items-center justify-center lg:justify-start gap-4 py-2 md:px-2 rounded-md transition-colors ${
+                  className={`relative flex items-center justify-center lg:justify-start gap-4 py-2 md:px-2 rounded-md transition-colors ${
                     isActive
                       ? "bg-gradient-to-b from-[#4a7eb0] to-[#3a6d9a] text-white font-medium shadow-sm"
                       : "text-gray-500 hover:bg-lamaSkyLight"
                   }`}
                 >
-                  <Image src={item.icon} alt="" width={20} height={20} />
-                  <span className="hidden lg:block">{label(item.label)}</span>
+                  <span className="relative">
+                    <Image src={item.icon} alt="" width={20} height={20} />
+                    {badge > 0 && (
+                      <span className="lg:hidden absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center ring-2 ring-white">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className="hidden lg:flex flex-1 items-center justify-between">
+                    <span>{label(item.label)}</span>
+                    {badge > 0 && (
+                      <span
+                        title={`${badge} pending request${badge === 1 ? "" : "s"}`}
+                        className="bg-red-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center"
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               );
             })}
