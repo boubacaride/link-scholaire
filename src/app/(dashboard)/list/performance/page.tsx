@@ -9,13 +9,14 @@
 // KPI / overview / trends read from performance_snapshots (migration 039);
 // the Attendance section reads live data through the reused page.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { SummaryStat, gradeColor } from "@/components/dashboard/PortalUI";
 import { delta } from "@/lib/performance/academics";
 import TrendChart, { type TrendPoint } from "@/components/performance/TrendChart";
+import DrillDown from "@/components/performance/DrillDown";
 import AdminAttendancePage from "@/app/(dashboard)/list/attendance/admin/page";
 
 interface Snap {
@@ -44,20 +45,35 @@ const PerformancePage = () => {
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("ALL");
   const [tab, setTab] = useState<Tab>("academic");
+  const [recomputing, setRecomputing] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadSnaps = useCallback(async () => {
     if (!supabase || !user?.schoolId) { setLoading(false); return; }
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("performance_snapshots")
-        .select("grade_level, period_month, academic_average, attendance_rate, students_counted")
-        .eq("school_id", user.schoolId)
-        .order("period_month", { ascending: true });
-      setSnaps((data as Snap[]) ?? []);
-      setLoading(false);
-    })();
-  }, [user?.schoolId]);
+    setLoading(true);
+    const { data } = await supabase
+      .from("performance_snapshots")
+      .select("grade_level, period_month, academic_average, attendance_rate, students_counted")
+      .eq("school_id", user.schoolId)
+      .order("period_month", { ascending: true });
+    setSnaps((data as Snap[]) ?? []);
+    setLoading(false);
+  }, [supabase, user?.schoolId]);
+
+  useEffect(() => { loadSnaps(); }, [loadSnaps]);
+
+  const onRecompute = async () => {
+    if (!supabase) return;
+    setRecomputing(true);
+    setMsg(null);
+    const first = new Date();
+    const p_month = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}-01`;
+    const { error } = await supabase.rpc("capture_performance_snapshot", { p_month });
+    setRecomputing(false);
+    if (error) { setMsg(t("perf.recomputeFailed")); return; }
+    setMsg(t("perf.recomputed"));
+    loadSnaps();
+  };
 
   const months = useMemo(
     () => Array.from(new Set(snaps.map((s) => s.period_month))).sort(),
@@ -112,13 +128,6 @@ const PerformancePage = () => {
     [snaps, months, level],
   );
 
-  // Academic Overview rows: this month, per grade level + whole school.
-  const overviewRows = useMemo(() => {
-    const rows = snaps.filter((s) => s.period_month === latestMonth && s.grade_level !== "ALL");
-    rows.sort((a, b) => Number(a.grade_level) - Number(b.grade_level));
-    return rows;
-  }, [snaps, latestMonth]);
-
   const deltaHint = (d: ReturnType<typeof delta>) => {
     if (d.pct === null) return t("perf.noPrev");
     const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "▬";
@@ -145,20 +154,32 @@ const PerformancePage = () => {
           <h1 className="text-xl font-semibold text-gray-900">{t("perf.title")}</h1>
           <p className="text-xs text-gray-500">{t("perf.subtitle")}</p>
         </div>
-        <div>
-          <label className="text-[11px] text-gray-500 block">{t("perf.gradeLevel")}</label>
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            className="mt-1 text-sm px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="text-[11px] text-gray-500 block">{t("perf.gradeLevel")}</label>
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+              className="mt-1 text-sm px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            >
+              <option value="ALL">{t("perf.allGrades")}</option>
+              {gradeLevels.map((g) => (
+                <option key={g} value={g}>{t("perf.grade", { n: g })}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={onRecompute}
+            disabled={recomputing}
+            className="text-sm bg-gray-800 text-white px-3 py-2 rounded-md hover:bg-gray-900 disabled:opacity-50"
           >
-            <option value="ALL">{t("perf.allGrades")}</option>
-            {gradeLevels.map((g) => (
-              <option key={g} value={g}>{t("perf.grade", { n: g })}</option>
-            ))}
-          </select>
+            {recomputing ? t("perf.recomputing") : t("perf.recompute")}
+          </button>
         </div>
       </div>
+      {msg && (
+        <p className={`text-xs ${msg === t("perf.recomputeFailed") ? "text-red-600" : "text-emerald-700"}`}>{msg}</p>
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -220,54 +241,8 @@ const PerformancePage = () => {
         </div>
       )}
 
-      {/* Section B — Academic Overview */}
-      {tab === "academic" && (
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-800 mb-3">{t("perf.overviewTitle")}</h2>
-          {overviewRows.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">{t("perf.trendEmpty")}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-[10px] uppercase tracking-wide text-gray-400 border-b">
-                  <tr>
-                    <th className="text-left py-2">{t("perf.colGradeLevel")}</th>
-                    <th className="text-center py-2">{t("perf.colAcademic")}</th>
-                    <th className="text-center py-2">{t("perf.colAttendance")}</th>
-                    <th className="text-center py-2">{t("perf.colStudents")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {overviewRows.map((r) => (
-                    <tr key={r.grade_level} className="border-b hover:bg-gray-50">
-                      <td className="py-2.5 font-medium text-gray-800">{t("perf.grade", { n: r.grade_level })}</td>
-                      <td className={`py-2.5 text-center font-semibold ${r.academic_average != null ? gradeColor(r.academic_average) : "text-gray-400"}`}>
-                        {fmtPct(r.academic_average)}
-                      </td>
-                      <td className={`py-2.5 text-center font-semibold ${r.attendance_rate != null ? gradeColor(r.attendance_rate) : "text-gray-400"}`}>
-                        {fmtPct(r.attendance_rate)}
-                      </td>
-                      <td className="py-2.5 text-center text-gray-600">{r.students_counted}</td>
-                    </tr>
-                  ))}
-                  {allLatest && (
-                    <tr className="bg-gray-50 font-semibold">
-                      <td className="py-2.5 text-gray-800">{t("perf.wholeSchool")}</td>
-                      <td className={`py-2.5 text-center ${allLatest.academic_average != null ? gradeColor(allLatest.academic_average) : "text-gray-400"}`}>
-                        {fmtPct(allLatest.academic_average)}
-                      </td>
-                      <td className={`py-2.5 text-center ${allLatest.attendance_rate != null ? gradeColor(allLatest.attendance_rate) : "text-gray-400"}`}>
-                        {fmtPct(allLatest.attendance_rate)}
-                      </td>
-                      <td className="py-2.5 text-center text-gray-600">{allLatest.students_counted}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Section B — Academic Overview + drill-down (School→Grade→Class→Student) */}
+      {tab === "academic" && <DrillDown />}
 
       {/* Section C — Trends */}
       {tab === "trends" && (
