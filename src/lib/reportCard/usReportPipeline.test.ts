@@ -4,7 +4,12 @@
 // assert the card rows + attendance the student would see.
 
 import { describe, it, expect } from "vitest";
-import { computeSubjectRow, countAttendance, type SubjectMark } from "./usGrades";
+import {
+  computeSubjectRow,
+  countAttendance,
+  overallAveragePercent,
+  type SubjectMark,
+} from "./usGrades";
 
 // Mirror the page: per subject, filter the student's grades and map to marks.
 type GradeRow = { subject_id: string; score: number; max_score: number; term: string | null };
@@ -69,6 +74,23 @@ describe("report-card pipeline (no terms configured → fallback)", () => {
       sem2: "—",
       final: "C",
     });
+  });
+});
+
+describe("overall average reconciles with the dashboard formula", () => {
+  // Emma's real grades: Science 49/50, Math 95/100, English 100/100 → 97.7%.
+  const grades = [
+    { score: 49, maxScore: 50 },   // 98
+    { score: 95, maxScore: 100 },  // 95
+    { score: 100, maxScore: 100 }, // 100
+  ];
+  it("matches Σ(score/max*100)/n exactly", () => {
+    const dashboard = grades.reduce((s, g) => s + (g.score / g.maxScore) * 100, 0) / grades.length;
+    expect(overallAveragePercent(grades)).toBeCloseTo(dashboard, 10);
+    expect(overallAveragePercent(grades)!.toFixed(1)).toBe("97.7");
+  });
+  it("is null with no marks", () => {
+    expect(overallAveragePercent([])).toBeNull();
   });
 });
 

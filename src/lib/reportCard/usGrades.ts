@@ -42,6 +42,16 @@ export function averagePercent(
   return sum / valid.length;
 }
 
+/** Overall average ("moyenne générale") = unweighted mean of EVERY grade-row
+ *  percentage, matching the student dashboard's Average (student/page.tsx).
+ *  Deliberately not weighted by subject coefficient so the two surfaces
+ *  reconcile. Returns null when there are no usable marks. */
+export function overallAveragePercent(
+  grades: { score: number; maxScore: number }[],
+): number | null {
+  return averagePercent(grades);
+}
+
 /** Final = simple average of whichever semester percentages are present.
  *  If only one semester has data, the final equals that semester. */
 export function finalPercent(

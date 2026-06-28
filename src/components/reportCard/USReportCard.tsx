@@ -11,7 +11,7 @@
 // the print stylesheet in globals.css can isolate it for "Save as PDF".
 
 import Image from "next/image";
-import { US_GRADING_SCALE } from "@/lib/reportCard/usGrades";
+import { US_GRADING_SCALE, percentToLetter } from "@/lib/reportCard/usGrades";
 
 export interface ReportCardRow {
   subject: string;
@@ -32,6 +32,8 @@ export interface USReportCardProps {
   sem1Label: string;
   sem2Label: string;
   rows: ReportCardRow[];
+  /** Overall average ("moyenne générale") as a 0-100 percentage, or null. */
+  overallPercent: number | null;
   attendance: { present: number; absent: number; tardies: number };
   comment: string;
   onCommentChange?: (value: string) => void;
@@ -49,6 +51,7 @@ const USReportCard = ({
   sem1Label,
   sem2Label,
   rows,
+  overallPercent,
   attendance,
   comment,
   onCommentChange,
@@ -134,6 +137,20 @@ const USReportCard = ({
             )}
           </tbody>
         </table>
+
+        {/* ── Overall average (moyenne générale) ──────────────────────── */}
+        <div className="mt-3 flex items-center justify-end gap-3 text-sm">
+          <span className="font-bold" style={{ color: MAROON }}>Overall Average:</span>
+          <span className="font-semibold text-gray-900">
+            {overallPercent === null ? "—" : `${overallPercent.toFixed(1)}%`}
+          </span>
+          {overallPercent !== null && (
+            <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-0.5 rounded text-white font-bold"
+              style={{ background: MAROON }}>
+              {percentToLetter(overallPercent)}
+            </span>
+          )}
+        </div>
 
         {/* ── Grading scale + Attendance ──────────────────────────────── */}
         <div className="grid grid-cols-2 gap-8 mt-6">
