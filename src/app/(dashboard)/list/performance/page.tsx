@@ -208,8 +208,15 @@ const PerformancePage = () => {
       </div>
 
       {!hasSnaps && !loading && (
-        <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2">
-          {t("perf.noSnapshots")}
+        <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <span>{t("perf.noSnapshots")}</span>
+          <button
+            onClick={onRecompute}
+            disabled={recomputing}
+            className="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 disabled:opacity-50"
+          >
+            {recomputing ? t("perf.recomputing") : t("perf.recompute")}
+          </button>
         </div>
       )}
 
