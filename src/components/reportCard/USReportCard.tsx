@@ -28,7 +28,7 @@ export interface USReportCardProps {
     email?: string | null;
     logoUrl?: string | null;
   };
-  student: { name: string; grade: string; schoolYear: string };
+  student: { name: string; studentId: string; grade: string; schoolYear: string };
   sem1Label: string;
   sem2Label: string;
   rows: ReportCardRow[];
@@ -98,8 +98,9 @@ const USReportCard = ({
         <h2 className="mt-6 mb-3 text-xl font-bold" style={{ color: MAROON }}>
           Student Information:
         </h2>
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Name:" value={student.name} wide />
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Name:" value={student.name} />
+          <Field label="Student ID:" value={student.studentId} />
           <Field label="Grade:" value={student.grade} />
           <Field label="School Year:" value={student.schoolYear} />
         </div>

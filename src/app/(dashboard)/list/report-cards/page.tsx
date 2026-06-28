@@ -28,12 +28,18 @@ import {
 interface AcademicYear { id: string; name: string; is_active: boolean; start_date: string; end_date: string }
 interface Term { id: string; name: string; sequence: number }
 interface ClassRow { id: string; name: string; grade: number }
-interface Student { id: string; first_name: string; last_name: string }
+interface Student {
+  id: string;
+  first_name: string;
+  last_name: string;
+  institutional_id: string | null;
+  member_id: string | null;
+}
 
 interface GeneratedCard {
   studentId: string;
   school: { name: string; address: string | null; phone: string | null; email: string | null; logoUrl: string | null };
-  student: { name: string; grade: string; schoolYear: string };
+  student: { name: string; studentId: string; grade: string; schoolYear: string };
   rows: ReportCardRow[];
   attendance: { present: number; absent: number; tardies: number };
   signatures: { parent?: string; teacher?: string; principal?: string };
@@ -126,7 +132,7 @@ const ReportCardsPage = () => {
     (async () => {
       const { data } = await supabase
         .from("student_classes")
-        .select("student_id, profiles:student_id(id, first_name, last_name)")
+        .select("student_id, profiles:student_id(id, first_name, last_name, institutional_id, member_id)")
         .eq("class_id", classId);
       type RosterRow = { student_id: string; profiles: Student | null };
       const list = ((data as unknown as RosterRow[]) ?? [])
@@ -150,52 +156,70 @@ const ReportCardsPage = () => {
       const student = students.find((s) => s.id === studentId);
       if (!student) { setMsg("Pick a student first."); return; }
 
-      // Which terms are the two semesters? Prefer the year's first two terms;
-      // fall back to the distinct free-text grade terms for this class/year.
-      let sem1Name: string | null = terms[0]?.name ?? null;
-      let sem2Name: string | null = terms[1]?.name ?? null;
-      if (!sem1Name && !sem2Name) {
-        const { data: tg } = await supabase
-          .from("grades")
-          .select("term")
-          .eq("class_id", classId)
-          .eq("academic_year", selectedYear.name)
-          .not("term", "is", null);
-        const distinct = Array.from(
-          new Set(((tg ?? []) as { term: string | null }[]).map((r) => r.term).filter(Boolean) as string[]),
-        ).sort();
-        sem1Name = distinct[0] ?? null;
-        sem2Name = distinct[1] ?? null;
-      }
+      // Pull the student's actual grades (subject name joined), the same way
+      // the student dashboard does — by student_id, with no brittle filters.
+      // The grade form stores academic_year as a bare calendar year ("2026")
+      // and term as free text ("Term 1"), which rarely match the configured
+      // academic-year / term *names*; building from the real rows is what
+      // keeps the card from coming up empty.
+      type GradeRow = {
+        subject_id: string;
+        score: number;
+        max_score: number;
+        term: string | null;
+        academic_year: string | null;
+        subject: { id: string; name: string } | null;
+      };
+      const { data: gradeData } = await supabase
+        .from("grades")
+        .select("subject_id, score, max_score, term, academic_year, subject:subject_id(id, name)")
+        .eq("student_id", studentId);
+      const allGrades = ((gradeData as unknown as GradeRow[]) ?? []).filter((g) => g.subject);
 
-      // Subjects taught in this class.
+      // Soft-scope to the selected year: only narrow if some grades actually
+      // carry that year name; otherwise fall back to every grade so a
+      // year-name mismatch never blanks the card.
+      const inYear = allGrades.filter((g) => g.academic_year === selectedYear.name);
+      const used = inYear.length ? inYear : allGrades;
+
+      // Subjects come from the class's curriculum *unioned* with any subject
+      // the student actually has a grade in (covers grades whose subject was
+      // never linked to the class via class_subjects).
       const { data: csData } = await supabase
         .from("class_subjects")
         .select("subject_id, subject:subject_id(id, name)")
         .eq("class_id", classId);
       type CsRow = { subject_id: string; subject: { id: string; name: string } | null };
-      const classSubjects = ((csData as unknown as CsRow[]) ?? [])
-        .filter((cs): cs is CsRow & { subject: { id: string; name: string } } => cs.subject !== null);
-      const subjectIds = classSubjects.map((cs) => cs.subject_id);
+      const subjMap = new Map<string, string>();
+      ((csData as unknown as CsRow[]) ?? []).forEach((cs) => {
+        if (cs.subject) subjMap.set(cs.subject_id, cs.subject.name);
+      });
+      used.forEach((g) => {
+        if (g.subject && !subjMap.has(g.subject_id)) subjMap.set(g.subject_id, g.subject.name);
+      });
+      const subjects = Array.from(subjMap, ([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      // The student's grades for the year.
-      type GradeRow = { subject_id: string; score: number; max_score: number; term: string | null };
-      let grades: GradeRow[] = [];
-      if (subjectIds.length) {
-        const { data } = await supabase
-          .from("grades")
-          .select("subject_id, score, max_score, term")
-          .eq("student_id", studentId)
-          .eq("academic_year", selectedYear.name)
-          .in("subject_id", subjectIds);
-        grades = (data as GradeRow[]) ?? [];
-      }
+      // Determine the two "semester" columns. Use the configured term order
+      // where it overlaps the terms present on the grades, then append any
+      // other terms found (sorted). With only "Term 1" recorded, the 2nd
+      // column simply shows "—" and Final equals the 1st.
+      const presentTerms = Array.from(
+        new Set(used.map((g) => g.term).filter((t): t is string => !!t)),
+      );
+      const configuredOrder = terms.map((t) => t.name);
+      const orderedTerms = [
+        ...configuredOrder.filter((n) => presentTerms.includes(n)),
+        ...presentTerms.filter((n) => !configuredOrder.includes(n)).sort(),
+      ];
+      const sem1Name: string | null = orderedTerms[0] ?? null;
+      const sem2Name: string | null = orderedTerms[1] ?? null;
 
-      const rows: ReportCardRow[] = classSubjects.map((cs) =>
+      const rows: ReportCardRow[] = subjects.map((s) =>
         computeSubjectRow(
-          cs.subject.name,
-          grades
-            .filter((g) => g.subject_id === cs.subject_id)
+          s.name,
+          used
+            .filter((g) => g.subject_id === s.id)
             .map((g) => ({ score: g.score, maxScore: g.max_score, term: g.term })),
           sem1Name,
           sem2Name,
@@ -275,6 +299,7 @@ const ReportCardsPage = () => {
         school,
         student: {
           name: fullName(student),
+          studentId: student.institutional_id ?? student.member_id ?? "—",
           grade: gradeLevelLabel(classes.find((c) => c.id === classId)?.grade),
           schoolYear: selectedYear.name,
         },
