@@ -233,6 +233,12 @@ const menuItems = [
         privateOnly: true,
         flyout: true,
       },
+      {
+        icon: "/finance.png",
+        label: "Payroll",
+        href: "/list/payroll",
+        visible: ["school_admin"],
+      },
     ],
   },
   {
