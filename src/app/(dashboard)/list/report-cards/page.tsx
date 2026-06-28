@@ -20,9 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import USReportCard, { type ReportCardRow } from "@/components/reportCard/USReportCard";
 import {
-  averagePercent,
-  finalPercent,
-  percentToLetter,
+  computeSubjectRow,
+  countAttendance,
   gradeLevelLabel,
 } from "@/lib/reportCard/usGrades";
 
@@ -192,24 +191,16 @@ const ReportCardsPage = () => {
         grades = (data as GradeRow[]) ?? [];
       }
 
-      const noSemesters = !sem1Name && !sem2Name;
-      const rows: ReportCardRow[] = classSubjects.map((cs) => {
-        const mine = grades.filter((g) => g.subject_id === cs.subject_id);
-        const toMarks = (rows: GradeRow[]) => rows.map((g) => ({ score: g.score, maxScore: g.max_score }));
-        if (noSemesters) {
-          const all = averagePercent(toMarks(mine));
-          return { subject: cs.subject.name, sem1: "—", sem2: "—", final: percentToLetter(all) };
-        }
-        const s1 = sem1Name ? averagePercent(toMarks(mine.filter((g) => g.term === sem1Name))) : null;
-        const s2 = sem2Name ? averagePercent(toMarks(mine.filter((g) => g.term === sem2Name))) : null;
-        const fin = finalPercent(s1, s2);
-        return {
-          subject: cs.subject.name,
-          sem1: percentToLetter(s1),
-          sem2: percentToLetter(s2),
-          final: percentToLetter(fin),
-        };
-      });
+      const rows: ReportCardRow[] = classSubjects.map((cs) =>
+        computeSubjectRow(
+          cs.subject.name,
+          grades
+            .filter((g) => g.subject_id === cs.subject_id)
+            .map((g) => ({ score: g.score, maxScore: g.max_score, term: g.term })),
+          sem1Name,
+          sem2Name,
+        ),
+      );
 
       // Attendance across the academic year.
       const { data: att } = await supabase
@@ -218,12 +209,7 @@ const ReportCardsPage = () => {
         .eq("student_id", studentId)
         .gte("date", selectedYear.start_date)
         .lte("date", selectedYear.end_date);
-      const attendance = { present: 0, absent: 0, tardies: 0 };
-      ((att as { status: string }[]) ?? []).forEach((a) => {
-        if (a.status === "present") attendance.present += 1;
-        else if (a.status === "absent") attendance.absent += 1;
-        else if (a.status === "late") attendance.tardies += 1;
-      });
+      const attendance = countAttendance((att as { status: string }[]) ?? []);
 
       // School details for the footer + badge.
       const { data: sch } = await supabase
