@@ -17,6 +17,7 @@ import { SummaryStat, gradeColor } from "@/components/dashboard/PortalUI";
 import { delta } from "@/lib/performance/academics";
 import TrendChart, { type TrendPoint } from "@/components/performance/TrendChart";
 import DrillDown from "@/components/performance/DrillDown";
+import TeachingOverview from "@/components/performance/TeachingOverview";
 import AdminAttendancePage from "@/app/(dashboard)/list/attendance/admin/page";
 
 interface Snap {
@@ -27,7 +28,7 @@ interface Snap {
   students_counted: number;
 }
 
-type Tab = "attendance" | "academic" | "trends";
+type Tab = "attendance" | "academic" | "teaching" | "trends";
 
 const ATTENDANCE_TARGET = 90; // a grade level below this is "below target"
 const ACADEMIC_TARGET = 60;
@@ -225,6 +226,7 @@ const PerformancePage = () => {
         {([
           ["attendance", t("perf.tabAttendance")],
           ["academic", t("perf.tabAcademic")],
+          ["teaching", t("perf.tabTeaching")],
           ["trends", t("perf.tabTrends")],
         ] as [Tab, string][]).map(([key, label]) => (
           <button
@@ -250,6 +252,9 @@ const PerformancePage = () => {
 
       {/* Section B — Academic Overview + drill-down (School→Grade→Class→Student) */}
       {tab === "academic" && <DrillDown />}
+
+      {/* Teaching Overview — per-teacher performance */}
+      {tab === "teaching" && <TeachingOverview />}
 
       {/* Section C — Trends */}
       {tab === "trends" && (
