@@ -136,3 +136,36 @@
   color: gray !important;
   margin-bottom: 5px;
 }
+
+/* ── Report card printing ──────────────────────────────────────────────
+ * When the user prints (or "Save as PDF"), isolate just the report card:
+ * hide all other UI (sidebar, navbar, controls) and let the card fill the
+ * page. Force background colors so the maroon/navy bars survive printing. */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #report-card-print,
+  #report-card-print * {
+    visibility: visible !important;
+  }
+  #report-card-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    margin: 12mm;
+  }
+}
