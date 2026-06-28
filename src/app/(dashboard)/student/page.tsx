@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { computeAttendanceRate } from "@/lib/attendance/rate";
 import Announcements from "@/components/Announcements";
 import BigCalendar from "@/components/BigCalender";
 import EventCalendar from "@/components/EventCalendar";
@@ -147,7 +148,7 @@ const StudentPage = () => {
     const absences = attendance.filter((a) => a.status === "absent").length;
     const excused = attendance.filter((a) => a.status === "excused").length;
     const total = attendance.length;
-    const rate = total ? ((present + tardies) / total) * 100 : null;
+    const rate = computeAttendanceRate({ present, late: tardies, absent: absences, excused });
     return { present, tardies, absences, excused, total, rate };
   }, [attendance]);
 

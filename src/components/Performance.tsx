@@ -12,6 +12,7 @@ import Image from "next/image";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import { computeAttendanceRate } from "@/lib/attendance/rate";
 
 interface RpcRow {
   day_iso: string;
@@ -45,11 +46,20 @@ const Performance = () => {
     })();
   }, []);
 
+  // House standard: present + late count as attended; absent + excused as away.
   const totals = today
-    ? { present: today.present, absent: today.absent + today.late + today.excused }
+    ? { present: today.present + today.late, absent: today.absent + today.excused }
     : { present: 0, absent: 0 };
   const total = totals.present + totals.absent;
-  const presentPct = total > 0 ? Math.round((totals.present / total) * 100) : null;
+  const rate = today
+    ? computeAttendanceRate({
+        present: today.present,
+        late: today.late,
+        absent: today.absent,
+        excused: today.excused,
+      })
+    : null;
+  const presentPct = rate === null ? null : Math.round(rate);
 
   const chartData = total > 0
     ? [

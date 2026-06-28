@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { computeAttendanceRate } from "@/lib/attendance/rate";
 import { useI18n } from "@/contexts/LanguageContext";
 import ProgressTracker from "@/components/dashboard/ProgressTracker";
 import {
@@ -117,7 +118,7 @@ const ChildMonitor = ({ studentId, studentName }: ChildMonitorProps) => {
     const absences = attendance.filter((a) => a.status === "absent").length;
     const excused = attendance.filter((a) => a.status === "excused").length;
     const total = attendance.length;
-    const rate = total ? ((present + tardies) / total) * 100 : null;
+    const rate = computeAttendanceRate({ present, late: tardies, absent: absences, excused });
     return { present, tardies, absences, excused, total, rate };
   }, [attendance]);
 
