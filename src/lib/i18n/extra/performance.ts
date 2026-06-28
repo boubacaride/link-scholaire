@@ -36,6 +36,8 @@ export const dict = {
       kpiStudents: "Students counted",
       thisMonth: "this month",
       noPrev: "no prior month",
+      allTime: "all recorded sessions",
+      graded: "graded students",
       // Academic Overview
       overviewTitle: "Academic overview by grade level",
       colGradeLevel: "Grade level",
@@ -121,6 +123,8 @@ export const dict = {
       kpiStudents: "Élèves comptés",
       thisMonth: "ce mois-ci",
       noPrev: "pas de mois précédent",
+      allTime: "toutes les séances enregistrées",
+      graded: "élèves notés",
       overviewTitle: "Aperçu scolaire par niveau",
       colGradeLevel: "Niveau",
       colAcademic: "Moyenne scolaire",
