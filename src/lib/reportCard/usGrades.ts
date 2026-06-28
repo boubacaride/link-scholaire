@@ -53,6 +53,64 @@ export function finalPercent(
   return parts.reduce((s, v) => s + v, 0) / parts.length;
 }
 
+// ─── Card row + attendance transforms (pure, DB-agnostic) ────────────
+// These take the raw rows the page reads from Supabase and turn them into
+// the strings the card renders. Kept here so they can be unit-tested
+// without a database.
+
+export interface SubjectMark {
+  score: number;
+  maxScore: number;
+  term: string | null;
+}
+
+export interface ComputedSubjectRow {
+  subject: string;
+  sem1: string;
+  sem2: string;
+  final: string;
+}
+
+/** Compute one subject's row: 1st-semester letter, 2nd-semester letter and
+ *  the final (average of the two). When neither semester term is known
+ *  (no terms configured), every mark folds into the Final and the two
+ *  semester cells show "—". */
+export function computeSubjectRow(
+  subject: string,
+  marks: SubjectMark[],
+  sem1Term: string | null,
+  sem2Term: string | null,
+): ComputedSubjectRow {
+  const toMarks = (rows: SubjectMark[]) => rows.map((m) => ({ score: m.score, maxScore: m.maxScore }));
+  if (!sem1Term && !sem2Term) {
+    const all = averagePercent(toMarks(marks));
+    return { subject, sem1: "—", sem2: "—", final: percentToLetter(all) };
+  }
+  const s1 = sem1Term ? averagePercent(toMarks(marks.filter((m) => m.term === sem1Term))) : null;
+  const s2 = sem2Term ? averagePercent(toMarks(marks.filter((m) => m.term === sem2Term))) : null;
+  const fin = finalPercent(s1, s2);
+  return {
+    subject,
+    sem1: percentToLetter(s1),
+    sem2: percentToLetter(s2),
+    final: percentToLetter(fin),
+  };
+}
+
+/** Tally attendance rows into the card's Present / Absent / Tardies counts.
+ *  'late' counts as a tardy; 'excused' is intentionally not surfaced. */
+export function countAttendance(
+  rows: { status: string }[],
+): { present: number; absent: number; tardies: number } {
+  const a = { present: 0, absent: 0, tardies: 0 };
+  for (const r of rows) {
+    if (r.status === "present") a.present += 1;
+    else if (r.status === "absent") a.absent += 1;
+    else if (r.status === "late") a.tardies += 1;
+  }
+  return a;
+}
+
 /** Format a class grade-level number as an ordinal label, e.g. 10 → "10th Grade". */
 export function gradeLevelLabel(grade: number | null | undefined): string {
   if (grade === null || grade === undefined || Number.isNaN(grade)) return "—";
