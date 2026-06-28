@@ -23,6 +23,8 @@
     "@types/three": "^0.183.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "katex": "^0.16.45",
     "livekit-client": "^2.19.1",
     "livekit-server-sdk": "^2.15.4",

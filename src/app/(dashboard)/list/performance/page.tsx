@@ -9,12 +9,13 @@
 // KPI / overview / trends read from performance_snapshots (migration 039);
 // the Attendance section reads live data through the reused page.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { SummaryStat, gradeColor } from "@/components/dashboard/PortalUI";
 import TrendChart, { type TrendPoint } from "@/components/performance/TrendChart";
+import ExportBar from "@/components/performance/ExportBar";
 import DrillDown from "@/components/performance/DrillDown";
 import TeachingOverview from "@/components/performance/TeachingOverview";
 import AdminAttendancePage from "@/app/(dashboard)/list/attendance/admin/page";
@@ -57,6 +58,14 @@ const PerformancePage = () => {
   const [recomputing, setRecomputing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [kpi, setKpi] = useState<Kpi | null>(null);
+
+  // One capture target per tab for the Print / Download / Share PDF export.
+  const attendanceRef = useRef<HTMLDivElement>(null);
+  const academicRef = useRef<HTMLDivElement>(null);
+  const teachingRef = useRef<HTMLDivElement>(null);
+  const trendsRef = useRef<HTMLDivElement>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const exportName = (key: string) => `${t(key).replace(/\s+/g, "-")}-${today}.pdf`;
 
   // Live KPI summary — independent of the snapshot history.
   useEffect(() => {
@@ -224,20 +233,35 @@ const PerformancePage = () => {
 
       {/* Section A — Attendance (reuses the existing admin attendance page) */}
       {tab === "attendance" && (
-        <div className="-mx-4 -mb-4">
-          <AdminAttendancePage />
+        <div>
+          <ExportBar targetRef={attendanceRef} filename={exportName("perf.tabAttendance")} title={t("perf.tabAttendance")} />
+          <div ref={attendanceRef} className="bg-[#F7F8FA]">
+            <AdminAttendancePage />
+          </div>
         </div>
       )}
 
       {/* Section B — Academic Overview + drill-down (School→Grade→Class→Student) */}
-      {tab === "academic" && <DrillDown />}
+      {tab === "academic" && (
+        <div>
+          <ExportBar targetRef={academicRef} filename={exportName("perf.tabAcademic")} title={t("perf.tabAcademic")} />
+          <div ref={academicRef}><DrillDown /></div>
+        </div>
+      )}
 
       {/* Teaching Overview — per-teacher performance */}
-      {tab === "teaching" && <TeachingOverview />}
+      {tab === "teaching" && (
+        <div>
+          <ExportBar targetRef={teachingRef} filename={exportName("perf.tabTeaching")} title={t("perf.tabTeaching")} />
+          <div ref={teachingRef}><TeachingOverview /></div>
+        </div>
+      )}
 
       {/* Section C — Trends (month-over-month, from captured snapshots) */}
       {tab === "trends" && (
-        <div className="bg-white rounded-xl border shadow-sm p-4">
+        <div>
+          <ExportBar targetRef={trendsRef} filename={exportName("perf.tabTrends")} title={t("perf.tabTrends")} />
+          <div ref={trendsRef} className="bg-white rounded-xl border shadow-sm p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">{t("perf.trendsTitle")}</h2>
           <p className="text-[11px] text-gray-400 mb-3">
             {level === "ALL" ? t("perf.allGrades") : t("perf.grade", { n: level })}
@@ -263,6 +287,7 @@ const PerformancePage = () => {
               />
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
