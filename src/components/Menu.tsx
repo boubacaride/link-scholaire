@@ -34,6 +34,7 @@ const NAV_KEY: Record<string, string> = {
   "My Documents": "nav.myDocuments",
   Documents: "nav.myDocuments",
   Attendance: "nav.attendance",
+  "Attendance & Performance": "nav.attendancePerformance",
   Events: "nav.events",
   Messages: "nav.messages",
   Announcements: "nav.announcements",
@@ -167,6 +168,15 @@ const menuItems = [
         label: "Attendance",
         href: "/list/attendance",
         visible: ["platform_admin", "school_admin", "teacher", "student", "parent"],
+      },
+      {
+        // Admin-only unified oversight dashboard (attendance + academics +
+        // trends). The plain "Attendance" tab above is left intact for the
+        // other roles so they keep their existing access.
+        icon: "/result.png",
+        label: "Attendance & Performance",
+        href: "/list/performance",
+        visible: ["school_admin"],
       },
       {
         icon: "/calendar.png",
