@@ -18,6 +18,8 @@ const schema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   bloodType: z.string().optional(),
+  // Agreed monthly salary — reference only, expensed only when paid in Payroll.
+  salary: z.string().optional(),
   // Required on staff registrations per spec; same rule as students.
   birthday: z.string().min(1, { message: "Date of birth is required." })
     .refine((v) => validateDateOfBirth(v).ok, {
@@ -127,6 +129,15 @@ const TeacherForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         if (error) throw error;
       }
 
+      // Save the agreed salary (reference only — never an expense by itself;
+      // it pre-fills payroll and is expensed only when a payment is marked paid).
+      if (teacherId) {
+        await supabase
+          .from("profiles")
+          .update({ salary: formData.salary ? Number(formData.salary) : null })
+          .eq("id", teacherId);
+      }
+
       // Sync class_subjects
       if (teacherId) {
         // Delete existing assignments for this teacher
@@ -183,6 +194,10 @@ const TeacherForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
         <InputField label={t("form.fields.phone")} name="phone" defaultValue={data?.phone} register={register} error={errors.phone} />
         <InputField label={t("form.fields.address")} name="address" defaultValue={data?.address} register={register} error={errors.address} />
         <InputField label={t("form.fields.bloodType")} name="bloodType" defaultValue={data?.bloodType} register={register} error={errors.bloodType} />
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
+          <InputField label={t("emp.salary")} name="salary" type="number" defaultValue={data?.salary} register={register} error={errors.salary} />
+          <p className="text-[11px] text-gray-400">{t("emp.salaryHint")}</p>
+        </div>
         <InputField label={t("form.fields.birthday")} name="birthday" defaultValue={data?.birthday || data?.date_of_birth} register={register} error={errors.birthday} type="date" />
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
