@@ -23,6 +23,7 @@ import {
   computeSubjectRow,
   countAttendance,
   gradeLevelLabel,
+  overallAveragePercent,
 } from "@/lib/reportCard/usGrades";
 
 interface AcademicYear { id: string; name: string; is_active: boolean; start_date: string; end_date: string }
@@ -41,6 +42,7 @@ interface GeneratedCard {
   school: { name: string; address: string | null; phone: string | null; email: string | null; logoUrl: string | null };
   student: { name: string; studentId: string; grade: string; schoolYear: string };
   rows: ReportCardRow[];
+  overallPercent: number | null;
   attendance: { present: number; absent: number; tardies: number };
   signatures: { parent?: string; teacher?: string; principal?: string };
 }
@@ -226,6 +228,12 @@ const ReportCardsPage = () => {
         ),
       );
 
+      // Overall average — unweighted mean of every grade-row %, identical to
+      // the student dashboard's Average so the two reconcile.
+      const overallPercent = overallAveragePercent(
+        used.map((g) => ({ score: g.score, maxScore: g.max_score })),
+      );
+
       // Attendance across the academic year.
       const { data: att } = await supabase
         .from("attendance")
@@ -304,6 +312,7 @@ const ReportCardsPage = () => {
           schoolYear: selectedYear.name,
         },
         rows,
+        overallPercent,
         attendance,
         signatures,
       });
@@ -435,6 +444,7 @@ const ReportCardsPage = () => {
           sem1Label="1st Semester"
           sem2Label="2nd Semester"
           rows={card.rows}
+          overallPercent={card.overallPercent}
           attendance={card.attendance}
           comment={comment}
           onCommentChange={setComment}
