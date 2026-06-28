@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { attendanceRateFromTotals } from "@/lib/attendance/rate";
 import { useI18n } from "@/contexts/LanguageContext";
 
 interface ClassOption {
@@ -106,7 +107,9 @@ const ClassRoster = () => {
     const totalPresent = students.reduce((s, x) => s + x.present, 0);
     return {
       count: students.length,
-      attendanceRate: totalSessions > 0 ? (totalPresent / totalSessions) * 100 : null,
+      // students[].present already counts present + late (see loader above),
+      // so this is the house-standard attended/total.
+      attendanceRate: attendanceRateFromTotals(totalPresent, totalSessions),
     };
   }, [students]);
 
