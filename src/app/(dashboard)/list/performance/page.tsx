@@ -14,7 +14,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { SummaryStat, gradeColor } from "@/components/dashboard/PortalUI";
-import { delta } from "@/lib/performance/academics";
 import TrendChart, { type TrendPoint } from "@/components/performance/TrendChart";
 import DrillDown from "@/components/performance/DrillDown";
 import TeachingOverview from "@/components/performance/TeachingOverview";
@@ -30,8 +29,17 @@ interface Snap {
 
 type Tab = "attendance" | "academic" | "teaching" | "trends";
 
-const ATTENDANCE_TARGET = 90; // a grade level below this is "below target"
-const ACADEMIC_TARGET = 60;
+// Live whole-school KPI summary (perf_school_summary RPC). Computed on the fly
+// so the cards always match the drill-down, regardless of which month a
+// snapshot was captured for.
+interface Kpi {
+  academic_average: number | null;
+  attendance_rate: number | null;
+  pass_rate: number | null;
+  students: number;
+  grade_levels: number;
+  below_target: number;
+}
 
 const fmtPct = (v: number | null | undefined) =>
   v === null || v === undefined ? "—" : `${v.toFixed(1)}%`;
@@ -48,6 +56,17 @@ const PerformancePage = () => {
   const [tab, setTab] = useState<Tab>("academic");
   const [recomputing, setRecomputing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [kpi, setKpi] = useState<Kpi | null>(null);
+
+  // Live KPI summary — independent of the snapshot history.
+  useEffect(() => {
+    if (!supabase || !user?.schoolId) return;
+    (async () => {
+      const { data } = await supabase.rpc("perf_school_summary", {});
+      const row = (data as Kpi[] | null)?.[0] ?? null;
+      setKpi(row);
+    })();
+  }, [supabase, user?.schoolId]);
 
   const loadSnaps = useCallback(async () => {
     if (!supabase || !user?.schoolId) { setLoading(false); return; }
@@ -87,9 +106,6 @@ const PerformancePage = () => {
         .sort((a, b) => Number(a) - Number(b)),
     [snaps],
   );
-  const latestMonth = months[months.length - 1];
-  const prevMonth = months[months.length - 2];
-
   const monthLabel = (iso: string) => {
     const d = new Date(`${iso}T00:00:00`);
     return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : locale === "ar" ? "ar" : "en-US", {
@@ -97,24 +113,6 @@ const PerformancePage = () => {
       year: "numeric",
     }).format(d);
   };
-
-  // KPI source: whole-school ('ALL') rows for the latest two months.
-  const allLatest = snaps.find((s) => s.grade_level === "ALL" && s.period_month === latestMonth);
-  const allPrev = snaps.find((s) => s.grade_level === "ALL" && s.period_month === prevMonth);
-  const attDelta = delta(allLatest?.attendance_rate ?? null, allPrev?.attendance_rate ?? null);
-  const acaDelta = delta(allLatest?.academic_average ?? null, allPrev?.academic_average ?? null);
-
-  const belowTarget = useMemo(
-    () =>
-      snaps.filter(
-        (s) =>
-          s.grade_level !== "ALL" &&
-          s.period_month === latestMonth &&
-          ((s.attendance_rate !== null && s.attendance_rate < ATTENDANCE_TARGET) ||
-            (s.academic_average !== null && s.academic_average < ACADEMIC_TARGET)),
-      ).length,
-    [snaps, latestMonth],
-  );
 
   const trendSeries: TrendPoint[] = useMemo(
     () =>
@@ -128,12 +126,6 @@ const PerformancePage = () => {
       }),
     [snaps, months, level],
   );
-
-  const deltaHint = (d: ReturnType<typeof delta>) => {
-    if (d.pct === null) return t("perf.noPrev");
-    const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "▬";
-    return `${arrow} ${Math.abs(d.pct).toFixed(1)}% · ${t("perf.thisMonth")}`;
-  };
 
   if (!canManage) {
     return (
@@ -186,40 +178,27 @@ const PerformancePage = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryStat
           label={t("perf.kpiAttendance")} icon="🟢" accent="emerald"
-          value={fmtPct(allLatest?.attendance_rate ?? null)}
-          valueClass={allLatest?.attendance_rate != null ? gradeColor(allLatest.attendance_rate) : "text-gray-400"}
-          hint={deltaHint(attDelta)}
+          value={fmtPct(kpi?.attendance_rate ?? null)}
+          valueClass={kpi?.attendance_rate != null ? gradeColor(kpi.attendance_rate) : "text-gray-400"}
+          hint={t("perf.allTime")}
         />
         <SummaryStat
           label={t("perf.kpiAcademic")} icon="🎯" accent="indigo"
-          value={fmtPct(allLatest?.academic_average ?? null)}
-          valueClass={allLatest?.academic_average != null ? gradeColor(allLatest.academic_average) : "text-gray-400"}
-          hint={deltaHint(acaDelta)}
+          value={fmtPct(kpi?.academic_average ?? null)}
+          valueClass={kpi?.academic_average != null ? gradeColor(kpi.academic_average) : "text-gray-400"}
+          hint={`${kpi?.students ?? 0} ${t("perf.graded")}`}
         />
         <SummaryStat
           label={t("perf.kpiBelowTarget")} icon="⚠️" accent="amber"
-          value={hasSnaps ? String(belowTarget) : "—"}
-          hint={`${gradeLevels.length} ${t("perf.gradeLevel").toLowerCase()}`}
+          value={kpi ? String(kpi.below_target) : "—"}
+          hint={`${kpi?.grade_levels ?? 0} ${t("perf.gradeLevel").toLowerCase()}`}
         />
         <SummaryStat
           label={t("perf.kpiStudents")} icon="👥" accent="sky"
-          value={hasSnaps ? String(allLatest?.students_counted ?? 0) : "—"}
-          hint={latestMonth ? monthLabel(latestMonth) : ""}
+          value={kpi ? String(kpi.students) : "—"}
+          hint={t("perf.graded")}
         />
       </div>
-
-      {!hasSnaps && !loading && (
-        <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-          <span>{t("perf.noSnapshots")}</span>
-          <button
-            onClick={onRecompute}
-            disabled={recomputing}
-            className="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 disabled:opacity-50"
-          >
-            {recomputing ? t("perf.recomputing") : t("perf.recompute")}
-          </button>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -256,21 +235,34 @@ const PerformancePage = () => {
       {/* Teaching Overview — per-teacher performance */}
       {tab === "teaching" && <TeachingOverview />}
 
-      {/* Section C — Trends */}
+      {/* Section C — Trends (month-over-month, from captured snapshots) */}
       {tab === "trends" && (
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">{t("perf.trendsTitle")}</h2>
           <p className="text-[11px] text-gray-400 mb-3">
             {level === "ALL" ? t("perf.allGrades") : t("perf.grade", { n: level })}
           </p>
-          <div className="h-[320px]">
-            <TrendChart
-              data={trendSeries}
-              academicLabel={t("perf.academicAxis")}
-              attendanceLabel={t("perf.attendanceAxis")}
-              emptyLabel={t("perf.trendEmpty")}
-            />
-          </div>
+          {!hasSnaps && !loading ? (
+            <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+              <span>{t("perf.noSnapshots")}</span>
+              <button
+                onClick={onRecompute}
+                disabled={recomputing}
+                className="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 disabled:opacity-50"
+              >
+                {recomputing ? t("perf.recomputing") : t("perf.recompute")}
+              </button>
+            </div>
+          ) : (
+            <div className="h-[320px]">
+              <TrendChart
+                data={trendSeries}
+                academicLabel={t("perf.academicAxis")}
+                attendanceLabel={t("perf.attendanceAxis")}
+                emptyLabel={t("perf.trendEmpty")}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
