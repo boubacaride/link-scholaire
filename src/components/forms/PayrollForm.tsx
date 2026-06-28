@@ -31,6 +31,7 @@ interface Employee {
   first_name: string;
   last_name: string;
   role: string;
+  salary: number | null;
 }
 
 const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) => {
@@ -66,7 +67,7 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
       if (!supabase || !user?.schoolId) return;
       const { data: rows } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, role")
+        .select("id, first_name, last_name, role, salary")
         .eq("school_id", user.schoolId)
         .in("role", ["teacher", "school_admin", "employee"])
         .eq("is_active", true)
@@ -75,6 +76,15 @@ const PayrollForm = ({ type, data }: { type: "create" | "update"; data?: any }) 
     };
     load();
   }, [user?.schoolId]);
+
+  // When a new payroll entry's employee is chosen, pre-fill the base salary
+  // from the employee's stored (agreed) salary. The admin can still override.
+  const selectedEmployeeId = watch("employee_id");
+  useEffect(() => {
+    if (type !== "create" || !selectedEmployeeId) return;
+    const emp = employees.find((e) => e.id === selectedEmployeeId);
+    if (emp && emp.salary != null) setValue("base_salary", Number(emp.salary));
+  }, [selectedEmployeeId, employees, type, setValue]);
 
   // Keep net_salary in sync as the admin edits the parts. They can still
   // override it manually after the auto-calc runs.

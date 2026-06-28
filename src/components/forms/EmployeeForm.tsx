@@ -20,6 +20,8 @@ const schema = z.object({
   category: z.string().min(1, "Category is required"),
   job_title: z.string().min(1, "Job title is required"),
   hire_date: z.string().optional(),
+  // Agreed monthly salary — reference only, never auto-expensed (see below).
+  salary: z.string().optional(),
   // Required on staff registrations per spec.
   date_of_birth: z.string().min(1, "Date of birth is required.")
     .refine((v) => validateDateOfBirth(v).ok, {
@@ -56,6 +58,7 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
       category: data?.employee_category || "",
       job_title: data?.job_title || "",
       hire_date: data?.hire_date ? String(data.hire_date).slice(0, 10) : "",
+      salary: data?.salary != null ? String(data.salary) : "",
       date_of_birth: data?.date_of_birth ? String(data.date_of_birth).slice(0, 10) : "",
     },
   });
@@ -92,6 +95,9 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
         employee_category: formData.category,
         job_title: formData.job_title,
         hire_date: formData.hire_date || null,
+        // Reference figure only — adding/editing an employee never creates a
+        // finance expense. A salary is expensed only when a payroll row is paid.
+        salary: formData.salary ? Number(formData.salary) : null,
         date_of_birth: formData.date_of_birth || null,
       };
       if (type === "update") {
@@ -174,6 +180,10 @@ const EmployeeForm = ({ type, data }: { type: "create" | "update"; data?: any })
 
         <InputField label={t("emp.hireDate")} name="hire_date" type="date" register={register} error={errors.hire_date} />
         <InputField label={t("form.fields.birthday")} name="date_of_birth" type="date" register={register} error={errors.date_of_birth} />
+        <div className="w-full md:w-[48%]">
+          <InputField label={t("emp.salary")} name="salary" type="number" register={register} error={errors.salary} />
+          <p className="text-[11px] text-gray-400 mt-1">{t("emp.salaryHint")}</p>
+        </div>
       </div>
 
       {msg && <p className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>{msg}</p>}
