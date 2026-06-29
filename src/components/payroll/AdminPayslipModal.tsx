@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/contexts/LanguageContext";
 import SignaturePad from "@/components/SignaturePad";
-import { printPayslips, downloadPayslips, buildPayslipBlob, type PayslipLabels, type PayslipData } from "@/lib/payslip";
+import { printPayslips, downloadPayslips, type PayslipLabels, type PayslipData } from "@/lib/payslip";
 
 export interface ExistingPayslip {
   id: string;
@@ -17,6 +17,7 @@ export interface ExistingPayslip {
   admin_signature: string | null;
   employee_signature: string | null;
   employee_signed_at: string | null;
+  share_token: string | null;
 }
 
 interface Props {
@@ -44,7 +45,6 @@ const AdminPayslipModal = ({
   const supabase = createClient();
   const [adminSig, setAdminSig] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [preparing, setPreparing] = useState(false);
 
   const issued = !!payslip?.admin_signature;
   const acknowledged = payslip?.status === "acknowledged";
@@ -84,60 +84,32 @@ const AdminPayslipModal = ({
 
   const gen = () => new Date().toLocaleDateString();
 
-  // Upload the generated PDF to the private `payslips` bucket and return a
-  // time-limited signed URL to the actual file. Returns null on failure so
-  // callers fall back to the in-app review/sign link.
-  const buildSharedUrl = async (): Promise<string | null> => {
-    if (!supabase || !user?.schoolId) return null;
-    try {
-      const blob = await buildPayslipBlob(school, [slipData()], pdfLabels, gen());
-      const path = `${user.schoolId}/payslip-${person.id}-${month}.pdf`;
-      const { error: upErr } = await supabase.storage
-        .from("payslips")
-        .upload(path, blob, { upsert: true, contentType: "application/pdf" });
-      if (upErr) return null;
-      const { data, error } = await supabase.storage
-        .from("payslips")
-        .createSignedUrl(path, 60 * 60 * 24 * 30); // 30 days
-      if (error || !data?.signedUrl) return null;
-      return data.signedUrl;
-    } catch {
-      return null;
-    }
-  };
+  // Public, login-free link to view + sign this exact payslip. The token is
+  // the credential (created with the payslip row). Falls back to the in-app
+  // payslips page if the token isn't loaded yet (e.g. just issued).
+  const shareUrl = () =>
+    payslip?.share_token
+      ? `${window.location.origin}/sign-payslip/${payslip.share_token}`
+      : `${window.location.origin}/list/payslips`;
 
-  // Build the share message: prefer a direct PDF link, fall back to the
-  // in-app sign page if the upload/signing failed.
-  const shareMsg = async (): Promise<string> => {
-    const pdfUrl = await buildSharedUrl();
-    return pdfUrl
-      ? t("fin.shareMessagePdf", { name: person.name, month: monthLabel, amount: money(netAmount), url: pdfUrl })
-      : t("fin.shareMessage", {
-          name: person.name,
-          month: monthLabel,
-          amount: money(netAmount),
-          url: `${window.location.origin}/list/payslips`,
-        });
-  };
+  const shareMsg = () =>
+    t("fin.shareMessageLink", {
+      name: person.name,
+      month: monthLabel,
+      amount: money(netAmount),
+      url: shareUrl(),
+    });
 
-  const shareWhatsApp = async () => {
-    if (preparing) return;
-    setPreparing(true);
-    const msg = await shareMsg();
-    setPreparing(false);
+  const shareWhatsApp = () => {
     const digits = (person.phone || "").replace(/\D/g, "");
     const url = digits
-      ? `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      ? `https://wa.me/${digits}?text=${encodeURIComponent(shareMsg())}`
+      : `https://wa.me/?text=${encodeURIComponent(shareMsg())}`;
     window.open(url, "_blank");
   };
-  const shareEmail = async () => {
-    if (preparing) return;
-    setPreparing(true);
-    const msg = await shareMsg();
-    setPreparing(false);
+  const shareEmail = () => {
     const subject = `${t("fin.payslip")} — ${monthLabel}`;
-    window.location.href = `mailto:${person.email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`;
+    window.location.href = `mailto:${person.email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(shareMsg())}`;
   };
 
   return (
@@ -187,14 +159,14 @@ const AdminPayslipModal = ({
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-1">{t("fin.share")}</p>
               <div className="flex gap-2">
-                <button onClick={shareWhatsApp} disabled={preparing} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50">
+                <button onClick={shareWhatsApp} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">
                   <span aria-hidden>🟢</span> {t("fin.shareWhatsapp")}
                 </button>
-                <button onClick={shareEmail} disabled={preparing} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+                <button onClick={shareEmail} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
                   <span aria-hidden>✉️</span> {t("fin.shareEmail")}
                 </button>
               </div>
-              {preparing && <p className="mt-1.5 text-xs text-gray-500">{t("fin.preparingShare")}</p>}
+              <p className="mt-1.5 text-[11px] text-gray-400">{t("fin.shareLinkHint")}</p>
             </div>
           )}
 

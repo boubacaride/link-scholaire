@@ -167,11 +167,3 @@ export async function downloadPayslips(
   const pdf = await buildPdf(school, slips, labels, generatedOn);
   pdf.save(filename);
 }
-
-/** Build the payslips PDF as a Blob (for upload / sharing as an attachment). */
-export async function buildPayslipBlob(
-  school: PayslipSchool, slips: PayslipData[], labels: PayslipLabels, generatedOn: string,
-): Promise<Blob> {
-  const pdf = await buildPdf(school, slips, labels, generatedOn);
-  return pdf.output("blob");
-}
