@@ -74,7 +74,9 @@ const TimeOffPage = () => {
   return (
     <div className="p-4 flex flex-col gap-6">
       <div className={`${card} p-6`}>
-        <h1 className="text-xl font-semibold">{t("timeoff.myTimeOff")}</h1>
+        <h1 className="text-xl font-semibold">
+          {(isParent || role === "student") ? t("abs.myRequestTitle") : t("timeoff.myTimeOff")}
+        </h1>
         <p className="text-sm text-gray-500 mt-1">
           {isParent ? t("timeoff.studentApprovalsSub") : t("timeoff.timeOffRequests")}
         </p>
