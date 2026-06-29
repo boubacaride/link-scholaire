@@ -33,6 +33,7 @@ const NAV_KEY: Record<string, string> = {
   "Academic Calendar": "nav.academicCalendar",
   "My Documents": "nav.myDocuments",
   Documents: "nav.myDocuments",
+  Payslips: "nav.payslips",
   Attendance: "nav.attendance",
   "Attendance & Performance": "nav.attendancePerformance",
   Events: "nav.events",
@@ -155,6 +156,13 @@ const menuItems = [
         label: "My Documents",
         href: "/list/my-documents",
         visible: ["student", "parent"],
+      },
+      // Staff view of their own payslips (review + e-sign to acknowledge).
+      {
+        icon: "/finance.png",
+        label: "Payslips",
+        href: "/list/payslips",
+        visible: ["teacher", "employee"],
       },
       // Teacher / admin upload-and-manage view of the same docs.
       {
