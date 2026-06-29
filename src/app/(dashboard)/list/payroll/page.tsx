@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/contexts/LanguageContext";
 import { printPayslips, type PayslipData } from "@/lib/payslip";
+import AdminPayslipModal, { type ExistingPayslip } from "@/components/payroll/AdminPayslipModal";
 
 interface Person {
   id: string;
@@ -25,6 +26,8 @@ interface Person {
   role: string;
   job_title: string | null;
   salary: number | null;
+  phone: string | null;
+  email: string | null;
 }
 interface PaidInfo { id: string; net_salary: number; paid_at: string | null }
 
@@ -50,14 +53,16 @@ const PayrollPage = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const [payslips, setPayslips] = useState<Map<string, ExistingPayslip>>(new Map());
+  const [modalPerson, setModalPerson] = useState<Person | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase || !user?.schoolId) { setLoading(false); return; }
     setLoading(true);
-    const [peopleRes, payRes, schoolRes] = await Promise.all([
+    const [peopleRes, payRes, schoolRes, slipRes] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, first_name, last_name, role, job_title, salary")
+        .select("id, first_name, last_name, role, job_title, salary, phone, email")
         .eq("school_id", user.schoolId)
         .in("role", ["teacher", "employee", "school_admin"])
         .eq("is_active", true)
@@ -69,12 +74,21 @@ const PayrollPage = () => {
         .eq("pay_period", month)
         .eq("status", "paid"),
       supabase.from("schools").select("name, address, city, state, country").eq("id", user.schoolId).single(),
+      supabase
+        .from("payslips")
+        .select("id, employee_id, status, admin_signature, employee_signature, employee_signed_at")
+        .eq("school_id", user.schoolId)
+        .eq("pay_period", month),
     ]);
     setPeople((peopleRes.data as Person[]) ?? []);
     const map = new Map<string, PaidInfo>();
     ((payRes.data as { id: string; employee_id: string; net_salary: number; paid_at: string | null }[]) ?? [])
       .forEach((r) => map.set(r.employee_id, { id: r.id, net_salary: r.net_salary, paid_at: r.paid_at }));
     setPaid(map);
+    const slipMap = new Map<string, ExistingPayslip>();
+    ((slipRes.data as (ExistingPayslip & { employee_id: string })[]) ?? [])
+      .forEach((r) => slipMap.set(r.employee_id, r));
+    setPayslips(slipMap);
     const s = schoolRes.data as { name: string; address: string | null; city: string | null; state: string | null; country: string | null } | null;
     setSchool({
       name: s?.name ?? user.schoolName,
@@ -153,12 +167,14 @@ const PayrollPage = () => {
     payslip: t("fin.payslip"), payPeriod: t("fin.pdfPayPeriod"), employee: t("fin.pdfEmployee"),
     role: t("fin.colRole"), netPay: t("fin.pdfNetPay"), status: t("fin.pdfStatus"),
     paid: t("fin.statusPaid"), unpaid: t("fin.unpaidLabel"), paidOn: t("fin.pdfPaidOn"),
+    acknowledged: t("fin.pdfAcknowledged"),
     employeeSignature: t("fin.pdfEmployeeSignature"), authorizedSignature: t("fin.pdfAuthorizedSignature"),
     generatedOn: t("fin.pdfGeneratedOn"),
   }), [t]);
 
   const payslipFor = (p: Person): PayslipData => {
     const info = paid.get(p.id);
+    const slip = payslips.get(p.id);
     return {
       employeeName: `${p.first_name} ${p.last_name}`.trim(),
       role: roleLabel(p),
@@ -166,6 +182,9 @@ const PayrollPage = () => {
       netAmount: info ? info.net_salary : (p.salary ?? 0),
       status: info ? "paid" : "unpaid",
       paidOn: info?.paid_at ? new Date(info.paid_at).toLocaleDateString() : null,
+      acknowledged: slip?.status === "acknowledged",
+      adminSignature: slip?.admin_signature ?? null,
+      employeeSignature: slip?.employee_signature ?? null,
     };
   };
 
@@ -275,7 +294,10 @@ const PayrollPage = () => {
                               {busy === p.id ? t("fin.paying") : t("fin.markPaid")}
                             </button>
                           )}
-                          <button onClick={() => printFor([p])} className="text-[11px] bg-gray-100 text-gray-700 px-2.5 py-1 rounded hover:bg-gray-200">{t("fin.payslip")}</button>
+                          {payslips.get(p.id)?.status === "acknowledged" && (
+                            <span title={t("fin.acknowledgedLabel")} className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">✔</span>
+                          )}
+                          <button onClick={() => setModalPerson(p)} className="text-[11px] bg-gray-100 text-gray-700 px-2.5 py-1 rounded hover:bg-gray-200">{t("fin.payslip")}</button>
                         </div>
                       </td>
                     </tr>
@@ -341,6 +363,26 @@ const PayrollPage = () => {
           {peopleTable(t("fin.staffTable"), staff)}
         </>
       )}
+
+      {modalPerson && (() => {
+        const p = modalPerson;
+        const info = paid.get(p.id);
+        return (
+          <AdminPayslipModal
+            person={{ id: p.id, name: `${p.first_name} ${p.last_name}`.trim(), role: roleLabel(p), phone: p.phone, email: p.email }}
+            month={month}
+            monthLabel={monthLabelFull(month)}
+            netAmount={info ? info.net_salary : (p.salary ?? 0)}
+            paid={!!info}
+            paidOn={info?.paid_at ? new Date(info.paid_at).toLocaleDateString() : null}
+            school={school}
+            payslip={payslips.get(p.id) ?? null}
+            pdfLabels={payslipLabels}
+            onClose={() => setModalPerson(null)}
+            onChanged={() => load()}
+          />
+        );
+      })()}
     </div>
   );
 };
