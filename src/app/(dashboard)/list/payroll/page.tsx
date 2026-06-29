@@ -76,7 +76,7 @@ const PayrollPage = () => {
       supabase.from("schools").select("name, address, city, state, country").eq("id", user.schoolId).single(),
       supabase
         .from("payslips")
-        .select("id, employee_id, status, admin_signature, employee_signature, employee_signed_at")
+        .select("id, employee_id, status, admin_signature, employee_signature, employee_signed_at, share_token")
         .eq("school_id", user.schoolId)
         .eq("pay_period", month),
     ]);

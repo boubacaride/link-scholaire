@@ -17,6 +17,7 @@ export interface ExistingPayslip {
   admin_signature: string | null;
   employee_signature: string | null;
   employee_signed_at: string | null;
+  share_token: string | null;
 }
 
 interface Props {
@@ -81,12 +82,22 @@ const AdminPayslipModal = ({
     onChanged();
   };
 
+  const gen = () => new Date().toLocaleDateString();
+
+  // Public, login-free link to view + sign this exact payslip. The token is
+  // the credential (created with the payslip row). Falls back to the in-app
+  // payslips page if the token isn't loaded yet (e.g. just issued).
+  const shareUrl = () =>
+    payslip?.share_token
+      ? `${window.location.origin}/sign-payslip/${payslip.share_token}`
+      : `${window.location.origin}/list/payslips`;
+
   const shareMsg = () =>
-    t("fin.shareMessage", {
+    t("fin.shareMessageLink", {
       name: person.name,
       month: monthLabel,
       amount: money(netAmount),
-      url: `${window.location.origin}/list/payslips`,
+      url: shareUrl(),
     });
 
   const shareWhatsApp = () => {
@@ -100,8 +111,6 @@ const AdminPayslipModal = ({
     const subject = `${t("fin.payslip")} — ${monthLabel}`;
     window.location.href = `mailto:${person.email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(shareMsg())}`;
   };
-
-  const gen = () => new Date().toLocaleDateString();
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
@@ -157,6 +166,7 @@ const AdminPayslipModal = ({
                   <span aria-hidden>✉️</span> {t("fin.shareEmail")}
                 </button>
               </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">{t("fin.shareLinkHint")}</p>
             </div>
           )}
 
