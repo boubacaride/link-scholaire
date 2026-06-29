@@ -1,5 +1,6 @@
 import Menu from "@/components/Menu";
 import Navbar from "@/components/Navbar";
+import AuthGuard from "@/components/AuthGuard";
 import Image from "next/image";
 import Link from "next/link";
 import { Toaster } from "sonner";
@@ -45,7 +46,7 @@ export default function DashboardLayout({
           <Menu />
         </aside>
         <main className="flex-1 bg-[#F7F8FA] overflow-scroll flex flex-col">
-          {children}
+          <AuthGuard>{children}</AuthGuard>
         </main>
       </div>
       <Toaster position="top-right" richColors closeButton />
