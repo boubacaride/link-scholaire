@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleHome } from "@/lib/roleHome";
+import type { UserRole } from "@/types";
 import { useI18n } from "@/contexts/LanguageContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LinkScholaireLogo from "@/components/LinkScholaireLogo";
@@ -17,6 +18,16 @@ export default function SignInPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Send the user back to the page they were bounced from (?next=), but only
+  // if it's a safe in-app path; otherwise fall back to their role's home.
+  const destination = (role?: UserRole | null) => {
+    if (typeof window !== "undefined") {
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    }
+    return roleHome(role);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -27,7 +38,7 @@ export default function SignInPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push(roleHome(result.role));
+      router.push(destination(result.role));
     }
   };
 
@@ -41,7 +52,7 @@ export default function SignInPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push(roleHome(result.role));
+      router.push(destination(result.role));
     }
   };
 
