@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import ChangePasswordPanel from "@/components/ChangePasswordPanel";
+import AbsencePolicySettings from "@/components/settings/AbsencePolicySettings";
 
 const SettingsPage = () => {
   const { user, signOut } = useAuth();
@@ -48,6 +49,9 @@ const SettingsPage = () => {
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">{t("settings.security")}</h2>
           <ChangePasswordPanel />
         </div>
+
+        {/* Absence policy (admins only; component self-hides otherwise) */}
+        <AbsencePolicySettings />
 
         {/* Preferences */}
         <div className="mb-8">
