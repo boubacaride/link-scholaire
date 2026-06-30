@@ -6,6 +6,7 @@ export const dict = {
       // Parent/student menu label + page title for the absence-request page
       menuRequestAuth: "Request for authorization of absence",
       myRequestTitle: "My Request for authorization of absence",
+      authorizationOfAbsence: "Authorization of absence",
       // School onboarding + settings
       educationStage: "Education stage",
       stageK12: "K-12 (parents submit excuses)",
@@ -28,6 +29,7 @@ export const dict = {
     abs: {
       menuRequestAuth: "Demande d'autorisation d'absence",
       myRequestTitle: "Mes demandes d'autorisation d'absence",
+      authorizationOfAbsence: "Autorisation d'absence",
       educationStage: "Niveau d'enseignement",
       stageK12: "Primaire/Secondaire (les parents soumettent)",
       stageHigherEd: "Enseignement supérieur (les étudiants soumettent eux-mêmes)",

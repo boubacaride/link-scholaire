@@ -142,6 +142,9 @@ const TimeOffSection = ({
   // Only staff submitters see the Type picker. Parents filing for a
   // student keep the implicit 'personal' value.
   const showTypePicker = !isParent && user?.role !== "student";
+  // Parent/student see the "Authorization of absence" wording; staff keep
+  // the original time-off labels.
+  const isStudentOrParent = isParent || user?.role === "student";
 
   const submit = async () => {
     if (!supabase || !user?.profileId || !user?.schoolId) return;
@@ -169,9 +172,11 @@ const TimeOffSection = ({
   return (
     <div className={card}>
       <div className="flex items-center justify-between p-5 border-b">
-        <h2 className="font-semibold text-gray-800">{t("timeoff.timeOffRequests")}</h2>
+        <h2 className="font-semibold text-gray-800">
+          {isStudentOrParent ? t("abs.authorizationOfAbsence") : t("timeoff.timeOffRequests")}
+        </h2>
         <button className={primaryBtn} onClick={() => { reset(); setOpen(true); }}>
-          + {t("timeoff.newTimeOff")}
+          + {isStudentOrParent ? t("abs.authorizationOfAbsence") : t("timeoff.newTimeOff")}
         </button>
       </div>
 
