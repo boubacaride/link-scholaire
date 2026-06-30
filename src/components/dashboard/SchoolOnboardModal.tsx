@@ -18,6 +18,7 @@ const SchoolOnboardModal = ({ onClose, onCreated }: SchoolOnboardModalProps) => 
   const [form, setForm] = useState({
     school_name: "",
     school_type: "private",
+    education_stage: "k12",
     plan: "standard",
     max_students: 500,
     max_teachers: 50,
@@ -65,6 +66,14 @@ const SchoolOnboardModal = ({ onClose, onCreated }: SchoolOnboardModalProps) => 
     if (rpcError) { setError(rpcError.message); return; }
     if (data?.error) { setError(data.error); return; }
 
+    // Persist the education stage on the freshly-created school. The platform
+    // admin has UPDATE rights on schools (RLS), so this second write is the
+    // least-invasive way to set it without re-touching the auth-sensitive
+    // create_school_with_admin RPC. Backfill already defaults others to 'k12'.
+    if (data?.school_id && form.education_stage !== "k12") {
+      await supabase.from("schools").update({ education_stage: form.education_stage }).eq("id", data.school_id);
+    }
+
     setSuccess(true);
     onCreated();
     setTimeout(onClose, 1200);
@@ -111,6 +120,14 @@ const SchoolOnboardModal = ({ onClose, onCreated }: SchoolOnboardModalProps) => 
                   <div>
                     <label className={label}>Plan</label>
                     <input className={input} value={form.plan} onChange={(e) => set("plan", e.target.value)} placeholder="standard / premium" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className={label}>{t("abs.educationStage")}</label>
+                    <select className={input} value={form.education_stage} onChange={(e) => set("education_stage", e.target.value)}>
+                      <option value="k12">{t("abs.stageK12")}</option>
+                      <option value="higher_ed">{t("abs.stageHigherEd")}</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-gray-400 leading-snug">{t("abs.stageHint")}</p>
                   </div>
                   <div>
                     <label className={label}>{t("mod.maxStudents")}</label>

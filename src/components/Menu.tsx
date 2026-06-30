@@ -40,6 +40,7 @@ const NAV_KEY: Record<string, string> = {
   Messages: "nav.messages",
   Announcements: "nav.announcements",
   "Time Off": "timeoff.navTimeOff",
+  "Request for authorization of absence": "abs.menuRequestAuth",
   "Staff Approvals": "timeoff.navApprovalsStaff",
   "Student Approvals": "timeoff.navApprovalsStudents",
   "Student Fees": "nav.fees",
@@ -208,7 +209,14 @@ const menuItems = [
         icon: "/calendar.png",
         label: "Time Off",
         href: "/list/time-off",
-        visible: ["teacher", "employee", "student", "parent"],
+        visible: ["teacher", "employee"],
+      },
+      {
+        // Same destination, parent/student-facing label only.
+        icon: "/calendar.png",
+        label: "Request for authorization of absence",
+        href: "/list/time-off",
+        visible: ["student", "parent"],
       },
       {
         icon: "/attendance.png",
