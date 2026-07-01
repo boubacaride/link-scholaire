@@ -5,6 +5,7 @@ import { useI18n } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import ChangePasswordPanel from "@/components/ChangePasswordPanel";
 import AbsencePolicySettings from "@/components/settings/AbsencePolicySettings";
+import GradeFeesSettings from "@/components/settings/GradeFeesSettings";
 
 const SettingsPage = () => {
   const { user, signOut } = useAuth();
@@ -52,6 +53,9 @@ const SettingsPage = () => {
 
         {/* Absence policy (admins only; component self-hides otherwise) */}
         <AbsencePolicySettings />
+
+        {/* Tuition fee per class (admins only; component self-hides otherwise) */}
+        <GradeFeesSettings />
 
         {/* Preferences */}
         <div className="mb-8">
